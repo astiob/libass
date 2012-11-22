@@ -1007,6 +1007,7 @@ static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
     hk->filter = info->filter;
     hk->bitmap_count = info->bitmap_count;
     hk->bitmaps = info->bitmaps;
+    hk->glyph_alpha = 0xFF - (info->c[0] & 0xFF);
 }
 
 /**
@@ -1659,11 +1660,13 @@ static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
         last->flags != info->flags;
 }
 
-static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
+static void make_shadow_bitmap(CombinedBitmapInfo *info,
+                               ASS_Renderer *render_priv,
+                               unsigned char glyph_alpha)
 {
     if (!(info->filter.flags & FILTER_NONZERO_SHADOW)) {
         if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
-            fix_outline(info->bm, info->bm_o);
+            fix_outline(info->bm, info->bm_o, glyph_alpha);
         } else if (info->bm_o && !(info->filter.flags & FILTER_NONZERO_BORDER)) {
             ass_free_bitmap(info->bm_o);
             info->bm_o = 0;
@@ -1674,7 +1677,7 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
     // Create shadow and fix outline as needed
     if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
         info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
-        fix_outline(info->bm, info->bm_o);
+        fix_outline(info->bm, info->bm_o, glyph_alpha);
     } else if (info->bm_o && (info->filter.flags & FILTER_NONZERO_BORDER)) {
         info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
     } else if (info->bm_o) {
@@ -2252,7 +2255,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             ass_synth_blur(render_priv->engine, info->filter.flags & FILTER_BORDER_STYLE_3,
                            info->filter.be, info->filter.blur, info->bm, info->bm_o);
             if (info->filter.flags & FILTER_DRAW_SHADOW)
-                make_shadow_bitmap(info, render_priv);
+                make_shadow_bitmap(info, render_priv, hk.glyph_alpha);
         }
 
         hv->bm = info->bm;

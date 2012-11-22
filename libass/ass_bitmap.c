@@ -243,10 +243,10 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 /**
  * \brief fix outline bitmap
  *
- * The glyph bitmap is subtracted from outline bitmap. This way looks much
- * better in some cases.
+ * The glyph bitmap is subtracted from outline bitmap to preserve
+ * the final color despite alpha blending being done in two steps.
  */
-void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
+void fix_outline(Bitmap *bm_g, Bitmap *bm_o, unsigned char a_g)
 {
     int x, y;
     const int l = bm_o->left > bm_g->left ? bm_o->left : bm_g->left;
@@ -268,7 +268,8 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
             unsigned char c_g, c_o;
             c_g = g[x];
             c_o = o[x];
-            o[x] = (c_o > c_g) ? c_o - (c_g / 2) : 0;
+            int divisor = 65025 - a_g * c_g;
+            o[x] = (c_o > c_g) ? ((c_o - c_g) * 65025 + divisor / 2) / divisor : 0;
         }
         g += bm_g->stride;
         o += bm_o->stride;

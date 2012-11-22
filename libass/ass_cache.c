@@ -161,6 +161,7 @@ static unsigned composite_hash(void *key, size_t key_size)
         hval = fnv_32a_buf(&k->bitmaps[i].x, sizeof(k->bitmaps[i].x), hval);
         hval = fnv_32a_buf(&k->bitmaps[i].y, sizeof(k->bitmaps[i].y), hval);
     }
+    hval = fnv_32a_buf(&k->glyph_alpha, sizeof(k->glyph_alpha), hval);
     return hval;
 }
 

@@ -104,6 +104,7 @@ typedef struct {
     FilterDesc filter;
     size_t bitmap_count;
     BitmapRef *bitmaps;
+    unsigned char glyph_alpha;  // base glyph opacity
 } CompositeHashKey;
 
 typedef struct
