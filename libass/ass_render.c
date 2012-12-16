@@ -1675,15 +1675,22 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info,
     }
 
     // Create shadow and fix outline as needed
+    // VSFilter compatibility: invisible fill and normal border style?
+    // In this case the shadow is supposed to exclude the fill.
     if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
-        info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
-        fix_outline(info->bm, info->bm_o, glyph_alpha);
+        if (glyph_alpha) {
+            info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
+            fix_outline(info->bm, info->bm_o, glyph_alpha);
+        } else {
+            fix_outline(info->bm, info->bm_o, glyph_alpha);
+            info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
+        }
     } else if (info->bm_o && (info->filter.flags & FILTER_NONZERO_BORDER)) {
         info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
     } else if (info->bm_o) {
         info->bm_s = info->bm_o;
         info->bm_o = 0;
-    } else if (info->bm)
+    } else if (info->bm && glyph_alpha)
         info->bm_s = copy_bitmap(render_priv->engine, info->bm);
 
     if (!info->bm_s)
@@ -2100,10 +2107,6 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                     current_info->filter.flags |= FILTER_NONZERO_BORDER;
                 if (info->shadow_x || info->shadow_y)
                     current_info->filter.flags |= FILTER_NONZERO_SHADOW;
-                // VSFilter compatibility: invisible fill and no border?
-                // In this case no shadow is supposed to be rendered.
-                if (info->border[0] || info->border[1] || (info->c[0] & 0xFF) != 0xFF)
-                    current_info->filter.flags |= FILTER_DRAW_SHADOW;
 
                 current_info->filter.be = info->be;
                 current_info->filter.blur = 2 * info->blur * render_priv->blur_scale;
@@ -2254,8 +2257,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         if (info->bm || info->bm_o) {
             ass_synth_blur(render_priv->engine, info->filter.flags & FILTER_BORDER_STYLE_3,
                            info->filter.be, info->filter.blur, info->bm, info->bm_o);
-            if (info->filter.flags & FILTER_DRAW_SHADOW)
-                make_shadow_bitmap(info, render_priv, hk.glyph_alpha);
+            make_shadow_bitmap(info, render_priv, hk.glyph_alpha);
         }
 
         hv->bm = info->bm;

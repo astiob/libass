@@ -97,7 +97,6 @@ enum {
     FILTER_BORDER_STYLE_3 = 1,
     FILTER_NONZERO_BORDER = 2,
     FILTER_NONZERO_SHADOW = 4,
-    FILTER_DRAW_SHADOW    = 8,  // VSFilter compatibility
 };
 
 typedef struct {
