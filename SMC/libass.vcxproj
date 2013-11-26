@@ -221,6 +221,9 @@ copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
+)
+if exist $(OutDir)\include\ass (
+rd /s /q $(OutDir)\include\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -259,6 +262,9 @@ copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
+)
+if exist $(OutDir)\include\ass (
+rd /s /q $(OutDir)\include\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -298,6 +304,9 @@ copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
+)
+if exist $(OutDir)\include\ass (
+rd /s /q $(OutDir)\include\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -337,6 +346,9 @@ copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
+)
+if exist $(OutDir)\include\ass (
+rd /s /q $(OutDir)\include\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -389,6 +401,9 @@ copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
+)
+if exist $(OutDir)\include\ass (
+rd /s /q $(OutDir)\include\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -441,6 +456,9 @@ copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
+)
+if exist $(OutDir)\include\ass (
+rd /s /q $(OutDir)\include\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -492,6 +510,9 @@ copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
+)
+if exist $(OutDir)\include\ass (
+rd /s /q $(OutDir)\include\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -543,6 +564,9 @@ copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
+)
+if exist $(OutDir)\include\ass (
+rd /s /q $(OutDir)\include\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
