@@ -194,7 +194,7 @@
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_LIB;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include\msvc;$(OutDir)\include\msvc\freetype2;$(OutDir)\include\msvc\harfbuzz;$(OutDir)\include\msvc\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
@@ -206,24 +206,24 @@
     <Lib>
       <TargetMachine>MachineX86</TargetMachine>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)\lib\msvc32\$(TargetName)$(TargetExt)</OutputFile>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\msvc32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libencad.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutputPath)\include
-mkdir $(OutputPath)\include\ass
-copy ..\libass\ass.h $(OutputPath)\include\ass
-copy ..\libass\ass_types.h $(OutputPath)\include\ass
-mkdir $(OutputPath)\licenses
-copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
+      <Command>mkdir $(OutDir)\include\msvc
+mkdir $(OutDir)\include\msvc\ass
+copy ..\libass\ass.h $(OutDir)\include\msvc\ass
+copy ..\libass\ass_types.h $(OutDir)\include\msvc\ass
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist $(OutDir)\include\msvc\ass (
+rd /s /q $(OutDir)\include\msvc\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -235,7 +235,7 @@ rd /s /q $(OutDir)\include\ass
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_LIB;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include\msvc;$(OutDir)\include\msvc\freetype2;$(OutDir)\include\msvc\harfbuzz;$(OutDir)\include\msvc\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
@@ -247,24 +247,24 @@ rd /s /q $(OutDir)\include\ass
     <Lib>
       <TargetMachine>MachineX64</TargetMachine>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>$(OutDir)\lib\x64\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)\lib\msvc64\$(TargetName)$(TargetExt)</OutputFile>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\msvc64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libencad.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutputPath)\include
-mkdir $(OutputPath)\include\ass
-copy ..\libass\ass.h $(OutputPath)\include\ass
-copy ..\libass\ass_types.h $(OutputPath)\include\ass
-mkdir $(OutputPath)\licenses
-copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
+      <Command>mkdir $(OutDir)\include\msvc
+mkdir $(OutDir)\include\msvc\ass
+copy ..\libass\ass.h $(OutDir)\include\msvc\ass
+copy ..\libass\ass_types.h $(OutDir)\include\msvc\ass
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist $(OutDir)\include\msvc\ass (
+rd /s /q $(OutDir)\include\msvc\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -276,7 +276,7 @@ rd /s /q $(OutDir)\include\ass
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_USRDLL;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include\msvc;$(OutDir)\include\msvc\freetype2;$(OutDir)\include\msvc\harfbuzz;$(OutDir)\include\msvc\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
@@ -285,28 +285,28 @@ rd /s /q $(OutDir)\include\ass
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
+      <OutputFile>$(OutDir)\bin\msvc32\$(TargetName)$(TargetExt)</OutputFile>
+      <ImportLibrary>$(OutDir)\lib\msvc32\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\msvc32\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
-      <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ProfileGuidedDatabase>$(OutDir)\bin\msvc32\$(TargetName).pgd</ProfileGuidedDatabase>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\msvc32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>freetyped.lib;fontconfigd.lib;fribidid.lib;harfbuzzd.lib;encad.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutputPath)\include
-mkdir $(OutputPath)\include\ass
-copy ..\libass\ass.h $(OutputPath)\include\ass
-copy ..\libass\ass_types.h $(OutputPath)\include\ass
-mkdir $(OutputPath)\licenses
-copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
+      <Command>mkdir $(OutDir)\include\msvc
+mkdir $(OutDir)\include\msvc\ass
+copy ..\libass\ass.h $(OutDir)\include\msvc\ass
+copy ..\libass\ass_types.h $(OutDir)\include\msvc\ass
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist $(OutDir)\include\msvc\ass (
+rd /s /q $(OutDir)\include\msvc\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -318,7 +318,7 @@ rd /s /q $(OutDir)\include\ass
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_USRDLL;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include\msvc;$(OutDir)\include\msvc\freetype2;$(OutDir)\include\msvc\harfbuzz;$(OutDir)\include\msvc\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
@@ -327,28 +327,28 @@ rd /s /q $(OutDir)\include\ass
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>$(OutDir)\bin\x64\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\x64\$(TargetName).lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\bin\x64\$(TargetName).pdb</ProgramDatabaseFile>
+      <OutputFile>$(OutDir)\bin\msvc64\$(TargetName)$(TargetExt)</OutputFile>
+      <ImportLibrary>$(OutDir)\lib\msvc64\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\msvc64\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
-      <ProfileGuidedDatabase>$(OutDir)\bin\x64\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ProfileGuidedDatabase>$(OutDir)\bin\msvc64\$(TargetName).pgd</ProfileGuidedDatabase>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\msvc64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>freetyped.lib;fontconfigd.lib;fribidid.lib;harfbuzzd.lib;encad.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutputPath)\include
-mkdir $(OutputPath)\include\ass
-copy ..\libass\ass.h $(OutputPath)\include\ass
-copy ..\libass\ass_types.h $(OutputPath)\include\ass
-mkdir $(OutputPath)\licenses
-copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
+      <Command>mkdir $(OutDir)\include\msvc
+mkdir $(OutDir)\include\msvc\ass
+copy ..\libass\ass.h $(OutDir)\include\msvc\ass
+copy ..\libass\ass_types.h $(OutDir)\include\msvc\ass
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist $(OutDir)\include\msvc\ass (
+rd /s /q $(OutDir)\include\msvc\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -371,7 +371,7 @@ rd /s /q $(OutDir)\include\ass
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include\msvc;$(OutDir)\include\msvc\freetype2;$(OutDir)\include\msvc\harfbuzz;$(OutDir)\include\msvc\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -386,24 +386,24 @@ rd /s /q $(OutDir)\include\ass
     </Lib>
     <Lib>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)\lib\msvc32\$(TargetName)$(TargetExt)</OutputFile>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\msvc32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutputPath)\include
-mkdir $(OutputPath)\include\ass
-copy ..\libass\ass.h $(OutputPath)\include\ass
-copy ..\libass\ass_types.h $(OutputPath)\include\ass
-mkdir $(OutputPath)\licenses
-copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
+      <Command>mkdir $(OutDir)\include\msvc
+mkdir $(OutDir)\include\msvc\ass
+copy ..\libass\ass.h $(OutDir)\include\msvc\ass
+copy ..\libass\ass_types.h $(OutDir)\include\msvc\ass
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist $(OutDir)\include\msvc\ass (
+rd /s /q $(OutDir)\include\msvc\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -426,7 +426,7 @@ rd /s /q $(OutDir)\include\ass
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include\msvc;$(OutDir)\include\msvc\freetype2;$(OutDir)\include\msvc\harfbuzz;$(OutDir)\include\msvc\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -441,24 +441,24 @@ rd /s /q $(OutDir)\include\ass
     </Lib>
     <Lib>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>$(OutDir)\lib\x64\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)\lib\msvc64\$(TargetName)$(TargetExt)</OutputFile>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\msvc64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutputPath)\include
-mkdir $(OutputPath)\include\ass
-copy ..\libass\ass.h $(OutputPath)\include\ass
-copy ..\libass\ass_types.h $(OutputPath)\include\ass
-mkdir $(OutputPath)\licenses
-copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
+      <Command>mkdir $(OutDir)\include\msvc
+mkdir $(OutDir)\include\msvc\ass
+copy ..\libass\ass.h $(OutDir)\include\msvc\ass
+copy ..\libass\ass_types.h $(OutDir)\include\msvc\ass
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist $(OutDir)\include\msvc\ass (
+rd /s /q $(OutDir)\include\msvc\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -481,7 +481,7 @@ rd /s /q $(OutDir)\include\ass
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include\msvc;$(OutDir)\include\msvc\freetype2;$(OutDir)\include\msvc\harfbuzz;$(OutDir)\include\msvc\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -491,28 +491,28 @@ rd /s /q $(OutDir)\include\ass
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
+      <OutputFile>$(OutDir)\bin\msvc32\$(TargetName)$(TargetExt)</OutputFile>
+      <ImportLibrary>$(OutDir)\lib\msvc32\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\msvc32\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
-      <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ProfileGuidedDatabase>$(OutDir)\bin\msvc32\$(TargetName).pgd</ProfileGuidedDatabase>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\msvc32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>freetype.lib;fontconfig.lib;fribidi.lib;harfbuzz.lib;enca.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutputPath)\include
-mkdir $(OutputPath)\include\ass
-copy ..\libass\ass.h $(OutputPath)\include\ass
-copy ..\libass\ass_types.h $(OutputPath)\include\ass
-mkdir $(OutputPath)\licenses
-copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
+      <Command>mkdir $(OutDir)\include\msvc
+mkdir $(OutDir)\include\msvc\ass
+copy ..\libass\ass.h $(OutDir)\include\msvc\ass
+copy ..\libass\ass_types.h $(OutDir)\include\msvc\ass
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist $(OutDir)\include\msvc\ass (
+rd /s /q $(OutDir)\include\msvc\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -535,7 +535,7 @@ rd /s /q $(OutDir)\include\ass
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\;.\;$(OutDir)\include\msvc;$(OutDir)\include\msvc\freetype2;$(OutDir)\include\msvc\harfbuzz;$(OutDir)\include\msvc\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -545,28 +545,28 @@ rd /s /q $(OutDir)\include\ass
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
-      <OutputFile>$(OutDir)\bin\x64\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\x64\$(TargetName).lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\bin\x64\$(TargetName).pdb</ProgramDatabaseFile>
+      <OutputFile>$(OutDir)\bin\msvc64\$(TargetName)$(TargetExt)</OutputFile>
+      <ImportLibrary>$(OutDir)\lib\msvc64\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\msvc64\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
-      <ProfileGuidedDatabase>$(OutDir)\bin\x64\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ProfileGuidedDatabase>$(OutDir)\bin\msvc64\$(TargetName).pgd</ProfileGuidedDatabase>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\msvc64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>freetype.lib;fontconfig.lib;fribidi.lib;harfbuzz.lib;enca.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutputPath)\include
-mkdir $(OutputPath)\include\ass
-copy ..\libass\ass.h $(OutputPath)\include\ass
-copy ..\libass\ass_types.h $(OutputPath)\include\ass
-mkdir $(OutputPath)\licenses
-copy ..\COPYING $(OutputPath)\licenses\libass.txt</Command>
+      <Command>mkdir $(OutDir)\include\msvc
+mkdir $(OutDir)\include\msvc\ass
+copy ..\libass\ass.h $(OutDir)\include\msvc\ass
+copy ..\libass\ass_types.h $(OutDir)\include\msvc\ass
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist $(OutDir)\include\msvc\ass (
+rd /s /q $(OutDir)\include\msvc\ass
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
