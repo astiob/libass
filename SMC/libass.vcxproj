@@ -224,6 +224,8 @@ del ..\config.h
 )
 if exist $(OutDir)\include\ass (
 rd /s /q $(OutDir)\include\ass
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -265,6 +267,8 @@ del ..\config.h
 )
 if exist $(OutDir)\include\ass (
 rd /s /q $(OutDir)\include\ass
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -306,6 +310,8 @@ del ..\config.h
 )
 if exist $(OutDir)\include\ass (
 rd /s /q $(OutDir)\include\ass
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -347,6 +353,8 @@ del ..\config.h
 )
 if exist $(OutDir)\include\ass (
 rd /s /q $(OutDir)\include\ass
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -402,6 +410,8 @@ del ..\config.h
 )
 if exist $(OutDir)\include\ass (
 rd /s /q $(OutDir)\include\ass
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -457,6 +467,8 @@ del ..\config.h
 )
 if exist $(OutDir)\include\ass (
 rd /s /q $(OutDir)\include\ass
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -510,6 +522,8 @@ del ..\config.h
 )
 if exist $(OutDir)\include\ass (
 rd /s /q $(OutDir)\include\ass
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -563,6 +577,8 @@ del ..\config.h
 )
 if exist $(OutDir)\include\ass (
 rd /s /q $(OutDir)\include\ass
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
