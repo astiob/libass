@@ -132,6 +132,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
 
+    free(render_priv->tag_parser);
+
     free_list_clear(render_priv);
     free(render_priv);
 }

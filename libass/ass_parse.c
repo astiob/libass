@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <assert.h>
 
 #include "ass_render.h"
 #include "ass_parse.h"
@@ -227,6 +228,150 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
     return p;
 }
 
+#define MAX_STATES 60
+
+struct state_entry {
+    unsigned char next;
+    unsigned char token;
+};
+
+struct state_table {
+    struct state_entry chars[256];
+};
+
+struct state_machine {
+    struct state_table states[MAX_STATES];
+    int num_states;
+};
+
+static void add_token(struct state_machine *m, const char *text, int token)
+{
+    int cur_state = 0;
+    if (!m->num_states)
+        m->num_states = 1; // reserve state 0 as initial state
+    while (text[0]) {
+        unsigned char c = text[0];
+        if (text[1]) {
+            int next = m->states[cur_state].chars[c].next;
+            if (!next) {
+                assert(m->num_states < MAX_STATES); // raise the maximum
+                next = m->num_states++;
+                m->states[cur_state].chars[c].next = next;
+            }
+            cur_state = next;
+        } else {
+            assert(!m->states[cur_state].chars[c].token); // token not unique?
+            m->states[cur_state].chars[c].token = token;
+        }
+        text++;
+    }
+}
+
+// Return the longest matching token and advance *p to the character after it.
+// If nothing matches, return 0 (TOK_INVALID) and don't change *p.
+int read_token(struct state_machine *m, char **p)
+{
+    char *cur = *p;
+    int cur_state = 0;
+    int best_token = 0;
+    char *best_token_pos = NULL;
+    while (*cur) {
+        unsigned char c = *cur++;
+        int tok = m->states[cur_state].chars[c].token;
+        int next = m->states[cur_state].chars[c].next;
+        if (tok) {
+            best_token = tok;
+            best_token_pos = cur;
+        }
+        if (!next)
+            break;
+        cur_state = next;
+    }
+    if (best_token)
+        *p = best_token_pos;
+    return best_token;
+}
+
+
+#define DEF_TOKENS(tok) \
+    tok(xbord) \
+    tok(ybord) \
+    tok(xshad) \
+    tok(yshad) \
+    tok(fax) \
+    tok(fay) \
+    tok(iclip) \
+    tok(blur) \
+    tok(fsc) \
+    tok(fsp) \
+    tok(fs) \
+    tok(bord) \
+    tok(move) \
+    tok(frx) \
+    tok(fry) \
+    tok(frz) \
+    tok(fr) \
+    tok(fn) \
+    tok(alpha) \
+    tok(an) \
+    tok(a) \
+    tok(pos) \
+    tok(fad) \
+    tok(org) \
+    tok(t) \
+    tok(clip) \
+    tok(c) \
+    tok(r) \
+    tok(be) \
+    tok(b) \
+    tok(i) \
+    tok(kf) \
+    tok(K) \
+    tok(ko) \
+    tok(k) \
+    tok(shad) \
+    tok(s) \
+    tok(u) \
+    tok(pbo) \
+    tok(p) \
+    tok(q) \
+    tok(fe) \
+
+
+#define DEF_ENUM(tok) TOK_ ## tok,
+enum tokens {
+    TOK_INVALID = 0,
+    DEF_TOKENS(DEF_ENUM)
+    TOK_fs_plus,
+    TOK_fs_minus,
+    TOK_color_tags,
+};
+
+static void register_tokens(struct state_machine *m)
+{
+#define REG_TOKEN(tok) add_token(m, # tok, TOK_ ## tok);
+    DEF_TOKENS(REG_TOKEN)
+    add_token(m, "fs+", TOK_fs_plus);
+    add_token(m, "fs-", TOK_fs_minus);
+    add_token(m, "1c", TOK_color_tags);
+    add_token(m, "2c", TOK_color_tags);
+    add_token(m, "3c", TOK_color_tags);
+    add_token(m, "4c", TOK_color_tags);
+    add_token(m, "1a", TOK_color_tags);
+    add_token(m, "2a", TOK_color_tags);
+    add_token(m, "3a", TOK_color_tags);
+    add_token(m, "4a", TOK_color_tags);
+}
+
+/*
+static void test(struct state_machine *m, char *text)
+{
+    printf("text: '%s' -> ", text);
+    int r = read_token(m, &text);
+    printf("%d '%s'\n", r, text);
+}
+*/
+
 /**
  * \brief Parse style override tag.
  * \param p string to parse
@@ -234,13 +379,31 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
  */
 char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
 {
+    if (!render_priv->tag_parser) {
+        render_priv->tag_parser = calloc(1, sizeof(struct state_machine));
+        register_tokens(render_priv->tag_parser);
+    }
+    /*
+    struct state_machine *m = render_priv->tag_parser;
+    test(m, "xbord123");
+    test(m, "xbord");
+    test(m, "xbor");
+    test(m, "x");
+    test(m, "xshad1");
+    test(m, "s");
+    test(m, "sh");
+    test(m, "sha");
+    test(m, "shad");
+    assert(0);
+    */
+
     skip_to('\\');
     skip('\\');
     if ((*p == '}') || (*p == 0))
         return p;
 
-    // New tags introduced in vsfilter 2.39
-    if (mystrcmp(&p, "xbord")) {
+    switch (read_token(render_priv->tag_parser, &p)) {
+    case TOK_xbord: {
         double val;
         if (mystrtod(&p, &val)) {
             val = render_priv->state.border_x * (1 - pwr) + val * pwr;
@@ -249,7 +412,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.style->Outline;
         render_priv->state.border_x = val;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "ybord")) {
+        break;
+    }
+    case TOK_ybord: {
         double val;
         if (mystrtod(&p, &val)) {
             val = render_priv->state.border_y * (1 - pwr) + val * pwr;
@@ -258,7 +423,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.style->Outline;
         render_priv->state.border_y = val;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "xshad")) {
+        break;
+    }
+    case TOK_xshad: {
         double val;
         if (mystrtod(&p, &val))
             val = render_priv->state.shadow_x * (1 - pwr) + val * pwr;
@@ -266,7 +433,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.style->Shadow;
         render_priv->state.shadow_x = val;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "yshad")) {
+        break;
+    }
+    case TOK_yshad: {
         double val;
         if (mystrtod(&p, &val))
             val = render_priv->state.shadow_y * (1 - pwr) + val * pwr;
@@ -274,21 +443,27 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.style->Shadow;
         render_priv->state.shadow_y = val;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "fax")) {
+        break;
+    }
+    case TOK_fax: {
         double val;
         if (mystrtod(&p, &val))
             render_priv->state.fax =
                 val * pwr + render_priv->state.fax * (1 - pwr);
         else
             render_priv->state.fax = 0.;
-    } else if (mystrcmp(&p, "fay")) {
+        break;
+    }
+    case TOK_fay: {
         double val;
         if (mystrtod(&p, &val))
             render_priv->state.fay =
                 val * pwr + render_priv->state.fay * (1 - pwr);
         else
             render_priv->state.fay = 0.;
-    } else if (mystrcmp(&p, "iclip")) {
+        break;
+    }
+    case TOK_iclip: {
         int x0, y0, x1, y1;
         int res = 1;
         char *start = p;
@@ -315,7 +490,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             p = parse_vector_clip(render_priv, start);
             render_priv->state.clip_drawing_mode = 1;
         }
-    } else if (mystrcmp(&p, "blur")) {
+        break;
+    }
+    case TOK_blur: {
         double val;
         if (mystrtod(&p, &val)) {
             val = render_priv->state.blur * (1 - pwr) + val * pwr;
@@ -325,8 +502,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         } else
             render_priv->state.blur = 0.0;
         render_priv->state.bm_run_id++;
-        // ASS standard tags
-    } else if (mystrcmp(&p, "fsc")) {
+        break;
+    }
+    case TOK_fsc: {
         char tp = *p++;
         double val;
         if (tp == 'x') {
@@ -350,14 +528,18 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.scale_x = render_priv->state.style->ScaleX;
             render_priv->state.scale_y = render_priv->state.style->ScaleY;
         }
-    } else if (mystrcmp(&p, "fsp")) {
+        break;
+    }
+    case TOK_fsp: {
         double val;
         if (mystrtod(&p, &val))
             render_priv->state.hspacing =
                 render_priv->state.hspacing * (1 - pwr) + val * pwr;
         else
             render_priv->state.hspacing = render_priv->state.style->Spacing;
-    } else if (mystrcmp(&p, "fs+")) {
+        break;
+    }
+    case TOK_fs_plus: {
         double val;
         mystrtod(&p, &val);
         val = render_priv->state.font_size * (1 + pwr * val / 10);
@@ -365,7 +547,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.style->FontSize;
         if (render_priv->state.font)
             change_font_size(render_priv, val);
-    } else if (mystrcmp(&p, "fs-")) {
+        break;
+    }
+    case TOK_fs_minus: {
         double val;
         mystrtod(&p, &val);
         val = render_priv->state.font_size * (1 - pwr * val / 10);
@@ -373,7 +557,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.style->FontSize;
         if (render_priv->state.font)
             change_font_size(render_priv, val);
-    } else if (mystrcmp(&p, "fs")) {
+        break;
+    }
+    case TOK_fs: {
         double val;
         if (mystrtod(&p, &val))
             val = render_priv->state.font_size * (1 - pwr) + val * pwr;
@@ -381,7 +567,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             val = render_priv->state.style->FontSize;
         if (render_priv->state.font)
             change_font_size(render_priv, val);
-    } else if (mystrcmp(&p, "bord")) {
+        break;
+    }
+    case TOK_bord: {
         double val, xval, yval;
         if (mystrtod(&p, &val)) {
             xval = render_priv->state.border_x * (1 - pwr) + val * pwr;
@@ -393,7 +581,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         render_priv->state.border_x = xval;
         render_priv->state.border_y = yval;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "move")) {
+        break;
+    }
+    case TOK_move: {
         double x1, x2, y1, y2;
         long long t1, t2, delta_t, t;
         double x, y;
@@ -446,7 +636,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.detect_collisions = 0;
             render_priv->state.evt_type = EVENT_POSITIONED;
         }
-    } else if (mystrcmp(&p, "frx")) {
+        break;
+    }
+    case TOK_frx: {
         double val;
         if (mystrtod(&p, &val)) {
             val *= M_PI / 180;
@@ -454,7 +646,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                 val * pwr + render_priv->state.frx * (1 - pwr);
         } else
             render_priv->state.frx = 0.;
-    } else if (mystrcmp(&p, "fry")) {
+        break;
+    }
+    case TOK_fry: {
         double val;
         if (mystrtod(&p, &val)) {
             val *= M_PI / 180;
@@ -462,7 +656,10 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                 val * pwr + render_priv->state.fry * (1 - pwr);
         } else
             render_priv->state.fry = 0.;
-    } else if (mystrcmp(&p, "frz") || mystrcmp(&p, "fr")) {
+        break;
+    }
+    case TOK_frz:
+    case TOK_fr: {
         double val;
         if (mystrtod(&p, &val)) {
             val *= M_PI / 180;
@@ -471,7 +668,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         } else
             render_priv->state.frz =
                 M_PI * render_priv->state.style->Angle / 180.;
-    } else if (mystrcmp(&p, "fn")) {
+                break;
+    }
+    case TOK_fn: {
         char *start = p;
         char *family;
         skip_to('\\');
@@ -484,7 +683,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         free(render_priv->state.family);
         render_priv->state.family = family;
         update_font(render_priv);
-    } else if (mystrcmp(&p, "alpha")) {
+        break;
+    }
+    case TOK_alpha: {
         uint32_t val;
         int i;
         int hex = render_priv->track->track_type == TRACK_TYPE_ASS;
@@ -504,7 +705,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         }
         render_priv->state.bm_run_id++;
         // FIXME: simplify
-    } else if (mystrcmp(&p, "an")) {
+        break;
+    }
+    case TOK_an: {
         int val;
         mystrtoi(&p, &val);
         if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
@@ -522,7 +725,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                     render_priv->state.style->Alignment;
             render_priv->state.parsed_tags |= PARSED_A;
         }
-    } else if (mystrcmp(&p, "a")) {
+        break;
+    }
+    case TOK_a: {
         int val;
         mystrtoi(&p, &val);
         if ((render_priv->state.parsed_tags & PARSED_A) == 0) {
@@ -535,7 +740,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                     render_priv->state.style->Alignment;
             render_priv->state.parsed_tags |= PARSED_A;
         }
-    } else if (mystrcmp(&p, "pos")) {
+        break;
+    }
+    case TOK_pos: {
         double v1, v2;
         skip('(');
         mystrtod(&p, &v1);
@@ -552,7 +759,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.pos_x = v1;
             render_priv->state.pos_y = v2;
         }
-    } else if (mystrcmp(&p, "fad")) {
+        break;
+    }
+    case TOK_fad: {
         int a1, a2, a3;
         long long t1, t2, t3, t4;
         if (*p == 'e')
@@ -598,7 +807,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
                         t3, t4, a1, a2, a3);
             render_priv->state.parsed_tags |= PARSED_FADE;
         }
-    } else if (mystrcmp(&p, "org")) {
+        break;
+    }
+    case TOK_org: {
         double v1, v2;
         skip('(');
         mystrtod(&p, &v1);
@@ -612,7 +823,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.have_origin = 1;
             render_priv->state.detect_collisions = 0;
         }
-    } else if (mystrcmp(&p, "t")) {
+        break;
+    }
+    case TOK_t: {
         double v[3];
         double accel;
         int cnt;
@@ -658,7 +871,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             p = parse_tag(render_priv, p, k);   // maybe k*pwr ? no, specs forbid nested \t's
         skip_to(')');           // in case there is some unknown tag or a comment
         skipopt(')');
-    } else if (mystrcmp(&p, "clip")) {
+        break;
+    }
+    case TOK_clip: {
         char *start = p;
         int x0, y0, x1, y1;
         int res = 1;
@@ -685,7 +900,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             p = parse_vector_clip(render_priv, start);
             render_priv->state.clip_drawing_mode = 0;
         }
-    } else if (mystrcmp(&p, "c")) {
+        break;
+    }
+    case TOK_c: {
         uint32_t val;
         int hex = render_priv->track->track_type == TRACK_TYPE_ASS;
         if (strtocolor(render_priv->library, &p, &val, hex))
@@ -694,8 +911,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             change_color(&render_priv->state.c[0],
                          render_priv->state.style->PrimaryColour, 1);
         render_priv->state.bm_run_id++;
-    } else if ((*p >= '1') && (*p <= '4') && (++p)
-               && (mystrcmp(&p, "c") || mystrcmp(&p, "a"))) {
+        break;
+    }
+    case TOK_color_tags: {
         char n = *(p - 2);
         int cidx = n - '1';
         char cmd = *(p - 1);
@@ -738,7 +956,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         }
         ass_msg(render_priv->library, MSGL_DBG2, "single c/a at %f: %c%c = %X",
                pwr, n, cmd, render_priv->state.c[cidx]);
-    } else if (mystrcmp(&p, "r")) {
+        break;
+    }
+    case TOK_r: {
         char *start = p;
         char *style;
         skip_to('\\');
@@ -751,7 +971,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             free(style);
         } else
             reset_render_context(render_priv, NULL);
-    } else if (mystrcmp(&p, "be")) {
+        break;
+    }
+    case TOK_be: {
         int val;
         if (mystrtoi(&p, &val)) {
             // Clamp to a safe upper limit, since high values need excessive CPU
@@ -761,19 +983,26 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         } else
             render_priv->state.be = 0;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "b")) {
+        break;
+    }
+    case TOK_b: {
         int val;
         if (!mystrtoi(&p, &val) || !(val == 0 || val == 1 || val >= 100))
             val = render_priv->state.style->Bold;
         render_priv->state.bold = val;
         update_font(render_priv);
-    } else if (mystrcmp(&p, "i")) {
+        break;
+    }
+    case TOK_i: {
         int val;
         if (!mystrtoi(&p, &val) || !(val == 0 || val == 1))
             val = render_priv->state.style->Italic;
         render_priv->state.italic = val;
         update_font(render_priv);
-    } else if (mystrcmp(&p, "kf") || mystrcmp(&p, "K")) {
+        break;
+    }
+    case TOK_kf:
+    case TOK_K:  {
         double val;
         if (!mystrtod(&p, &val))
             val = 100;
@@ -782,7 +1011,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.effect_skip_timing +=
                 render_priv->state.effect_timing;
         render_priv->state.effect_timing = val * 10;
-    } else if (mystrcmp(&p, "ko")) {
+        break;
+    }
+    case TOK_ko: {
         double val;
         if (!mystrtod(&p, &val))
             val = 100;
@@ -791,7 +1022,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.effect_skip_timing +=
                 render_priv->state.effect_timing;
         render_priv->state.effect_timing = val * 10;
-    } else if (mystrcmp(&p, "k")) {
+        break;
+    }
+    case TOK_k: {
         double val;
         if (!mystrtod(&p, &val))
             val = 100;
@@ -800,7 +1033,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
             render_priv->state.effect_skip_timing +=
                 render_priv->state.effect_timing;
         render_priv->state.effect_timing = val * 10;
-    } else if (mystrcmp(&p, "shad")) {
+        break;
+    }
+    case TOK_shad: {
         double val, xval, yval;
         if (mystrtod(&p, &val)) {
             xval = render_priv->state.shadow_x * (1 - pwr) + val * pwr;
@@ -813,7 +1048,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         render_priv->state.shadow_x = xval;
         render_priv->state.shadow_y = yval;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "s")) {
+        break;
+    }
+    case TOK_s: {
         int val;
         if (!mystrtoi(&p, &val) || !(val == 0 || val == 1))
             val = render_priv->state.style->StrikeOut;
@@ -822,7 +1059,9 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         else
             render_priv->state.flags &= ~DECO_STRIKETHROUGH;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "u")) {
+        break;
+    }
+    case TOK_u: {
         int val;
         if (!mystrtoi(&p, &val) || !(val == 0 || val == 1))
             val = render_priv->state.style->Underline;
@@ -831,25 +1070,36 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         else
             render_priv->state.flags &= ~DECO_UNDERLINE;
         render_priv->state.bm_run_id++;
-    } else if (mystrcmp(&p, "pbo")) {
+        break;
+    }
+    case TOK_pbo: {
         double val;
         mystrtod(&p, &val);
         render_priv->state.pbo = val;
-    } else if (mystrcmp(&p, "p")) {
+        break;
+    }
+    case TOK_p: {
         int val;
         mystrtoi(&p, &val);
         val = (val < 0) ? 0 : val;
         render_priv->state.drawing_scale = val;
-    } else if (mystrcmp(&p, "q")) {
+        break;
+    }
+    case TOK_q: {
         int val;
         if (!mystrtoi(&p, &val) || !(val >= 0 && val <= 3))
             val = render_priv->track->WrapStyle;
         render_priv->state.wrap_style = val;
-    } else if (mystrcmp(&p, "fe")) {
+        break;
+    }
+    case TOK_fe: {
         int val;
         if (!mystrtoi(&p, &val))
             val = render_priv->state.style->Encoding;
         render_priv->state.font_encoding = val;
+        break;
+    }
+    default: ;
     }
 
     return p;

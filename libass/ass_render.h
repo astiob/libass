@@ -290,6 +290,8 @@ struct ass_renderer {
 
     FreeList *free_head;
     FreeList *free_tail;
+
+    struct state_machine *tag_parser;
 };
 
 typedef struct render_priv {
