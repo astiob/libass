@@ -236,7 +236,7 @@ struct state_entry {
 };
 
 struct state_table {
-    struct state_entry chars[256];
+    struct state_entry chars[96];
 };
 
 struct state_machine {
@@ -251,17 +251,18 @@ static void add_token(struct state_machine *m, const char *text, int token)
         m->num_states = 1; // reserve state 0 as initial state
     while (text[0]) {
         unsigned char c = text[0];
+        assert(c >= 32 && c < 128);
         if (text[1]) {
-            int next = m->states[cur_state].chars[c].next;
+            int next = m->states[cur_state].chars[c - 32].next;
             if (!next) {
                 assert(m->num_states < MAX_STATES); // raise the maximum
                 next = m->num_states++;
-                m->states[cur_state].chars[c].next = next;
+                m->states[cur_state].chars[c - 32].next = next;
             }
             cur_state = next;
         } else {
-            assert(!m->states[cur_state].chars[c].token); // token not unique?
-            m->states[cur_state].chars[c].token = token;
+            assert(!m->states[cur_state].chars[c - 32].token); // token not unique?
+            m->states[cur_state].chars[c - 32].token = token;
         }
         text++;
     }
@@ -277,8 +278,10 @@ int read_token(struct state_machine *m, char **p)
     char *best_token_pos = NULL;
     while (*cur) {
         unsigned char c = *cur++;
-        int tok = m->states[cur_state].chars[c].token;
-        int next = m->states[cur_state].chars[c].next;
+        if (c < 32 || c >= 128)
+            break;
+        int tok = m->states[cur_state].chars[c - 32].token;
+        int next = m->states[cur_state].chars[c - 32].next;
         if (tok) {
             best_token = tok;
             best_token_pos = cur;
