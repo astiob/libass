@@ -789,24 +789,35 @@ static void init_font_scale(ASS_Renderer *render_priv)
 {
     ASS_Settings *settings_priv = &render_priv->settings;
 
-    render_priv->font_scale = ((double) render_priv->orig_height) /
-                              render_priv->track->PlayResY;
-    if (settings_priv->storage_height)
-        render_priv->blur_scale = ((double) render_priv->orig_height) /
+    if (settings_priv->storage_height) {
+        render_priv->font_scale =
+            ((double) settings_priv->storage_height) /
+            render_priv->track->PlayResY;
+        render_priv->display_scale =
+            ((double) render_priv->orig_height) /
             settings_priv->storage_height;
-    else
-        render_priv->blur_scale = 1.;
+    } else {
+        render_priv->font_scale =
+            ((double) render_priv->orig_height) /
+            render_priv->track->PlayResY;
+        render_priv->display_scale = 1.;
+    }
+
     if (render_priv->track->ScaledBorderAndShadow)
         render_priv->border_scale =
             ((double) render_priv->orig_height) /
             render_priv->track->PlayResY;
     else
-        render_priv->border_scale = render_priv->blur_scale;
-    if (!settings_priv->storage_height)
+        render_priv->border_scale = render_priv->display_scale;
+
+    if (settings_priv->storage_height)
+        render_priv->blur_scale = render_priv->display_scale;
+    else
         render_priv->blur_scale = render_priv->border_scale;
 
     if (render_priv->state.apply_font_scale) {
         render_priv->font_scale *= settings_priv->font_size_coeff;
+        render_priv->display_scale *= settings_priv->font_size_coeff;
         render_priv->border_scale *= settings_priv->font_size_coeff;
         render_priv->blur_scale *= settings_priv->font_size_coeff;
     }
@@ -919,6 +930,7 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
     int adv = advance.x;
     double scale_y = info->orig_scale_y;
     double scale_x = info->orig_scale_x;
+    double font_scale = render_priv->font_scale * render_priv->display_scale;
 
     // to avoid gaps
     sx = FFMAX(64, sx);
@@ -926,7 +938,7 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
 
     // Emulate the WTFish behavior of VSFilter, i.e. double-scale
     // the sizes of the opaque box.
-    adv += double_to_d6(info->hspacing * render_priv->font_scale * scale_x);
+    adv += double_to_d6(info->hspacing * font_scale * scale_x);
     adv *= scale_x;
     sx *= scale_x;
     sy *= scale_y;
@@ -1760,9 +1772,11 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         // Parse drawing
         if (drawing && drawing->text) {
             drawing->scale_x = render_priv->state.scale_x *
-                                     render_priv->font_scale;
+                                     render_priv->font_scale *
+                                     render_priv->display_scale;
             drawing->scale_y = render_priv->state.scale_y *
-                                     render_priv->font_scale;
+                                     render_priv->font_scale *
+                                     render_priv->display_scale;
             drawing->scale = render_priv->state.drawing_scale;
             drawing->pbo = render_priv->state.pbo;
             info->drawing = drawing;
@@ -1792,10 +1806,14 @@ static int parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->blur = render_priv->state.blur;
         info->shadow_x = render_priv->state.shadow_x;
         info->shadow_y = render_priv->state.shadow_y;
-        info->scale_x = info->orig_scale_x = render_priv->state.scale_x;
-        info->scale_y = info->orig_scale_y = render_priv->state.scale_y;
+        info->orig_scale_x = render_priv->state.scale_x;
+        info->orig_scale_y = render_priv->state.scale_y;
+        info->scale_x =
+            render_priv->state.scale_x * render_priv->display_scale;
+        info->scale_y =
+            render_priv->state.scale_y * render_priv->display_scale;
         info->border_style = render_priv->state.border_style;
-        info->border_x= render_priv->state.border_x;
+        info->border_x = render_priv->state.border_x;
         info->border_y = render_priv->state.border_y;
         info->hspacing = render_priv->state.hspacing;
         info->bold = render_priv->state.bold;
@@ -1848,8 +1866,9 @@ static void retrieve_glyphs(ASS_Renderer *render_priv)
         }
 
         // add horizontal letter spacing
-        info->cluster_advance.x += double_to_d6(info->hspacing *
-                render_priv->font_scale * info->orig_scale_x);
+        info->cluster_advance.x +=
+            double_to_d6(info->hspacing * render_priv->font_scale *
+                    render_priv->display_scale * info->orig_scale_x);
 
         // add displacement for vertical shearing
         info->cluster_advance.y += (info->fay / info->scale_x * info->scale_y) * info->cluster_advance.x;

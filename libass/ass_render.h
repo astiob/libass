@@ -304,6 +304,7 @@ struct ass_renderer {
     long long time;             // frame's timestamp, ms
     double font_scale;
     double font_scale_x;        // x scale applied to all glyphs to preserve text aspect ratio
+    double display_scale;
     double border_scale;
     double blur_scale;
 
