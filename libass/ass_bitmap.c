@@ -460,6 +460,8 @@ static void be_blur(Bitmap *bm)
     }
 }
 
+void gaussian_blur(uint8_t *buf, int width, int height, int stride, int border, double r2);
+
 int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
                        FT_Library ftlib, FT_Outline *outline, FT_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
@@ -489,6 +491,19 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
         }
     }
 
+    double r2 = blur_radius * blur_radius / log(256) + 0.5 * be;
+    if(r2 > 0.001) {
+        if (*bm_o)
+            gaussian_blur((*bm_o)->buffer,
+                          (*bm_o)->w, (*bm_o)->h, (*bm_o)->stride,
+                          bord, r2);
+        if (!*bm_o || border_style == 3)
+            gaussian_blur((*bm_g)->buffer,
+                          (*bm_g)->w, (*bm_g)->h, (*bm_g)->stride,
+                          bord, r2);
+    }
+
+    /*
     // Apply box blur (multiple passes, if requested)
     while (be--) {
         if (*bm_o)
@@ -513,6 +528,7 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
                            (*bm_g)->w, (*bm_g)->h, (*bm_g)->stride,
                            priv_blur->gt2, priv_blur->g_r, priv_blur->g_w);
     }
+    */
 
     // Create shadow and fix outline as needed
     if (*bm_o && border_style != 3) {
