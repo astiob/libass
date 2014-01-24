@@ -49,6 +49,11 @@
 #define PARSED_FADE (1<<0)
 #define PARSED_A    (1<<1)
 
+// Request font sizes larger than specified and downscale
+// glyphs afterwards to prevent grid fitting rounding effects.
+// VSFilter does the same, using a factor of 64.
+#define FONT_SUPERSAMPLING 64
+
 typedef struct {
     ASS_Image result;
     CompositeHashValue *source;

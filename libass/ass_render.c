@@ -1086,7 +1086,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                             double_to_d6(info->border_y * priv->border_scale));
 
         } else if (val->outline.n_points && (info->border_x > 0 || info->border_y > 0)
-                && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
+                && double_to_d16(info->scale_x) && double_to_d16(info->scale_y)) {
             const int eps = 16;
             int xbord = double_to_d6(info->border_x * priv->border_scale);
             int ybord = double_to_d6(info->border_y * priv->border_scale);
@@ -1608,9 +1608,7 @@ fix_glyph_scaling(ASS_Renderer *priv, GlyphInfo *glyph)
 {
     double ft_size;
     if (priv->settings.hinting == ASS_HINTING_NONE) {
-        // arbitrary, not too small to prevent grid fitting rounding effects
-        // XXX: this is a rather crude hack
-        ft_size = 256.0;
+        ft_size = glyph->font_size * FONT_SUPERSAMPLING;
     } else {
         // If hinting is enabled, we want to pass the real font size
         // to freetype. Normalize scale_y to 1.0.

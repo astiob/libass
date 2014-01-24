@@ -279,6 +279,8 @@ void ass_font_set_transform(ASS_Font *font, double scale_x,
 
 void ass_face_set_size(FT_Face face, double size)
 {
+    if (size < 1)
+        size = 1;
     TT_HoriHeader *hori = FT_Get_Sfnt_Table(face, ft_sfnt_hhea);
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
     double mscale = 1.;
