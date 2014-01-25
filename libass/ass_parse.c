@@ -366,14 +366,13 @@ static void register_tokens(struct state_machine *m)
     add_token(m, "4a", TOK_color_tags);
 }
 
-/*
 static void test(struct state_machine *m, char *text)
 {
-    printf("text: '%s' -> ", text);
+    //printf("text: '%s' -> ", text);
     int r = read_token(m, &text);
-    printf("%d '%s'\n", r, text);
+    //printf("%d '%s'\n", r, text);
 }
-*/
+#include <time.h>
 
 /**
  * \brief Parse style override tag.
@@ -386,19 +385,22 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, double pwr)
         render_priv->tag_parser = calloc(1, sizeof(struct state_machine));
         register_tokens(render_priv->tag_parser);
     }
-    /*
     struct state_machine *m = render_priv->tag_parser;
-    test(m, "xbord123");
-    test(m, "xbord");
-    test(m, "xbor");
-    test(m, "x");
-    test(m, "xshad1");
-    test(m, "s");
-    test(m, "sh");
-    test(m, "sha");
-    test(m, "shad");
-    assert(0);
-    */
+    int i;
+    clock_t start = clock();
+    for(i = 0; i < 100000000; i++) {
+        test(m, "xbord123");
+        test(m, "xbord");
+        test(m, "xbor");
+        test(m, "x");
+        test(m, "xshad1");
+        test(m, "s");
+        test(m, "sh");
+        test(m, "sha");
+        test(m, "shad");
+    }
+    printf("\n\n\n\nElapsed time %g\n", (clock() - start) / (double)CLOCKS_PER_SEC);
+    exit(0);
 
     skip_to('\\');
     skip('\\');
