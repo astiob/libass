@@ -228,71 +228,104 @@ static char *parse_vector_clip(ASS_Renderer *render_priv, char *p)
     return p;
 }
 
-#define MAX_STATES 60
+#define MAX_TOKENS 256
+#define MAX_PROGRAM_SIZE 256
 
-struct state_entry {
-    unsigned char next;
-    unsigned char token;
-};
-
-struct state_table {
-    struct state_entry chars[96];
+struct control_char {
+    unsigned char value;
+    unsigned char jump;
 };
 
 struct state_machine {
-    struct state_table states[MAX_STATES];
-    int num_states;
+    struct control_char program[MAX_PROGRAM_SIZE];
+    int program_size;
 };
 
-static void add_token(struct state_machine *m, const char *text, int token)
-{
-    int cur_state = 0;
-    if (!m->num_states)
-        m->num_states = 1; // reserve state 0 as initial state
-    while (text[0]) {
-        unsigned char c = text[0];
-        assert(c >= 32 && c < 128);
-        if (text[1]) {
-            int next = m->states[cur_state].chars[c - 32].next;
-            if (!next) {
-                assert(m->num_states < MAX_STATES); // raise the maximum
-                next = m->num_states++;
-                m->states[cur_state].chars[c - 32].next = next;
-            }
-            cur_state = next;
-        } else {
-            assert(!m->states[cur_state].chars[c - 32].token); // token not unique?
-            m->states[cur_state].chars[c - 32].token = token;
-        }
-        text++;
-    }
-}
+struct tag_token {
+    const char *text;
+    int token_id;
+};
 
 // Return the longest matching token and advance *p to the character after it.
 // If nothing matches, return 0 (TOK_INVALID) and don't change *p.
 int read_token(struct state_machine *m, char **p)
 {
+    int pos = 0;
     char *cur = *p;
-    int cur_state = 0;
-    int best_token = 0;
-    char *best_token_pos = NULL;
-    while (*cur) {
-        unsigned char c = *cur++;
-        if (c < 32 || c >= 128)
-            break;
-        int tok = m->states[cur_state].chars[c - 32].token;
-        int next = m->states[cur_state].chars[c - 32].next;
-        if (tok) {
-            best_token = tok;
-            best_token_pos = cur;
+    while (m->program[pos].value) {
+        if (m->program[pos].value == *cur) {
+            pos = m->program[pos].jump;
+            ++cur;
+        } else {
+            ++pos;
         }
-        if (!next)
-            break;
-        cur_state = next;
+        assert(pos < m->program_size);
     }
-    if (best_token)
-        *p = best_token_pos;
-    return best_token;
+    if (m->program[pos].jump) {
+        *p = cur;
+        return m->program[pos].jump;
+    }
+    return 0;
+}
+
+static void write_subprogram(struct state_machine *m, struct tag_token *token, int count, int indent)
+{
+    assert(count > 0);
+
+    int end_result = 0;
+    if (!token->text[indent]) {
+        end_result = token->token_id;
+        ++token;
+        --count;
+    }
+
+    char prev_char = 0;
+    int i, old_pos = m->program_size;
+    for (i = 0; i < count; i++) {
+        assert(token[i].text[indent]); // token not unique?
+        if (token[i].text[indent] == prev_char)
+            continue;
+        prev_char = token[i].text[indent];
+        assert(m->program_size < MAX_PROGRAM_SIZE);
+        m->program[m->program_size].value = prev_char;
+        m->program_size++;
+    }
+    assert(m->program_size < MAX_PROGRAM_SIZE);
+    m->program[m->program_size].value = 0;
+    m->program[m->program_size].jump = end_result;
+    m->program_size++;
+
+    if(!count)
+        return;
+
+    int start = 0;
+    int group_pos = m->program_size;
+    for (i = 0; i < count; i++) {
+        if (token[i].text[indent] != m->program[old_pos].value) {
+            m->program[old_pos].jump = group_pos;
+            write_subprogram(m, token + start, i - start, indent + 1);
+            ++old_pos;
+            assert(token[i].text[indent] == m->program[old_pos].value);
+            start = i;
+            group_pos = m->program_size;
+        }
+    }
+    m->program[old_pos].jump = group_pos;
+    write_subprogram(m, token + start, count - start, indent + 1);
+}
+
+static void add_token(struct tag_token *token, int *count, const char *text, int token_id)
+{
+    assert(*count < MAX_TOKENS);
+
+    token[*count].text = text;
+    token[*count].token_id = token_id;
+    ++(*count);
+}
+
+static int cmp_token(const void *p1, const void *p2)
+{
+    return strcmp(((struct tag_token *) p1)->text, ((struct tag_token *) p2)->text);
 }
 
 
@@ -352,18 +385,24 @@ enum tokens {
 
 static void register_tokens(struct state_machine *m)
 {
-#define REG_TOKEN(tok) add_token(m, # tok, TOK_ ## tok);
+    struct tag_token token[MAX_TOKENS];
+    int count = 0;
+
+#define REG_TOKEN(tok) add_token(token, &count, # tok, TOK_ ## tok);
     DEF_TOKENS(REG_TOKEN)
-    add_token(m, "fs+", TOK_fs_plus);
-    add_token(m, "fs-", TOK_fs_minus);
-    add_token(m, "1c", TOK_color_tags);
-    add_token(m, "2c", TOK_color_tags);
-    add_token(m, "3c", TOK_color_tags);
-    add_token(m, "4c", TOK_color_tags);
-    add_token(m, "1a", TOK_color_tags);
-    add_token(m, "2a", TOK_color_tags);
-    add_token(m, "3a", TOK_color_tags);
-    add_token(m, "4a", TOK_color_tags);
+    add_token(token, &count, "fs+", TOK_fs_plus);
+    add_token(token, &count, "fs-", TOK_fs_minus);
+    add_token(token, &count, "1c", TOK_color_tags);
+    add_token(token, &count, "2c", TOK_color_tags);
+    add_token(token, &count, "3c", TOK_color_tags);
+    add_token(token, &count, "4c", TOK_color_tags);
+    add_token(token, &count, "1a", TOK_color_tags);
+    add_token(token, &count, "2a", TOK_color_tags);
+    add_token(token, &count, "3a", TOK_color_tags);
+    add_token(token, &count, "4a", TOK_color_tags);
+
+    qsort(token, count, sizeof(struct tag_token), cmp_token);
+    write_subprogram(m, token, count, 0);
 }
 
 static void test(struct state_machine *m, char *text)
