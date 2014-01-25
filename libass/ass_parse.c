@@ -237,6 +237,7 @@ struct control_char {
 };
 
 struct state_machine {
+    unsigned char first_switch[256];
     struct control_char program[MAX_PROGRAM_SIZE];
     int program_size;
 };
@@ -250,8 +251,10 @@ struct tag_token {
 // If nothing matches, return 0 (TOK_INVALID) and don't change *p.
 int read_token(struct state_machine *m, char **p)
 {
-    int pos = 0;
     char *cur = *p;
+    int pos = m->first_switch[(int)*cur];
+    ++cur;
+
     while (m->program[pos].value) {
         if (m->program[pos].value == *cur) {
             pos = m->program[pos].jump;
@@ -403,6 +406,13 @@ static void register_tokens(struct state_machine *m)
 
     qsort(token, count, sizeof(struct tag_token), cmp_token);
     write_subprogram(m, token, count, 0);
+
+    int i, n = 0;
+    while (m->program[n].value)
+        n++;
+    memset(m->first_switch, n, sizeof(m->first_switch));
+    for (i = 0; i < n; i++)
+        m->first_switch[m->program[i].value] = m->program[i].jump;
 }
 
 static void test(struct state_machine *m, char *text)
