@@ -259,6 +259,10 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
         !(r_family && strcasecmp((const char *) r_family, family) == 0) &&
         !(r_fullname && strcasecmp((const char *) r_fullname, family) == 0)) {
         char *fallback = (char *) (r_fullname ? r_fullname : r_family);
+        // Fall back straight to Arial for NBSP
+        int use_arial = code == 0xa0 && strcasecmp(family, "Arial");
+        if (use_arial)
+            fallback = "Arial";
         if (code) {
             ass_msg(library, MSGL_WARN,
                     "fontconfig: cannot find glyph U+%04X in font '%s', falling back to '%s'",
@@ -267,6 +271,12 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
             ass_msg(library, MSGL_WARN,
                     "fontconfig: cannot find font '%s', falling back to '%s'",
                     family, fallback);
+        }
+        if (use_arial) {
+            free(retval);
+            retval = select_font(library, priv, "Arial", 0,
+                                 bold, italic, index, code);
+            goto error;
         }
     }
 
