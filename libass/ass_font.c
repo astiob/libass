@@ -327,22 +327,24 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
         if (pos > 0 || size <= 0)
             return 1;
 
-        FT_Vector points[4] = {
-            {.x = bear,      .y = pos + size},
-            {.x = advance,   .y = pos + size},
-            {.x = advance,   .y = pos - size},
-            {.x = bear,      .y = pos - size},
-        };
-
-        if (dir == FT_ORIENTATION_TRUETYPE) {
-            for (i = 0; i < 4; i++) {
-                ol->points[ol->n_points] = points[i];
-                ol->tags[ol->n_points++] = 1;
-            }
-        } else {
-            for (i = 3; i >= 0; i--) {
-                ol->points[ol->n_points] = points[i];
-                ol->tags[ol->n_points++] = 1;
+        {
+            FT_Vector points[4] = {
+                {.x = bear,      .y = pos + size},
+                {.x = advance,   .y = pos + size},
+                {.x = advance,   .y = pos - size},
+                {.x = bear,      .y = pos - size},
+            };
+        
+            if (dir == FT_ORIENTATION_TRUETYPE) {
+                for (i = 0; i < 4; i++) {
+                    ol->points[ol->n_points] = points[i];
+                    ol->tags[ol->n_points++] = 1;
+                }
+            } else {
+                for (i = 3; i >= 0; i--) {
+                    ol->points[ol->n_points] = points[i];
+                    ol->tags[ol->n_points++] = 1;
+                }
             }
         }
 
@@ -357,22 +359,24 @@ static int ass_strike_outline_glyph(FT_Face face, ASS_Font *font,
         if (pos < 0 || size <= 0)
             return 1;
 
-        FT_Vector points[4] = {
-            {.x = bear,      .y = pos + size},
-            {.x = advance,   .y = pos + size},
-            {.x = advance,   .y = pos - size},
-            {.x = bear,      .y = pos - size},
-        };
+        {
+            FT_Vector points[4] = {
+                {.x = bear,      .y = pos + size},
+                {.x = advance,   .y = pos + size},
+                {.x = advance,   .y = pos - size},
+                {.x = bear,      .y = pos - size},
+            };
 
-        if (dir == FT_ORIENTATION_TRUETYPE) {
-            for (i = 0; i < 4; i++) {
-                ol->points[ol->n_points] = points[i];
-                ol->tags[ol->n_points++] = 1;
-            }
-        } else {
-            for (i = 3; i >= 0; i--) {
-                ol->points[ol->n_points] = points[i];
-                ol->tags[ol->n_points++] = 1;
+            if (dir == FT_ORIENTATION_TRUETYPE) {
+                for (i = 0; i < 4; i++) {
+                    ol->points[ol->n_points] = points[i];
+                    ol->tags[ol->n_points++] = 1;
+                }
+            } else {
+                for (i = 3; i >= 0; i--) {
+                    ol->points[ol->n_points] = points[i];
+                    ol->tags[ol->n_points++] = 1;
+                }
             }
         }
 
