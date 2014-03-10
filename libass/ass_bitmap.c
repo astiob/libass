@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006 Evgeniy Stepanov <eugeni.stepanov@gmail.com>
  * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
+ * Copyright (c) 2011-2014, Yu Zhuohuang <yuzhuohuang@qq.com>
  *
  * This file is part of libass.
  *
@@ -27,24 +28,11 @@
 
 #include "ass_utils.h"
 #include "ass_bitmap.h"
+#include "ass_render.h"
 
-struct ass_synth_priv {
-    int tmp_w, tmp_h;
-    unsigned short *tmp;
-
-    int g_r;
-    int g_w;
-
-    unsigned *g;
-    unsigned *gt2;
-
-    double radius;
-};
-
-static const unsigned int maxcolor = 255;
 static const unsigned base = 256;
 
-static int generate_tables(ASS_SynthPriv *priv, double radius)
+int generate_tables(ASS_SynthPriv *priv, double radius)
 {
     double A = log(1.0 / base) / (radius * radius * 2);
     int mx, i;
@@ -60,6 +48,7 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     priv->g_w = 2 * priv->g_r + 1;
 
     if (priv->g_r) {
+        priv->g0 = realloc(priv->g0, priv->g_w * sizeof(double));
         priv->g = realloc(priv->g, priv->g_w * sizeof(unsigned));
         priv->gt2 = realloc(priv->gt2, 256 * priv->g_w * sizeof(unsigned));
         if (priv->g == NULL || priv->gt2 == NULL) {
@@ -68,25 +57,26 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     }
 
     if (priv->g_r) {
-        // gaussian curve with volume = 256
+        // exact gaussian curve
+        for (i = 0; i < priv->g_w; ++i) {
+            priv->g0[i] = exp(A * (i - priv->g_r) * (i - priv->g_r));
+        }
+
+        // integer gaussian curve with volume = 65536
         for (volume_diff = 10000000; volume_diff > 0.0000001;
              volume_diff *= 0.5) {
             volume_factor += volume_diff;
             volume = 0;
             for (i = 0; i < priv->g_w; ++i) {
-                priv->g[i] =
-                    (unsigned) (exp(A * (i - priv->g_r) * (i - priv->g_r)) *
-                                volume_factor + .5);
+                priv->g[i] = (unsigned) (priv->g0[i] * volume_factor + .5);
                 volume += priv->g[i];
             }
-            if (volume > 256)
+            if (volume > 65536)
                 volume_factor -= volume_diff;
         }
         volume = 0;
         for (i = 0; i < priv->g_w; ++i) {
-            priv->g[i] =
-                (unsigned) (exp(A * (i - priv->g_r) * (i - priv->g_r)) *
-                            volume_factor + .5);
+            priv->g[i] = (unsigned) (priv->g0[i] * volume_factor + .5);
             volume += priv->g[i];
         }
 
@@ -101,7 +91,7 @@ static int generate_tables(ASS_SynthPriv *priv, double radius)
     return 0;
 }
 
-static void resize_tmp(ASS_SynthPriv *priv, int w, int h)
+void resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
     if (priv->tmp_w >= w && priv->tmp_h >= h)
         return;
@@ -113,8 +103,9 @@ static void resize_tmp(ASS_SynthPriv *priv, int w, int h)
         priv->tmp_w *= 2;
     while (priv->tmp_h < h)
         priv->tmp_h *= 2;
-    free(priv->tmp);
-    priv->tmp = malloc((priv->tmp_w + 1) * priv->tmp_h * sizeof(short));
+    ass_aligned_free(priv->tmp);
+    priv->tmp =
+        ass_aligned_alloc(32, (priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
 }
 
 ASS_SynthPriv *ass_synth_init(double radius)
@@ -126,18 +117,22 @@ ASS_SynthPriv *ass_synth_init(double radius)
 
 void ass_synth_done(ASS_SynthPriv *priv)
 {
-    free(priv->tmp);
+    ass_aligned_free(priv->tmp);
+    free(priv->g0);
     free(priv->g);
     free(priv->gt2);
     free(priv);
 }
 
-static Bitmap *alloc_bitmap(int w, int h)
+Bitmap *alloc_bitmap(int w, int h)
 {
     Bitmap *bm;
-    unsigned s = w; // XXX: alignment
+
+    unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
+    unsigned s = ass_align(align, w);
     bm = malloc(sizeof(Bitmap));
-    bm->buffer = calloc(s, h);
+    bm->buffer = ass_aligned_alloc(align, s * h + 32);
+    memset(bm->buffer, 0, s * h + 32);
     bm->w = w;
     bm->h = h;
     bm->stride = s;
@@ -148,11 +143,11 @@ static Bitmap *alloc_bitmap(int w, int h)
 void ass_free_bitmap(Bitmap *bm)
 {
     if (bm)
-        free(bm->buffer);
+        ass_aligned_free(bm->buffer);
     free(bm);
 }
 
-static Bitmap *copy_bitmap(const Bitmap *src)
+Bitmap *copy_bitmap(const Bitmap *src)
 {
     Bitmap *dst = alloc_bitmap(src->w, src->h);
     dst->left = src->left;
@@ -217,7 +212,7 @@ Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
  * The glyph bitmap is subtracted from outline bitmap. This way looks much
  * better in some cases.
  */
-static void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
+void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 {
     int x, y;
     const int l = bm_o->left > bm_g->left ? bm_o->left : bm_g->left;
@@ -250,7 +245,7 @@ static void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
  * \brief Shift a bitmap by the fraction of a pixel in x and y direction
  * expressed in 26.6 fixed point
  */
-static void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
+void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 {
     int x, y, b;
     int w = bm->w;
@@ -302,24 +297,25 @@ static void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 /*
  * Gaussian blur.  An fast pure C implementation from MPlayer.
  */
-static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
-                           int width, int height, int stride, int *m2,
-                           int r, int mwidth)
+void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
+                    int width, int height, int stride,
+                    unsigned *m2, int r, int mwidth)
 {
 
     int x, y;
 
     unsigned char *s = buffer;
-    unsigned short *t = tmp2 + 1;
+    unsigned *t = tmp2 + 1;
     for (y = 0; y < height; y++) {
-        memset(t - 1, 0, (width + 1) * sizeof(short));
+        memset(t - 1, 0, (width + 1) * sizeof(unsigned));
+        t[-1] = 32768;
 
         for (x = 0; x < r; x++) {
             const int src = s[x];
             if (src) {
-                register unsigned short *dstp = t + x - r;
+                register unsigned *dstp = t + x - r;
                 int mx;
-                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
+                unsigned *m3 = m2 + src * mwidth;
                 for (mx = r - x; mx < mwidth; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -329,9 +325,9 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
         for (; x < width - r; x++) {
             const int src = s[x];
             if (src) {
-                register unsigned short *dstp = t + x - r;
+                register unsigned *dstp = t + x - r;
                 int mx;
-                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
+                unsigned *m3 = m2 + src * mwidth;
                 for (mx = 0; mx < mwidth; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -341,10 +337,10 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
         for (; x < width; x++) {
             const int src = s[x];
             if (src) {
-                register unsigned short *dstp = t + x - r;
+                register unsigned *dstp = t + x - r;
                 int mx;
                 const int x2 = r + width - x;
-                unsigned *m3 = (unsigned *) (m2 + src * mwidth);
+                unsigned *m3 = m2 + src * mwidth;
                 for (mx = 0; mx < x2; mx++) {
                     dstp[mx] += m3[mx];
                 }
@@ -358,31 +354,31 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
     t = tmp2;
     for (x = 0; x < width; x++) {
         for (y = 0; y < r; y++) {
-            unsigned short *srcp = t + y * (width + 1) + 1;
+            unsigned *srcp = t + y * (width + 1) + 1;
             int src = *srcp;
             if (src) {
-                register unsigned short *dstp = srcp - 1 + width + 1;
-                const int src2 = (src + 128) >> 8;
-                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
+                register unsigned *dstp = srcp - 1 - y * (width + 1);
+                const int src2 = (src + 32768) >> 16;
+                unsigned *m3 = m2 + src2 * mwidth;
 
                 int mx;
-                *srcp = 128;
-                for (mx = r - 1; mx < mwidth; mx++) {
+                *srcp = 32768;
+                for (mx = r - y; mx < mwidth; mx++) {
                     *dstp += m3[mx];
                     dstp += width + 1;
                 }
             }
         }
         for (; y < height - r; y++) {
-            unsigned short *srcp = t + y * (width + 1) + 1;
+            unsigned *srcp = t + y * (width + 1) + 1;
             int src = *srcp;
             if (src) {
-                register unsigned short *dstp = srcp - 1 - r * (width + 1);
-                const int src2 = (src + 128) >> 8;
-                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
+                register unsigned *dstp = srcp - 1 - r * (width + 1);
+                const int src2 = (src + 32768) >> 16;
+                unsigned *m3 = m2 + src2 * mwidth;
 
                 int mx;
-                *srcp = 128;
+                *srcp = 32768;
                 for (mx = 0; mx < mwidth; mx++) {
                     *dstp += m3[mx];
                     dstp += width + 1;
@@ -390,16 +386,16 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
             }
         }
         for (; y < height; y++) {
-            unsigned short *srcp = t + y * (width + 1) + 1;
+            unsigned *srcp = t + y * (width + 1) + 1;
             int src = *srcp;
             if (src) {
                 const int y2 = r + height - y;
-                register unsigned short *dstp = srcp - 1 - r * (width + 1);
-                const int src2 = (src + 128) >> 8;
-                unsigned *m3 = (unsigned *) (m2 + src2 * mwidth);
+                register unsigned *dstp = srcp - 1 - r * (width + 1);
+                const int src2 = (src + 32768) >> 16;
+                unsigned *m3 = m2 + src2 * mwidth;
 
                 int mx;
-                *srcp = 128;
+                *srcp = 32768;
                 for (mx = 0; mx < y2; mx++) {
                     *dstp += m3[mx];
                     dstp += width + 1;
@@ -413,7 +409,7 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
     s = buffer;
     for (y = 0; y < height; y++) {
         for (x = 0; x < width; x++) {
-            s[x] = t[x] >> 8;
+            s[x] = t[x] >> 16;
         }
         s += stride;
         t += width + 1;
@@ -423,31 +419,71 @@ static void ass_gauss_blur(unsigned char *buffer, unsigned short *tmp2,
 /**
  * \brief Blur with [[1,2,1]. [2,4,2], [1,2,1]] kernel
  * This blur is the same as the one employed by vsfilter.
+ * Pure C implementation.
  */
-static void be_blur(Bitmap *bm)
+void be_blur_c(uint8_t *buf, intptr_t w,
+               intptr_t h, intptr_t stride,
+               uint16_t *tmp)
 {
-    int w = bm->w;
-    int h = bm->h;
-    int s = bm->stride;
-    unsigned char *buf = bm->buffer;
-    unsigned int x, y;
-    unsigned int old_sum, new_sum;
+    unsigned short *col_pix_buf = tmp;
+    unsigned short *col_sum_buf = tmp + w * sizeof(unsigned short);
+    unsigned x, y, old_pix, old_sum, new_sum, temp1, temp2;
+    unsigned char *src, *dst;
+    memset(col_pix_buf, 0, w * sizeof(unsigned short));
+    memset(col_sum_buf, 0, w * sizeof(unsigned short));
+    {
+        y = 0;
+        src=buf+y*stride;
 
-    for (y = 0; y < h; y++) {
-        old_sum = 2 * buf[y * s];
-        for (x = 0; x < w - 1; x++) {
-            new_sum = buf[y * s + x] + buf[y * s + x + 1];
-            buf[y * s + x] = (old_sum + new_sum) >> 2;
-            old_sum = new_sum;
+        x = 2;
+        old_pix = src[x-1];
+        old_sum = old_pix + src[x-2];
+        for ( ; x < w; x++) {
+            temp1 = src[x];
+            temp2 = old_pix + temp1;
+            old_pix = temp1;
+            temp1 = old_sum + temp2;
+            old_sum = temp2;
+            col_pix_buf[x] = temp1;
+        }
+    }
+    new_sum = 2 * buf[y * stride + w - 1];
+    buf[y * stride + w - 1] = (old_sum + new_sum) >> 2;
+    {
+        x = 2;
+        old_pix = src[x-1];
+        old_sum = old_pix + src[x-2];
+        for ( ; x < w; x++) {
+            temp1 = src[x];
+            temp2 = old_pix + temp1;
+            old_pix = temp1;
+            temp1 = old_sum + temp2;
+            old_sum = temp2;
+
+            temp2 = col_pix_buf[x] + temp1;
+            col_pix_buf[x] = temp1;
+            col_sum_buf[x] = temp2;
         }
     }
 
-    for (x = 0; x < w; x++) {
-        old_sum = 2 * buf[x];
-        for (y = 0; y < h - 1; y++) {
-            new_sum = buf[y * s + x] + buf[(y + 1) * s + x];
-            buf[y * s + x] = (old_sum + new_sum) >> 2;
-            old_sum = new_sum;
+    for (y = 2; y < h; y++) {
+        src=buf+y*stride;
+        dst=buf+(y-1)*stride;
+
+        x = 2;
+        old_pix = src[x-1];
+        old_sum = old_pix + src[x-2];
+        for ( ; x < w; x++) {
+            temp1 = src[x];
+            temp2 = old_pix + temp1;
+            old_pix = temp1;
+            temp1 = old_sum + temp2;
+            old_sum = temp2;
+
+            temp2 = col_pix_buf[x] + temp1;
+            col_pix_buf[x] = temp1;
+            dst[x-1] = (col_sum_buf[x] + temp2) >> 4;
+            col_sum_buf[x] = temp2;
         }
     }
 }
@@ -481,48 +517,69 @@ int outline_to_bitmap3(ASS_Library *library, ASS_SynthPriv *priv_blur,
         }
     }
 
-    // Apply box blur (multiple passes, if requested)
-    while (be--) {
-        if (*bm_o)
-            be_blur(*bm_o);
-        if (!*bm_o || border_style == 3)
-            be_blur(*bm_g);
-    }
-
-    // Apply gaussian blur
-    if (blur_radius > 0.0) {
-        if (*bm_o)
-            resize_tmp(priv_blur, (*bm_o)->w, (*bm_o)->h);
-        if (!*bm_o || border_style == 3)
-            resize_tmp(priv_blur, (*bm_g)->w, (*bm_g)->h);
-        generate_tables(priv_blur, blur_radius);
-        if (*bm_o)
-            ass_gauss_blur((*bm_o)->buffer, priv_blur->tmp,
-                           (*bm_o)->w, (*bm_o)->h, (*bm_o)->stride,
-                           (int *) priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
-        if (!*bm_o || border_style == 3)
-            ass_gauss_blur((*bm_g)->buffer, priv_blur->tmp,
-                           (*bm_g)->w, (*bm_g)->h, (*bm_g)->stride,
-                           (int *) priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
-    }
-
-    // Create shadow and fix outline as needed
-    if (*bm_o && border_style != 3) {
-        *bm_s = copy_bitmap(*bm_o);
-        fix_outline(*bm_g, *bm_o);
-    } else if (*bm_o && border_visible) {
-        *bm_s = copy_bitmap(*bm_o);
-    } else if (*bm_o) {
-        *bm_s = *bm_o;
-        *bm_o = 0;
-    } else
-        *bm_s = copy_bitmap(*bm_g);
-
-    assert(bm_s);
-
-    shift_bitmap(*bm_s, shadow_offset.x, shadow_offset.y);
-
     return 0;
+}
+
+/**
+ * \brief Add two bitmaps together at a given position
+ * Uses additive blending, clipped to [0,255]. Pure C implementation.
+ */
+void add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src, intptr_t src_stride,
+                   intptr_t height, intptr_t width)
+{
+    unsigned out;
+    uint8_t* end = dst + dst_stride * height;
+    while (dst < end) {
+        for (unsigned j = 0; j < width; ++j) {
+            out = dst[j] + src[j];
+            dst[j] = FFMIN(out, 255);
+        }
+        dst += dst_stride;
+        src += src_stride;
+    }
+}
+
+void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src, intptr_t src_stride,
+                   intptr_t height, intptr_t width)
+{
+    unsigned out;
+    uint8_t* end = dst + dst_stride * height;
+    while (dst < end) {
+        for (unsigned j = 0; j < width; ++j) {
+            out = dst[j] - src[j];
+            dst[j] = FFMAX(out, 0);
+        }
+        dst += dst_stride;
+        src += src_stride;
+    }
+}
+
+void restride_bitmap_c(uint8_t *dst, intptr_t dst_stride,
+                       uint8_t *src, intptr_t src_stride,
+                       intptr_t width, intptr_t height)
+{
+    uint8_t* end = dst + dst_stride * height;
+    while (dst < end) {
+        memcpy(dst, src, width);
+        dst += dst_stride;
+        src += src_stride;
+    }
+}
+
+void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                   uint8_t *src1, intptr_t src1_stride,
+                   uint8_t *src2, intptr_t src2_stride,
+                   intptr_t w, intptr_t h)
+{
+    uint8_t* end = src1 + src1_stride * h;
+    while (src1 < end) {
+        for (unsigned x = 0; x < w; ++x) {
+            dst[x] = (src1[x] * src2[x] + 255) >> 8;
+        }
+        dst  += dst_stride;
+        src1 += src1_stride;
+        src2 += src2_stride;
+    }
 }

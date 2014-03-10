@@ -125,10 +125,26 @@ static unsigned bitmap_compare (void *a, void *b, size_t key_size)
 static void composite_destruct(void *key, void *value)
 {
     CompositeHashValue *v = value;
-    free(v->a);
-    free(v->b);
+    CompositeHashKey *k = key;
+    if (v->bm)
+        ass_free_bitmap(v->bm);
+    if (v->bm_o)
+        ass_free_bitmap(v->bm_o);
+    if (v->bm_s)
+        ass_free_bitmap(v->bm_s);
+    free(k->str);
     free(key);
     free(value);
+}
+
+static size_t composite_size(void *value, size_t value_size)
+{
+    CompositeHashValue *val = value;
+    if (val->bm_o)
+        return val->bm_o->w * val->bm_o->h * 3;
+    else if (val->bm)
+        return val->bm->w * val->bm->h * 3;
+    return 0;
 }
 
 // outline cache
@@ -242,14 +258,16 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
 void *ass_cache_put(Cache *cache, void *key, void *value)
 {
     unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
-    CacheItem **item = &cache->map[bucket];
-    while (*item)
-        item = &(*item)->next;
-    (*item) = calloc(1, sizeof(CacheItem));
-    (*item)->key = malloc(cache->key_size);
-    (*item)->value = malloc(cache->value_size);
-    memcpy((*item)->key, key, cache->key_size);
-    memcpy((*item)->value, value, cache->value_size);
+    CacheItem **bucketptr = &cache->map[bucket];
+
+    CacheItem *item = calloc(1, sizeof(CacheItem));
+    item->key = malloc(cache->key_size);
+    item->value = malloc(cache->value_size);
+    memcpy(item->key, key, cache->key_size);
+    memcpy(item->value, value, cache->value_size);
+
+    item->next = *bucketptr;
+    *bucketptr = item;
 
     cache->items++;
     if (cache->size_func)
@@ -257,7 +275,7 @@ void *ass_cache_put(Cache *cache, void *key, void *value)
     else
         cache->cache_size++;
 
-    return (*item)->value;
+    return item->value;
 }
 
 void *ass_cache_get(Cache *cache, void *key)
@@ -347,6 +365,6 @@ Cache *ass_bitmap_cache_create(void)
 Cache *ass_composite_cache_create(void)
 {
     return ass_cache_create(composite_hash, composite_compare,
-            composite_destruct, (ItemSize)NULL, sizeof(CompositeHashKey),
+            composite_destruct, composite_size, sizeof(CompositeHashKey),
             sizeof(CompositeHashValue));
 }

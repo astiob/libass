@@ -20,6 +20,7 @@
 #include FT_OUTLINE_H
 #include FT_BBOX_H
 #include <math.h>
+#include <limits.h>
 
 #include "ass_utils.h"
 #include "ass_drawing.h"
@@ -86,7 +87,7 @@ static void drawing_prepare(ASS_Drawing *drawing)
  */
 static void drawing_finish(ASS_Drawing *drawing, int raw_mode)
 {
-    int i, offset;
+    int i;
     double pbo;
     FT_BBox bbox = drawing->cbox;
     FT_Outline *ol = &drawing->outline;
@@ -104,15 +105,13 @@ static void drawing_finish(ASS_Drawing *drawing, int raw_mode)
 
     drawing->advance.x = bbox.xMax - bbox.xMin;
 
-    pbo = drawing->pbo / (64.0 / (1 << (drawing->scale - 1)));
-    drawing->desc = double_to_d6(-pbo * drawing->scale_y);
-    drawing->asc = bbox.yMax - bbox.yMin + drawing->desc;
+    pbo = drawing->pbo / (1 << (drawing->scale - 1));
+    drawing->desc = double_to_d6(pbo * drawing->scale_y);
+    drawing->asc = bbox.yMax - bbox.yMin - drawing->desc;
 
     // Place it onto the baseline
-    offset = (bbox.yMax - bbox.yMin) + double_to_d6(-pbo *
-                                                    drawing->scale_y);
     for (i = 0; i < ol->n_points; i++)
-        ol->points[i].y += offset;
+        ol->points[i].y += drawing->asc;
 }
 
 /*

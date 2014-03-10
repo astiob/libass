@@ -41,9 +41,11 @@ typedef struct ass_shaper ASS_Shaper;
 #include "ass_fontconfig.h"
 #include "ass_library.h"
 #include "ass_drawing.h"
+#include "ass_bitmap.h"
 
-#define GLYPH_CACHE_MAX 1000
-#define BITMAP_CACHE_MAX_SIZE 30 * 1048576
+#define GLYPH_CACHE_MAX 10000
+#define BITMAP_CACHE_MAX_SIZE 500 * 1048576
+#define COMPOSITE_CACHE_MAX_SIZE 500 * 1048576
 
 #define PARSED_FADE (1<<0)
 #define PARSED_A    (1<<1)
@@ -68,8 +70,8 @@ typedef struct free_list {
 typedef struct {
     int frame_width;
     int frame_height;
-    int storage_width;          // width of the source image
-    int storage_height;         // height of the source image
+    int storage_width;          // video width before any rescaling
+    int storage_height;         // video height before any rescaling
     double font_size_coeff;     // font size multiplier
     double line_spacing;        // additional line spacing (in frame pixels)
     double line_position;       // vertical position for subtitles, 0-100 (0 = no change)
@@ -103,6 +105,50 @@ typedef enum {
     EF_KARAOKE_KO
 } Effect;
 
+// describes a combined bitmap
+typedef struct {
+    Bitmap *bm;                 // glyphs bitmap
+    unsigned w;
+    unsigned h;
+    Bitmap *bm_o;               // outline bitmap
+    unsigned o_w;
+    unsigned o_h;
+    Bitmap *bm_s;               // shadow bitmap
+    FT_Vector pos;
+    uint32_t c[4];              // colors
+    FT_Vector advance;          // 26.6
+    Effect effect_type;
+    int effect_timing;          // time duration of current karaoke word
+    // after process_karaoke_effects: distance in pixels from the glyph origin.
+    // part of the glyph to the left of it is displayed in a different color.
+    int be;                     // blur edges
+    double blur;                // gaussian blur
+    double shadow_x;
+    double shadow_y;
+    double frx, fry, frz;       // rotation
+    double fax, fay;            // text shearing
+    double scale_x, scale_y;
+    int border_style;
+    int has_border;
+    double border_x, border_y;
+    double hspacing;
+    unsigned italic;
+    unsigned bold;
+    int flags;
+    int shift_x, shift_y;
+
+    unsigned has_outline;
+    unsigned is_drawing;
+
+    int max_str_length;
+    int str_length;
+    unsigned chars;
+    char *str;
+    int cached;
+    FT_Vector pos_orig;
+    int first_pos_x;
+} CombinedBitmapInfo;
+
 // describes a glyph
 // GlyphInfo and TextInfo are used for text centering and word-wrapping operations
 typedef struct glyph_info {
@@ -130,6 +176,7 @@ typedef struct glyph_info {
     uint32_t c[4];              // colors
     FT_Vector advance;          // 26.6
     FT_Vector cluster_advance;
+    char effect;                // the first (leading) glyph of some effect ?
     Effect effect_type;
     int effect_timing;          // time duration of current karaoke word
     // after process_karaoke_effects: distance in pixels from the glyph origin.
@@ -170,9 +217,12 @@ typedef struct {
     int length;
     LineInfo *lines;
     int n_lines;
+    CombinedBitmapInfo *combined_bitmaps;
+    unsigned n_bitmaps;
     double height;
     int max_glyphs;
     int max_lines;
+    unsigned max_bitmaps;
 } TextInfo;
 
 // Renderer state.
@@ -214,7 +264,8 @@ typedef struct {
     double blur;                // gaussian blur
     double shadow_x;
     double shadow_y;
-    int drawing_mode;           // not implemented; when != 0 text is discarded, except for style override tags
+    int drawing_scale;          // currently reading: regular text if 0, drawing otherwise
+    double pbo;                 // drawing baseline offset
     ASS_Drawing *drawing;       // current drawing
     ASS_Drawing *clip_drawing;  // clip vector
     int clip_drawing_mode;      // 0 = regular clip, 1 = inverse clip
@@ -250,7 +301,22 @@ typedef struct {
     Cache *composite_cache;
     size_t glyph_max;
     size_t bitmap_max_size;
+    size_t composite_max_size;
 } CacheStore;
+
+typedef void (*BitmapBlendFunc)(uint8_t *dst, intptr_t dst_stride,
+                                uint8_t *src, intptr_t src_stride,
+                                intptr_t height, intptr_t width);
+typedef void (*BitmapMulFunc)(uint8_t *dst, intptr_t dst_stride,
+                              uint8_t *src1, intptr_t src1_stride,
+                              uint8_t *src2, intptr_t src2_stride,
+                              intptr_t width, intptr_t height);
+typedef void (*BEBlurFunc)(uint8_t *buf, intptr_t w,
+                           intptr_t h, intptr_t stride,
+                           uint16_t *tmp);
+typedef void (*RestrideBitmapFunc)(uint8_t *dst, intptr_t dst_stride,
+                                   uint8_t *src, intptr_t src_stride,
+                                   intptr_t width, intptr_t height);
 
 struct ass_renderer {
     ASS_Library *library;
@@ -274,8 +340,6 @@ struct ass_renderer {
     int orig_width;             // frame width ( = screen width - margins )
     int orig_height_nocrop;     // frame height ( = screen height - margins + cropheight)
     int orig_width_nocrop;      // frame width ( = screen width - margins + cropwidth)
-    int storage_height;         // video height before any rescaling
-    int storage_width;          // video width before any rescaling
     ASS_Track *track;
     long long time;             // frame's timestamp, ms
     double font_scale;
@@ -286,6 +350,12 @@ struct ass_renderer {
     RenderContext state;
     TextInfo text_info;
     CacheStore cache;
+
+    BitmapBlendFunc add_bitmaps_func;
+    BitmapBlendFunc sub_bitmaps_func;
+    BitmapMulFunc mul_bitmaps_func;
+    BEBlurFunc be_blur_func;
+    RestrideBitmapFunc restride_bitmap_func;
 
     FreeList *free_head;
     FreeList *free_tail;

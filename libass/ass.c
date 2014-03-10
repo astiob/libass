@@ -57,7 +57,11 @@ struct parser_priv {
 };
 
 #define ASS_STYLES_ALLOC 20
-#define ASS_EVENTS_ALLOC 200
+
+int ass_library_version(void)
+{
+    return LIBASS_VERSION;
+}
 
 void ass_free_track(ASS_Track *track)
 {
@@ -117,7 +121,7 @@ int ass_alloc_event(ASS_Track *track)
     assert(track->n_events <= track->max_events);
 
     if (track->n_events == track->max_events) {
-        track->max_events += ASS_EVENTS_ALLOC;
+        track->max_events = track->max_events * 2 + 1;
         track->events =
             (ASS_Event *) realloc(track->events,
                                   sizeof(ASS_Event) *
@@ -229,43 +233,51 @@ static int numpad2align(int val)
 	token = next_token(&str); \
 	if (!token) break;
 
+
+#define ALIAS(alias,name) \
+        if (strcasecmp(tname, #alias) == 0) {tname = #name;}
+
+/* One section started with PARSE_START and PARSE_END parses a single token
+ * (contained in the variable named token) for the header indicated by the
+ * variable tname. It does so by chaining a number of else-if statements, each
+ * of which checks if the tname variable indicates that this header should be
+ * parsed. The first parameter of the macro gives the name of the header.
+ *
+ * The string that is passed is in str. str is advanced to the next token if
+ * a header could be parsed. The parsed results are stored in the variable
+ * target, which has the type ASS_Style* or ASS_Event*.
+ */
+#define PARSE_START if (0) {
+#define PARSE_END   }
+
 #define ANYVAL(name,func) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = func(token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = func(token);
 
 #define STRVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
 		if (target->name != NULL) free(target->name); \
-		target->name = strdup(token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = strdup(token);
 
 #define STARREDSTRVAL(name) \
     } else if (strcasecmp(tname, #name) == 0) { \
         if (target->name != NULL) free(target->name); \
         while (*token == '*') ++token; \
-        target->name = strdup(token); \
-        ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+        target->name = strdup(token);
 
 #define COLORVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = string2color(track->library, token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = string2color(track->library, token);
 
 #define INTVAL(name) ANYVAL(name,atoi)
 #define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = string2timecode(track->library, token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
+		target->name = string2timecode(track->library, token);
 
 #define STYLEVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = lookup_style(track, token); \
-		ass_msg(track->library, MSGL_DBG2, "%s = %s", #name, token);
-
-#define ALIAS(alias,name) \
-	if (strcasecmp(tname, #alias) == 0) {tname = #name;}
+		target->name = lookup_style(track, token);
 
 static char *next_token(char **str)
 {
@@ -336,7 +348,6 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
                 if (last >= event->Text && *last == '\r')
                     *last = 0;
             }
-            ass_msg(track->library, MSGL_DBG2, "Text = %s", event->Text);
             event->Duration -= event->Start;
             free(format);
             return 0;           // "Text" is always the last
@@ -344,7 +355,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
         NEXT(p, token);
 
         ALIAS(End, Duration)    // temporarily store end timecode in event->Duration
-        if (0) {            // cool ;)
+        PARSE_START
             INTVAL(Layer)
             STYLEVAL(Style)
             STRVAL(Name)
@@ -354,7 +365,7 @@ static int process_event_tail(ASS_Track *track, ASS_Event *event,
             INTVAL(MarginV)
             TIMEVAL(Start)
             TIMEVAL(Duration)
-        }
+        PARSE_END
     }
     free(format);
     return 1;
@@ -410,7 +421,7 @@ void ass_process_force_style(ASS_Track *track)
             if (style == NULL
                 || strcasecmp(track->styles[sid].Name, style) == 0) {
                 target = track->styles + sid;
-                if (0) {
+                PARSE_START
                     STRVAL(FontName)
                     COLORVAL(PrimaryColour)
                     COLORVAL(SecondaryColour)
@@ -422,7 +433,7 @@ void ass_process_force_style(ASS_Track *track)
                     INTVAL(Underline)
                     INTVAL(StrikeOut)
                     FPVAL(Spacing)
-                    INTVAL(Angle)
+                    FPVAL(Angle)
                     INTVAL(BorderStyle)
                     INTVAL(Alignment)
                     INTVAL(MarginL)
@@ -434,7 +445,7 @@ void ass_process_force_style(ASS_Track *track)
                     FPVAL(Outline)
                     FPVAL(Shadow)
                     FPVAL(Blur)
-                }
+                PARSE_END
             }
         }
         *eq = '=';
@@ -504,7 +515,7 @@ static int process_style(ASS_Track *track, char *str)
         NEXT(q, tname);
         NEXT(p, token);
 
-        if (0) {                // cool ;)
+        PARSE_START
             STARREDSTRVAL(Name)
             if (strcmp(target->Name, "Default") == 0)
                 track->default_style = sid;
@@ -528,6 +539,11 @@ static int process_style(ASS_Track *track, char *str)
             INTVAL(Alignment)
             if (track->track_type == TRACK_TYPE_ASS)
                 target->Alignment = numpad2align(target->Alignment);
+            // VSFilter compatibility
+            else if (target->Alignment == 8)
+                target->Alignment = 3;
+            else if (target->Alignment == 4)
+                target->Alignment = 11;
             INTVAL(MarginL)
             INTVAL(MarginR)
             INTVAL(MarginV)
@@ -536,13 +552,17 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(ScaleY)
             FPVAL(Outline)
             FPVAL(Shadow)
-        }
+        PARSE_END
     }
-    style->ScaleX /= 100.;
-    style->ScaleY /= 100.;
+    style->ScaleX = FFMAX(style->ScaleX, 0.) / 100.;
+    style->ScaleY = FFMAX(style->ScaleY, 0.) / 100.;
+    style->Spacing = FFMAX(style->Spacing, 0.);
+    style->Outline = FFMAX(style->Outline, 0.);
+    style->Shadow = FFMAX(style->Shadow, 0.);
     style->Bold = !!style->Bold;
     style->Italic = !!style->Italic;
     style->Underline = !!style->Underline;
+    style->StrikeOut = !!style->StrikeOut;
     if (!style->Name)
         style->Name = strdup("Default");
     if (!style->FontName)

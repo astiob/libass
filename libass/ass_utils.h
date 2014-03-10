@@ -43,6 +43,15 @@
 #define FFMIN(a,b) ((a) > (b) ? (b) : (a))
 #define FFMINMAX(c,a,b) FFMIN(FFMAX(c, a), b)
 
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+int has_sse2(void);
+int has_avx(void);
+int has_avx2(void);
+#endif
+
+void *ass_aligned_alloc(size_t alignment, size_t size);
+void ass_aligned_free(void *ptr);
+
 int mystrtoi(char **p, int *res);
 int mystrtoll(char **p, long long *res);
 int mystrtou32(char **p, int base, uint32_t *res);
@@ -51,6 +60,7 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);
 unsigned ass_utf8_get_char(char **str);
+unsigned ass_utf8_put_char(char *dest, uint32_t ch);
 void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...);
 int lookup_style(ASS_Track *track, char *name);
 ASS_Style *lookup_style_strict(ASS_Track *track, char *name);
@@ -62,6 +72,11 @@ void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
 
 /* defined in ass_strtod.c */
 double ass_strtod(const char *string, char **endPtr);
+
+static inline size_t ass_align(size_t alignment, size_t s)
+{
+    return (s + (alignment - 1)) & ~(alignment - 1);
+}
 
 static inline int d6_to_int(int x)
 {
@@ -119,18 +134,22 @@ static inline int rot_key(double a)
     return double_to_d22(a) % m;
 }
 
-#define FNV1_32A_INIT (unsigned)0x811c9dc5
+#define FNV1_32A_INIT 0x811c9dc5U
+#define FNV1_32A_PRIME 16777619U
 
 static inline unsigned fnv_32a_buf(void *buf, size_t len, unsigned hval)
 {
     unsigned char *bp = buf;
-    unsigned char *be = bp + len;
-    while (bp < be) {
-        hval ^= (unsigned) *bp++;
-        hval +=
-            (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) +
-            (hval << 24);
+    size_t n = (len + 3) / 4;
+
+    switch (len % 4) {
+    case 0: do { hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+    case 3:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+    case 2:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+    case 1:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+               } while (--n > 0);
     }
+
     return hval;
 }
 static inline unsigned fnv_32a_str(char *str, unsigned hval)
@@ -138,9 +157,7 @@ static inline unsigned fnv_32a_str(char *str, unsigned hval)
     unsigned char *s = (unsigned char *) str;
     while (*s) {
         hval ^= (unsigned) *s++;
-        hval +=
-            (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) +
-            (hval << 24);
+        hval *= FNV1_32A_PRIME;
     }
     return hval;
 }

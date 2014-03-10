@@ -1,4 +1,4 @@
-AC_INIT(libass, 0.10.2)
+AC_INIT(libass, 0.11.1)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
 # Disable C++/Fortran checks
@@ -12,6 +12,7 @@ AC_CONFIG_HEADER([config.h])
 AC_PROG_CC
 AC_PROG_CPP
 AM_PROG_CC_C_O
+AM_PROG_AS
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -36,12 +37,70 @@ AC_CHECK_LIB([m], [fabs])
 # Check for libraries via pkg-config
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
     [enable test program (requires libpng) @<:@default=no@:>@]))
+AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
+    [enable profiling program @<:@default=no@:>@]))
 AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
     [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
     [disable fontconfig support @<:@default=enabled@:>@]))
 AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
+AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
+    [disable compiling with ASM @<:@default=check@:>@]),
+    [asm=false],
+    [asm=true])
+
+test "${ASFLAGS+set}" = set || ASFLAGS=""
+
+AC_SUBST([ASFLAGS], ["$ASFLAGS"])
+
+case $host in
+    i?86-*)
+        INTEL=true
+        X86=true ;;
+    x86_64-*)
+        INTEL=true
+        X64=true ;;
+    arm-*)
+        ARM=true ;;
+esac
+
+case $host in
+    *darwin*)
+        MACHO=true ;;
+    *linux*)
+        ELF=true ;;
+    *cygwin*)
+        WIN32=true ;;
+    *mingw*)
+        WIN32=true ;;
+esac
+
+if test x$INTEL = xtrue ; then
+    if test x$asm = xtrue ; then
+        AC_CHECK_PROG(YASM_CHECK,yasm,yes)
+        if test x$YASM_CHECK != xyes ; then
+            AC_MSG_WARN(YASM was not found; ASM functions are disabled.)
+            AC_MSG_WARN(Install yasm for a significantly faster libass build.)
+            asm=false
+        fi
+    fi
+fi
+
+AM_CONDITIONAL([ASM], [test x$asm = xtrue])
+
+AM_COND_IF([ASM],
+    [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
+    [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
+    )
+
+AM_CONDITIONAL([INTEL], [test x$INTEL = xtrue])
+AM_CONDITIONAL([X86], [test x$X86 = xtrue])
+AM_CONDITIONAL([X64], [test x$X64 = xtrue])
+AM_CONDITIONAL([ARM], [test x$ARM = xtrue])
+AM_CONDITIONAL([MACHO], [test x$MACHO = xtrue])
+AM_CONDITIONAL([ELF], [test x$ELF = xtrue])
+AM_CONDITIONAL([WIN32], [test x$WIN32 = xtrue])
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
@@ -92,6 +151,8 @@ fi
 
 AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
+AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
+
 # add libraries/packages to pkg-config for static linking
 pkg_libs="-lm"
 pkg_requires="freetype2 >= 9.10.3"
@@ -114,5 +175,5 @@ AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test x$enable_shared = xno || echo ${pkg_req
 # Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile libass.pc])
+AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile profile/Makefile libass.pc])
 AC_OUTPUT

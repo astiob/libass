@@ -18,16 +18,76 @@
 
 #include "config.h"
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <inttypes.h>
-#include <ft2build.h>
-#include FT_GLYPH_H
 #include <strings.h>
+#include <limits.h>
 
 #include "ass_library.h"
 #include "ass.h"
 #include "ass_utils.h"
+
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+
+#include "x86/cpuid.h"
+
+int has_sse2(void)
+{
+    uint32_t eax = 1, ebx, ecx, edx;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    return (!!(edx & (1 << 26)));
+}
+
+int has_avx(void)
+{
+    uint32_t eax = 1, ebx, ecx, edx;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    if(!(ecx & (1 << 27))){
+        return 0;
+    }
+    uint32_t misc = ecx;
+    eax = 0;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    if((ecx & (0x2 | 0x4)) != (0x2 | 0x4)){
+        return 0;
+    }
+    return (!!(misc & (1 << 28)));
+}
+
+int has_avx2(void)
+{
+    uint32_t eax = 7, ebx, ecx, edx;
+    ass_get_cpuid(&eax, &ebx, &ecx, &edx);
+    return (!!(ebx & (1 << 5))) && has_avx();
+}
+
+#endif // ASM
+
+void *ass_aligned_alloc(size_t alignment, size_t size)
+{
+    if (alignment & (alignment - 1))
+        abort(); // not a power of 2
+    if (size >= SIZE_MAX - alignment - sizeof(void *))
+        return NULL;
+    char *allocation = malloc(size + sizeof(void *) + alignment - 1);
+    if (!allocation)
+        return NULL;
+    char *ptr = allocation + sizeof(void *);
+    unsigned int misalign = (uintptr_t)ptr & (alignment - 1);
+    if (misalign)
+        ptr += alignment - misalign;
+    *((void **)ptr - 1) = allocation;
+    return ptr;
+}
+
+void ass_aligned_free(void *ptr)
+{
+    if (ptr)
+        free(*((void **)ptr - 1));
+}
 
 int mystrtoi(char **p, int *res)
 {
@@ -81,7 +141,8 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
     int base = hex ? 16 : 10;
 
     if (*p == '&')
-        ++p;
+        while (*p == '&')
+            ++p;
     else
         ass_msg(library, MSGL_DBG2, "suspicious color format: \"%s\"\n", p);
 
@@ -91,6 +152,9 @@ int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex)
     } else {
         result = mystrtou32(&p, base, &color);
     }
+
+    while (*p == '&' || *p == 'H')
+        ++p;
 
     {
         unsigned char *tmp = (unsigned char *) (&color);
@@ -198,6 +262,38 @@ unsigned ass_utf8_get_char(char **str)
     c = *strp++;
     *str = (char *) strp;
     return c;
+}
+
+/**
+ * Original version from http://www.cprogramming.com/tutorial/utf8.c
+ * \brief Converts a single UTF-32 code point to UTF-8
+ * \param dest Buffer to write to. Writes a NULL terminator.
+ * \param ch 32-bit character code to convert
+ * \return number of bytes written
+ * converts a single character and ASSUMES YOU HAVE ENOUGH SPACE
+ */
+unsigned ass_utf8_put_char(char *dest, uint32_t ch)
+{
+    char *orig_dest = dest;
+
+    if (ch < 0x80) {
+        *dest++ = (char)ch;
+    } else if (ch < 0x800) {
+        *dest++ = (ch >> 6) | 0xC0;
+        *dest++ = (ch & 0x3F) | 0x80;
+    } else if (ch < 0x10000) {
+        *dest++ = (ch >> 12) | 0xE0;
+        *dest++ = ((ch >> 6) & 0x3F) | 0x80;
+        *dest++ = (ch & 0x3F) | 0x80;
+    } else if (ch < 0x110000) {
+        *dest++ = (ch >> 18) | 0xF0;
+        *dest++ = ((ch >> 12) & 0x3F) | 0x80;
+        *dest++ = ((ch >> 6) & 0x3F) | 0x80;
+        *dest++ = (ch & 0x3F) | 0x80;
+    }
+
+    *dest = '\0';
+    return dest - orig_dest;
 }
 
 /**
