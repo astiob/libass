@@ -16,6 +16,12 @@
     <Filter Include="Header Files\libass">
       <UniqueIdentifier>{0b1e3cbd-5b40-4f89-9ddb-75f8fd067cc5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\libass\x86">
+      <UniqueIdentifier>{d01c2758-8178-4ae1-b733-59c848c24d74}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\libass\x86">
+      <UniqueIdentifier>{cecd9ba8-49f4-46cf-94ac-bdb674aaea96}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="config.h">
@@ -63,6 +69,15 @@
     <ClInclude Include="..\libass\ass_cache.h">
       <Filter>Header Files\libass</Filter>
     </ClInclude>
+    <ClInclude Include="..\libass\x86\be_blur.h">
+      <Filter>Header Files\libass\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libass\x86\blend_bitmaps.h">
+      <Filter>Header Files\libass\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libass\x86\cpuid.h">
+      <Filter>Header Files\libass\x86</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\libass\ass_fontconfig.c">
@@ -109,5 +124,19 @@
     <None Include="libass.def">
       <Filter>Resource Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <YASM Include="..\libass\x86\be_blur.asm">
+      <Filter>Source Files\libass\x86</Filter>
+    </YASM>
+    <YASM Include="..\libass\x86\blend_bitmaps.asm">
+      <Filter>Source Files\libass\x86</Filter>
+    </YASM>
+    <YASM Include="..\libass\x86\cpuid.asm">
+      <Filter>Source Files\libass\x86</Filter>
+    </YASM>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="readme.txt" />
   </ItemGroup>
 </Project>

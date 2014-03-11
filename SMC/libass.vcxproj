@@ -64,6 +64,9 @@
     <ClInclude Include="..\libass\ass_shaper.h" />
     <ClInclude Include="..\libass\ass_types.h" />
     <ClInclude Include="..\libass\ass_utils.h" />
+    <ClInclude Include="..\libass\x86\be_blur.h" />
+    <ClInclude Include="..\libass\x86\blend_bitmaps.h" />
+    <ClInclude Include="..\libass\x86\cpuid.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="version.h" />
   </ItemGroup>
@@ -84,6 +87,21 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="libass.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <YASM Include="..\libass\x86\be_blur.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
+    </YASM>
+    <YASM Include="..\libass\x86\blend_bitmaps.asm" />
+    <YASM Include="..\libass\x86\cpuid.asm" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="readme.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{19677DFD-C020-434D-9CB1-D0F105E72770}</ProjectGuid>
@@ -170,6 +188,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\vsyasm.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -310,6 +329,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -353,6 +375,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">
     <ClCompile>
@@ -396,6 +421,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|Win32'">
     <ClCompile>
@@ -439,6 +467,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">
     <ClCompile>
@@ -482,6 +513,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|x64'">
     <ClCompile>
@@ -525,6 +559,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -582,6 +619,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -639,6 +679,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
     <ClCompile>
@@ -694,6 +737,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|Win32'">
     <ClCompile>
@@ -749,6 +795,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">
     <ClCompile>
@@ -804,6 +853,9 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|x64'">
     <ClCompile>
@@ -859,8 +911,12 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
+    <YASM>
+      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+    </YASM>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\vsyasm.targets" />
   </ImportGroup>
 </Project>
