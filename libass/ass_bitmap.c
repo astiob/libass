@@ -58,6 +58,8 @@
 #endif
 
 
+#include <mach/mach_time.h>
+
 void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
 {
@@ -76,6 +78,8 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
 
     // Apply box blur (multiple passes, if requested)
     if (be) {
+        mach_timebase_info_data_t timebase;
+        mach_timebase_info(&timebase);
         size_t size_o = 0, size_g = 0;
         if (bm_o)
             size_o = sizeof(uint16_t) * bm_o->stride * 2;
@@ -111,6 +115,7 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
             unsigned stride = bm_g->stride;
             unsigned char *buf = bm_g->buffer;
             if(w && h){
+                uint64_t start = mach_absolute_time();
                 if(passes > 1){
                     be_blur_pre(buf, w, h, stride);
                     while(--passes){
@@ -121,6 +126,10 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                 }
                 memset(tmp, 0, stride * 2);
                 engine->be_blur(buf, w, h, stride, tmp);
+                uint64_t stop = mach_absolute_time();
+                uint64_t t = (stop - start) * timebase.numer / timebase.denom;
+                fprintf(stderr, "\\be%d took %lld.%09d s", be,
+                        (long long) (t / 1000000000), (int) (t % 1000000000));
             }
         }
         ass_aligned_free(tmp);
