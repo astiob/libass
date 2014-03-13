@@ -28,7 +28,6 @@
 #include "ass_parse.h"
 
 #define MAX_VALID_NARGS 7
-#define MAX_BE 127
 #define NBSP 0xa0   // unicode non-breaking space character
 
 struct arg {
@@ -783,9 +782,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
             dval = argtod(*args);
             // VSFilter always adds +0.5, even if the value is negative
             val = (int) (render_priv->state.be * (1 - pwr) + dval * pwr + 0.5);
-            // Clamp to a safe upper limit, since high values need excessive CPU
             val = (val < 0) ? 0 : val;
-            val = (val > MAX_BE) ? MAX_BE : val;
             render_priv->state.be = val;
         } else
             render_priv->state.be = 0;
