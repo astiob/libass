@@ -2713,6 +2713,11 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
 
     ass_lazy_track_init(render_priv->library, render_priv->track);
 
+    if (track->LayoutResX > 0 && track->LayoutResY > 0) {
+        settings_priv->storage_width = track->LayoutResX;
+        settings_priv->storage_height = track->LayoutResY;
+    }
+
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
     ass_shaper_set_language(render_priv->shaper, track->Language);
     ass_shaper_set_level(render_priv->shaper, render_priv->settings.shaper);

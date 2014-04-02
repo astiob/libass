@@ -410,6 +410,10 @@ void ass_process_force_style(ASS_Track *track)
             track->PlayResX = atoi(token);
         else if (!ass_strcasecmp(*fs, "PlayResY"))
             track->PlayResY = atoi(token);
+        else if (!ass_strcasecmp(*fs, "LayoutResX"))
+            track->LayoutResX = atoi(token);
+        else if (!ass_strcasecmp(*fs, "LayoutResY"))
+            track->LayoutResY = atoi(token);
         else if (!ass_strcasecmp(*fs, "Timer"))
             track->Timer = ass_atof(token);
         else if (!ass_strcasecmp(*fs, "WrapStyle"))
@@ -609,6 +613,10 @@ static int process_info_line(ASS_Track *track, char *str)
         track->PlayResX = atoi(str + 9);
     } else if (!strncmp(str, "PlayResY:", 9)) {
         track->PlayResY = atoi(str + 9);
+    } else if (!strncmp(str, "LayoutResX:", 11)) {
+        track->LayoutResX = atoi(str + 11);
+    } else if (!strncmp(str, "LayoutResY:", 11)) {
+        track->LayoutResY = atoi(str + 11);
     } else if (!strncmp(str, "Timer:", 6)) {
         track->Timer = ass_atof(str + 6);
     } else if (!strncmp(str, "WrapStyle:", 10)) {

@@ -205,6 +205,9 @@ typedef struct ass_track {
 
     ASS_Library *library;
     ASS_ParserPriv *parser_priv;
+
+    int LayoutResX;
+    int LayoutResY;
 } ASS_Track;
 
 #endif /* LIBASS_TYPES_H */
