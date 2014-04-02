@@ -66,14 +66,22 @@ struct ass_synth_priv {
     int g_r;
     int g_w;
 
+    int b_r;
+    int b_w;
+
     double *g0;
     unsigned *g;
     unsigned *gt2;
 
+    unsigned *b;
+    unsigned *bt2;
+    unsigned *bl;
+    unsigned *blt2;
+
     double radius;
 };
 
-static bool generate_tables(ASS_SynthPriv *priv, double radius)
+static bool generate_gaussian_tables(ASS_SynthPriv *priv, double radius)
 {
     double A = log(1.0 / base) / (radius * radius * 2);
     int mx, i;
@@ -140,6 +148,103 @@ static bool generate_tables(ASS_SynthPriv *priv, double radius)
     return true;
 }
 
+static bool generate_be_tables(ASS_SynthPriv *priv, double radius)
+{
+    double inside = ceil(radius) - radius, outside = 1 - inside;
+    int mx, i;
+    double volume_diff, volume_factor = 0;
+    unsigned volume;
+
+    if (radius < 0)
+        return false;
+    if (radius + 2.0 > INT_MAX / 2)
+        radius = INT_MAX / 2;
+
+    if (priv->radius == radius)
+        return true;
+    else
+        priv->radius = radius;
+
+    priv->b_r = ceil(radius);
+    priv->b_w = 2 * priv->b_r + 1;
+
+    if (priv->b_r) {
+        priv->b = ass_realloc_array(priv->b, priv->b_w, sizeof(unsigned));
+        priv->bt2 = ass_realloc_array(priv->bt2, priv->b_w, 256 * sizeof(unsigned));
+        priv->bl = ass_realloc_array(priv->bl, priv->b_w, sizeof(unsigned));
+        priv->blt2 = ass_realloc_array(priv->blt2, priv->b_w, 256 * sizeof(unsigned));
+        if (!priv->b || !priv->bt2 || !priv->bl || !priv->blt2) {
+            free(priv->b);
+            free(priv->bt2);
+            free(priv->bl);
+            free(priv->blt2);
+            return false;
+        }
+    }
+
+    if (priv->b_r) {
+        // integer be comb with volume = 65536
+        for (volume_diff = 10000000; volume_diff > 0.0000001;
+             volume_diff *= 0.5) {
+            volume_factor += volume_diff;
+            volume = 0;
+            priv->b[0] = (unsigned) (outside * volume_factor + .5);
+            priv->b[1] = (unsigned) (inside * volume_factor + .5);
+            priv->b[priv->b_w - 2] = priv->b[1];
+            priv->b[priv->b_w - 1] = priv->b[0];
+            priv->b[priv->b_r] = (unsigned) (2 * volume_factor + .5);
+            for (i = 0; i < priv->b_w; ++i)
+                volume += priv->b[i];
+            if (volume > 65536)
+                volume_factor -= volume_diff;
+        }
+        volume = 0;
+        priv->b[0] = (unsigned) (outside * volume_factor + .5);
+        priv->b[1] = (unsigned) (inside * volume_factor + .5);
+        priv->b[priv->b_w - 2] = priv->b[1];
+        priv->b[priv->b_w - 1] = priv->b[0];
+        priv->b[priv->b_r] = (unsigned) (2 * volume_factor + .5);
+        for (i = 0; i < priv->b_w; ++i)
+            volume += priv->b[i];
+
+        // lookup table
+        for (mx = 0; mx < priv->b_w; mx++) {
+            for (i = 0; i < 256; i++) {
+                priv->bt2[mx + i * priv->b_w] = i * priv->b[mx];
+            }
+        }
+
+        // integer triangle with volume = 65536
+        for (volume_diff = 10000000; volume_diff > 0.0000001;
+             volume_diff *= 0.5) {
+            volume_factor += volume_diff;
+            volume = 0;
+            for (i = 0; i < priv->b_w; ++i) {
+                double value = FFMAX(0, 1 - abs(i - priv->b_r) / radius);
+                priv->bl[i] = (unsigned) (value * volume_factor + .5);
+                volume += priv->bl[i];
+            }
+            if (volume > 65536)
+                volume_factor -= volume_diff;
+        }
+        volume = 0;
+        for (i = 0; i < priv->b_w; ++i) {
+            double value = FFMAX(0, 1 - abs(i - priv->b_r) / radius);
+            priv->bl[i] = (unsigned) (value * volume_factor + .5);
+            volume += priv->bl[i];
+        }
+
+        // lookup table
+        for (mx = 0; mx < priv->b_w; mx++) {
+            for (i = 0; i < 256; i++) {
+                priv->blt2[mx + i * priv->b_w] = i * priv->bl[mx];
+            }
+        }
+    }
+
+    return true;
+}
+
 static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
     if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / FFMAX(h, 1))
@@ -156,8 +261,9 @@ static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 }
 
 void ass_synth_blur(const BitmapEngine *engine,
-                    ASS_SynthPriv *priv_blur, int opaque_box, int be,
-                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
+                    ASS_SynthPriv *priv_blur, int opaque_box,
+                    int be, double blur_radius, double radius_scale,
+                    Bitmap *bm_g, Bitmap *bm_o)
 {
     if(blur_radius > 0.0 || be){
         if (bm_o && !resize_tmp(priv_blur, bm_o->w, bm_o->h))
@@ -167,22 +273,22 @@ void ass_synth_blur(const BitmapEngine *engine,
     }
 
     // Apply gaussian blur
-    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius)) {
+    if (blur_radius > 0.0 && generate_gaussian_tables(priv_blur, blur_radius)) {
         if (bm_o)
-            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
-                           bm_o->w, bm_o->h, bm_o->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
+            ass_convolve(bm_o->buffer, priv_blur->tmp,
+                         bm_o->w, bm_o->h, bm_o->stride,
+                         priv_blur->gt2, priv_blur->g_r,
+                         priv_blur->g_w);
         if (!bm_o || opaque_box)
-            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
-                           bm_g->w, bm_g->h, bm_g->stride,
-                           priv_blur->gt2, priv_blur->g_r,
-                           priv_blur->g_w);
+            ass_convolve(bm_g->buffer, priv_blur->tmp,
+                         bm_g->w, bm_g->h, bm_g->stride,
+                         priv_blur->gt2, priv_blur->g_r,
+                         priv_blur->g_w);
     }
 
     // Apply box blur (multiple passes, if requested)
-    if (be) {
-        uint16_t* tmp = priv_blur->tmp;
+    if (be && (radius_scale == 1 || generate_be_tables(priv_blur, radius_scale))) {
+        void *tmp = priv_blur->tmp;
         if (bm_o) {
             unsigned passes = be;
             unsigned w = bm_o->w;
@@ -193,13 +299,28 @@ void ass_synth_blur(const BitmapEngine *engine,
                 if(passes > 1){
                     be_blur_pre(buf, w, h, stride);
                     while(--passes){
-                        memset(tmp, 0, stride * 2);
-                        engine->be_blur(buf, w, h, stride, tmp);
+                        if(radius_scale == 1){
+                            memset(tmp, 0, stride * 2);
+                            engine->be_blur(buf, w, h, stride, tmp);
+                        }else{
+                            ass_convolve(buf, tmp, w, h, stride,
+                                         priv_blur->bt2, priv_blur->b_r,
+                                         priv_blur->b_w);
+                        }
                     }
                     be_blur_post(buf, w, h, stride);
                 }
-                memset(tmp, 0, stride * 2);
-                engine->be_blur(buf, w, h, stride, tmp);
+                if(radius_scale == 1){
+                    memset(tmp, 0, stride * 2);
+                    engine->be_blur(buf, w, h, stride, tmp);
+                }else{
+                    ass_convolve(buf, tmp, w, h, stride,
+                                 priv_blur->bt2, priv_blur->b_r,
+                                 priv_blur->b_w);
+                    ass_convolve(buf, tmp, w, h, stride,
+                                 priv_blur->blt2, priv_blur->b_r,
+                                 priv_blur->b_w);
+                }
             }
         }
         if (!bm_o || opaque_box) {
@@ -212,13 +333,28 @@ void ass_synth_blur(const BitmapEngine *engine,
                 if(passes > 1){
                     be_blur_pre(buf, w, h, stride);
                     while(--passes){
-                        memset(tmp, 0, stride * 2);
-                        engine->be_blur(buf, w, h, stride, tmp);
+                        if(radius_scale == 1){
+                            memset(tmp, 0, stride * 2);
+                            engine->be_blur(buf, w, h, stride, tmp);
+                        }else{
+                            ass_convolve(buf, tmp, w, h, stride,
+                                         priv_blur->bt2, priv_blur->b_r,
+                                         priv_blur->b_w);
+                        }
                     }
                     be_blur_post(buf, w, h, stride);
                 }
-                memset(tmp, 0, stride * 2);
-                engine->be_blur(buf, w, h, stride, tmp);
+                if(radius_scale == 1){
+                    memset(tmp, 0, stride * 2);
+                    engine->be_blur(buf, w, h, stride, tmp);
+                }else{
+                    ass_convolve(buf, tmp, w, h, stride,
+                                 priv_blur->bt2, priv_blur->b_r,
+                                 priv_blur->b_w);
+                    ass_convolve(buf, tmp, w, h, stride,
+                                 priv_blur->blt2, priv_blur->b_r,
+                                 priv_blur->b_w);
+                }
             }
         }
     }
@@ -227,7 +363,7 @@ void ass_synth_blur(const BitmapEngine *engine,
 ASS_SynthPriv *ass_synth_init(double radius)
 {
     ASS_SynthPriv *priv = calloc(1, sizeof(ASS_SynthPriv));
-    if (!priv || !generate_tables(priv, radius)) {
+    if (!priv || !generate_gaussian_tables(priv, radius)) {
         free(priv);
         return NULL;
     }
@@ -532,11 +668,11 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 }
 
 /*
- * Gaussian blur.  An fast pure C implementation from MPlayer.
+ * Convolution filter.  An fast pure C implementation from MPlayer.
  */
-void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
-                    int width, int height, int stride,
-                    unsigned *m2, int r, int mwidth)
+void ass_convolve(unsigned char *buffer, unsigned *tmp2,
+                  int width, int height, int stride,
+                  unsigned *m2, int r, int mwidth)
 {
 
     int x, y;

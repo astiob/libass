@@ -100,8 +100,9 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           ASS_Outline *outline, int bord);
 
 void ass_synth_blur(const BitmapEngine *engine,
-                    ASS_SynthPriv *priv_blur, int opaque_box, int be,
-                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o);
+                    ASS_SynthPriv *priv_blur, int opaque_box,
+                    int be, double blur_radius, double radius_scale,
+                    Bitmap *bm_g, Bitmap *bm_o);
 
 /**
  * \brief perform glyph rendering
@@ -114,9 +115,9 @@ int outline_to_bitmap2(ASS_Renderer *render_priv,
                        ASS_Outline *outline, ASS_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o);
 
-void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
-                    int width, int height, int stride,
-                    unsigned *m2, int r, int mwidth);
+void ass_convolve(unsigned char *buffer, unsigned *tmp2,
+                  int width, int height, int stride,
+                  unsigned *m2, int r, int mwidth);
 int be_padding(int be);
 void be_blur_pre(uint8_t *buf, intptr_t w,
                  intptr_t h, intptr_t stride);

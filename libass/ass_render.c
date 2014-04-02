@@ -2353,7 +2353,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         if(info->bm || info->bm_o){
             ass_synth_blur(render_priv->engine,
                            render_priv->synth_priv, info->filter.flags & FILTER_BORDER_STYLE_3,
-                           info->filter.be, info->filter.blur, info->bm, info->bm_o);
+                           info->filter.be, info->filter.blur,
+                           render_priv->blur_scale, info->bm, info->bm_o);
             if (info->filter.flags & FILTER_DRAW_SHADOW)
                 make_shadow_bitmap(info, render_priv);
         }
