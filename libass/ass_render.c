@@ -75,12 +75,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->add_bitmaps_func = avx2 ? ass_add_bitmaps_avx2 :
             (sse2 ? ass_add_bitmaps_sse2 : ass_add_bitmaps_x86);
         #ifdef __x86_64__
-            priv->be_blur_func = avx2 ? ass_be_blur_avx2 :
-                (sse2 ? ass_be_blur_sse2 : be_blur_c);
-            priv->mul_bitmaps_func = avx2 ? ass_mul_bitmaps_avx2 :
-                (sse2 ? ass_mul_bitmaps_sse2 : mul_bitmaps_c);
-            priv->sub_bitmaps_func = avx2 ? ass_sub_bitmaps_avx2 :
-                (sse2 ? ass_sub_bitmaps_sse2 : ass_sub_bitmaps_x86);
+            priv->be_blur_func = avx2 ? ass_be_blur_avx2 : ass_be_blur_sse2;
+            priv->mul_bitmaps_func = avx2 ? ass_mul_bitmaps_avx2 : ass_mul_bitmaps_sse2;
+            priv->sub_bitmaps_func = avx2 ? ass_sub_bitmaps_avx2 : ass_sub_bitmaps_sse2;
         #else
             priv->be_blur_func = be_blur_c;
             priv->mul_bitmaps_func = mul_bitmaps_c;
@@ -537,6 +534,8 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         int aleft, atop, bleft, btop;
         unsigned char *abuffer, *bbuffer, *nbuffer;
 
+        render_priv->state.has_vector_clip = 1;
+
         abuffer = cur->bitmap;
         bbuffer = clip_bm->buffer;
         ax = cur->dst_x;
@@ -797,6 +796,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.event = event;
     render_priv->state.style = render_priv->track->styles + event->Style;
     render_priv->state.parsed_tags = 0;
+    render_priv->state.has_vector_clip = 0;
 
     reset_render_context(render_priv, render_priv->state.style);
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
@@ -816,6 +816,7 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
     render_priv->state.detect_collisions = 1;
     render_priv->state.fade = 0;
     render_priv->state.drawing_scale = 0;
+    render_priv->state.pbo = 0;
     render_priv->state.effect_type = EF_NONE;
     render_priv->state.effect_timing = 0;
     render_priv->state.effect_skip_timing = 0;
@@ -2833,7 +2834,7 @@ static int ass_detect_change(ASS_Renderer *priv)
     ASS_Image *img, *img2;
     int diff;
 
-    if (priv->cache_cleared)
+    if (priv->cache_cleared || priv->state.has_vector_clip)
         return 2;
 
     img = priv->prev_images_root;

@@ -166,6 +166,12 @@ Bitmap *outline_to_bitmap(ASS_Library *library, FT_Library ftlib,
     FT_Bitmap bitmap;
 
     FT_Outline_Get_CBox(outline, &bbox);
+    if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
+        bm = alloc_bitmap(2 * bord, 2 * bord);
+        bm->left = bm->top = -bord;
+        return bm;
+    }
+
     // move glyph to origin (0, 0)
     bbox.xMin &= ~63;
     bbox.yMin &= ~63;
@@ -427,7 +433,7 @@ void be_blur_c(uint8_t *buf, intptr_t w,
 {
     unsigned short *col_pix_buf = tmp;
     unsigned short *col_sum_buf = tmp + w * sizeof(unsigned short);
-    unsigned x, y, old_pix, old_sum, new_sum, temp1, temp2;
+    unsigned x, y, old_pix, old_sum, temp1, temp2;
     unsigned char *src, *dst;
     memset(col_pix_buf, 0, w * sizeof(unsigned short));
     memset(col_sum_buf, 0, w * sizeof(unsigned short));
@@ -447,9 +453,10 @@ void be_blur_c(uint8_t *buf, intptr_t w,
             col_pix_buf[x] = temp1;
         }
     }
-    new_sum = 2 * buf[y * stride + w - 1];
-    buf[y * stride + w - 1] = (old_sum + new_sum) >> 2;
     {
+        y = 1;
+        src=buf+y*stride;
+
         x = 2;
         old_pix = src[x-1];
         old_sum = old_pix + src[x-2];
@@ -544,7 +551,7 @@ void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
                    uint8_t *src, intptr_t src_stride,
                    intptr_t height, intptr_t width)
 {
-    unsigned out;
+    short out;
     uint8_t* end = dst + dst_stride * height;
     while (dst < end) {
         for (unsigned j = 0; j < width; ++j) {
