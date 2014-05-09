@@ -314,8 +314,7 @@ static double y2scr_sub(ASS_Renderer *render_priv, double y)
  * In an additional pass, the rectangles need to be split up left/right for
  * karaoke effects.  This can result in a lot of bitmaps (6 to be exact).
  */
-static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
-                                  Bitmap *bm, int dst_x, int dst_y,
+static ASS_Image **render_glyph_i(ASS_Renderer *render_priv, Bitmap *bm,
                                   uint32_t color, uint32_t color2, int brk,
                                   ASS_Image **tail, unsigned int type)
 {
@@ -323,8 +322,8 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
     Rect r[4];
     ASS_Image *img;
 
-    dst_x += bm->left;
-    dst_y += bm->top;
+    int dst_x = bm->left;
+    int dst_y = bm->top;
 
     // we still need to clip against screen boundaries
     zx = x2scr_pos_scaled(render_priv, 0);
@@ -407,8 +406,6 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
 /**
  * \brief convert bitmap glyph into ASS_Image struct(s)
  * \param bit freetype bitmap glyph, FT_PIXEL_MODE_GRAY
- * \param dst_x bitmap x coordinate in video frame
- * \param dst_y bitmap y coordinate in video frame
  * \param color first color, RGBA
  * \param color2 second color, RGBA
  * \param brk x coordinate relative to glyph origin, color is used to the left of brk, color2 - to the right
@@ -417,15 +414,14 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv,
  * Performs clipping. Uses my_draw_bitmap for actual bitmap convertion.
  */
 static ASS_Image **
-render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
+render_glyph(ASS_Renderer *render_priv, Bitmap *bm,
              uint32_t color, uint32_t color2, int brk, ASS_Image **tail, unsigned int type)
 {
     // Inverse clipping in use?
     if (render_priv->state.clip_mode)
-        return render_glyph_i(render_priv, bm, dst_x, dst_y, color, color2,
+        return render_glyph_i(render_priv, bm, color, color2,
                               brk, tail, type);
 
-    // brk is relative to dst_x
     // color = color left of brk
     // color2 = color right of brk
     int b_x0, b_y0, b_x1, b_y1; // visible part of the bitmap
@@ -433,8 +429,8 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
     int tmp;
     ASS_Image *img;
 
-    dst_x += bm->left;
-    dst_y += bm->top;
+    int dst_x = bm->left;
+    int dst_y = bm->top;
     brk -= bm->left;
 
     // clipping
@@ -654,30 +650,20 @@ static inline int is_skip_symbol(uint32_t x)
  * \brief Convert TextInfo struct to ASS_Image list
  * Splits glyphs in halves when needed (for \kf karaoke).
  */
-static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
+static ASS_Image *render_text(ASS_Renderer *render_priv)
 {
-    int pen_x, pen_y;
     int i;
-    Bitmap *bm;
     ASS_Image *head;
     ASS_Image **tail = &head;
     TextInfo *text_info = &render_priv->text_info;
 
     for (i = 0; i < text_info->n_bitmaps; ++i) {
         CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
-        if (!info->bm_s || (info->shadow_x == 0 && info->shadow_y == 0))
+        if (!info->bm_s)
             continue;
 
-        pen_x =
-            dst_x + info->pos.x +
-            (int) (info->shadow_x * render_priv->border_scale);
-        pen_y =
-            dst_y + info->pos.y +
-            (int) (info->shadow_y * render_priv->border_scale);
-        bm = info->bm_s;
-
         tail =
-            render_glyph(render_priv, bm, pen_x, pen_y, info->c[3], 0,
+            render_glyph(render_priv, info->bm_s, info->c[3], 0,
                     1000000, tail, IMAGE_TYPE_SHADOW);
     }
 
@@ -686,16 +672,12 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
         if (!info->bm_o)
             continue;
 
-        pen_x = dst_x + info->pos.x;
-        pen_y = dst_y + info->pos.y;
-        bm = info->bm_o;
-
         if ((info->effect_type == EF_KARAOKE_KO)
                 && (info->effect_timing <= info->first_pos_x)) {
             // do nothing
         } else {
             tail =
-                render_glyph(render_priv, bm, pen_x, pen_y, info->c[2],
+                render_glyph(render_priv, info->bm_o, info->c[2],
                         0, 1000000, tail, IMAGE_TYPE_OUTLINE);
         }
     }
@@ -705,27 +687,23 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
         if (!info->bm)
             continue;
 
-        pen_x = dst_x + info->pos.x;
-        pen_y = dst_y + info->pos.y;
-        bm = info->bm;
-
         if ((info->effect_type == EF_KARAOKE)
                 || (info->effect_type == EF_KARAOKE_KO)) {
             if (info->effect_timing > info->first_pos_x)
                 tail =
-                    render_glyph(render_priv, bm, pen_x, pen_y,
+                    render_glyph(render_priv, info->bm,
                             info->c[0], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
             else
                 tail =
-                    render_glyph(render_priv, bm, pen_x, pen_y,
+                    render_glyph(render_priv, info->bm,
                             info->c[1], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
         } else if (info->effect_type == EF_KARAOKE_KF) {
             tail =
-                render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
+                render_glyph(render_priv, info->bm, info->c[0],
                         info->c[1], info->effect_timing, tail, IMAGE_TYPE_CHARACTER);
         } else
             tail =
-                render_glyph(render_priv, bm, pen_x, pen_y, info->c[0],
+                render_glyph(render_priv, info->bm, info->c[0],
                         0, 1000000, tail, IMAGE_TYPE_CHARACTER);
     }
 
@@ -1788,13 +1766,16 @@ static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
     }
 }
 
-static void make_shadow_bitmap(CombinedBitmapInfo *info)
+static void make_shadow_bitmap(CombinedBitmapInfo *info, double scale)
 {
     // VSFilter compatibility: invisible fill and no border?
     // In this case no shadow is supposed to be rendered.
     if (!info->has_border && (info->c[0] & 0xFF) == 0xFF) {
         return;
     }
+
+    if (info->shadow_x == 0 && info->shadow_y == 0)
+        return;
 
     // Create shadow and fix outline as needed
     if (info->bm_o && info->border_style != 3) {
@@ -1810,7 +1791,11 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info)
 
     assert(info->bm_s);
 
-    shift_bitmap(info->bm_s, info->shadow_x, info->shadow_y);
+    int offset_x = double_to_d6(info->shadow_x * scale);
+    int offset_y = double_to_d6(info->shadow_y * scale);
+    info->bm_s->left += offset_x >> 6;
+    info->bm_s->top  += offset_y >> 6;
+    shift_bitmap(info->bm_s, offset_x & SUBPIXEL_MASK, offset_y & SUBPIXEL_MASK);
 }
 
 /**
@@ -2301,29 +2286,24 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (info->skip) continue;
         while (info) {
             OutlineBitmapHashKey *key = &info->hash_key.u.outline;
-            info->pos.x *= render_priv->font_scale_x;
-            key->advance.x =
-                double_to_d6(device_x - (int) device_x +
-                        d6_to_double(info->pos.x & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
-            key->advance.y =
-                double_to_d6(device_y - (int) device_y +
-                        d6_to_double(info->pos.y & SUBPIXEL_MASK)) & ~SUBPIXEL_ACCURACY;
+            key->advance.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
+            key->advance.y = double_to_d6(device_y) + info->pos.y;
             get_bitmap_glyph(render_priv, info);
 
-            int bm_x = info->pos.x >> 6,
-                bm_y = info->pos.y >> 6,
+            int bm_x = key->advance.x >> 6,
+                bm_y = key->advance.y >> 6,
                 bm_o_x = bm_x, bm_o_y = bm_y, min_bm_x = bm_x, min_bm_y = bm_y;
 
             if(info->bm){
-                bm_x += info->bm->left;
-                bm_y += info->bm->top;
+                bm_x = info->bm->left;
+                bm_y = info->bm->top;
                 min_bm_x = bm_x;
                 min_bm_y = bm_y;
             }
 
             if(info->bm_o){
-                bm_o_x += info->bm_o->left;
-                bm_o_y += info->bm_o->top;
+                bm_o_x = info->bm_o->left;
+                bm_o_y = info->bm_o->top;
                 min_bm_x = FFMIN(min_bm_x, bm_o_x);
                 min_bm_y = FFMIN(min_bm_y, bm_o_y);
             }
@@ -2344,11 +2324,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 current_info->pos.x = min_bm_x;
                 current_info->pos.y = min_bm_y;
 
-                current_info->first_pos_x = info->bbox.xMax >> 6;
+                current_info->first_pos_x = (info->bbox.xMax >> 6) + (key->advance.x >> 6);
 
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
                 current_info->effect_type = info->effect_type;
-                current_info->effect_timing = info->effect_timing;
+                current_info->effect_timing = info->effect_timing + (key->advance.x >> 6);
                 current_info->be = info->be;
                 current_info->blur = info->blur;
                 current_info->shadow_x = info->shadow_x;
@@ -2460,8 +2440,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }else{
             if(info->chars != 1 && !info->is_drawing){
                 info->bm = alloc_bitmap(info->w, info->h);
+                info->bm->left = info->pos.x;
+                info->bm->top  = info->pos.y;
                 if(info->has_outline){
                     info->bm_o = alloc_bitmap(info->o_w, info->o_h);
+                    info->bm_o->left = info->pos.x;
+                    info->bm_o->top  = info->pos.y;
                 }
             }
         }
@@ -2474,23 +2458,15 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             current_info = &combined_info[info->bm_run_id];
             if(!current_info->cached && !is_skip_symbol(info->symbol)){
                 if(current_info->chars == 1 || current_info->is_drawing){
-                    int offset_x = (info->pos.x >> 6) - current_info->pos.x;
-                    int offset_y = (info->pos.y >> 6) - current_info->pos.y;
-                    if(info->bm){
+                    if (info->bm)
                         current_info->bm = copy_bitmap(info->bm);
-                        current_info->bm->left += offset_x;
-                        current_info->bm->top += offset_y;
-                    }
-                    if(info->bm_o){
+                    if (info->bm_o)
                         current_info->bm_o = copy_bitmap(info->bm_o);
-                        current_info->bm_o->left += offset_x;
-                        current_info->bm_o->top += offset_y;
-                    }
                 }else{
                     unsigned offset_x, offset_y;
                     if(info->bm && info->bm->w && info->bm->h){
-                        offset_x = (info->pos.x >> 6) - current_info->pos.x + info->bm->left;
-                        offset_y = (info->pos.y >> 6) - current_info->pos.y + info->bm->top;
+                        offset_x = info->bm->left - current_info->pos.x;
+                        offset_y = info->bm->top  - current_info->pos.y;
                         render_priv->add_bitmaps_func(
                             &current_info->bm->buffer[offset_y * current_info->bm->stride + offset_x],
                             current_info->bm->stride,
@@ -2501,8 +2477,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                         );
                     }
                     if(info->bm_o && info->bm_o->w && info->bm_o->h){
-                        offset_x = (info->pos.x >> 6) - current_info->pos.x + info->bm_o->left;
-                        offset_y = (info->pos.y >> 6) - current_info->pos.y + info->bm_o->top;
+                        offset_x = info->bm_o->left - current_info->pos.x;
+                        offset_y = info->bm_o->top  - current_info->pos.y;
                         render_priv->add_bitmaps_func(
                             &current_info->bm_o->buffer[offset_y * current_info->bm_o->stride + offset_x],
                             current_info->bm_o->stride,
@@ -2524,7 +2500,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             CombinedBitmapInfo *info = &combined_info[i];
             if(info->bm || info->bm_o){
                 apply_blur(info, render_priv);
-                make_shadow_bitmap(info);
+                make_shadow_bitmap(info, render_priv->border_scale);
             }
 
             fill_composite_hash(&hk, info);
@@ -2549,7 +2525,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->detect_collisions = render_priv->state.detect_collisions;
     event_images->shift_direction = (valign == VALIGN_TOP) ? 1 : -1;
     event_images->event = event;
-    event_images->imgs = render_text(render_priv, (int) device_x, (int) device_y);
+    event_images->imgs = render_text(render_priv);
 
     ass_shaper_cleanup(render_priv->shaper, text_info);
     free_render_context(render_priv);
