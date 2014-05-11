@@ -193,17 +193,16 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     int tile_h = (h + 2 * bord + mask) & ~mask;
     Bitmap *bm = alloc_bitmap(tile_w, tile_h);
     bm->left = x_min - bord;
-    bm->top = -y_max - bord;
+    bm->top =  y_min - bord;
 
     int offs = bord & ~mask;
-    int bord_h = tile_h - h - bord;
     if (!rasterizer_fill(rst,
             bm->buffer + offs * (bm->stride + 1),
             x_min - bord + offs,
-            y_min - bord_h + (bord_h & ~mask),
+            y_min - bord + offs,
             ((w + bord + mask) & ~mask) - offs,
             ((h + bord + mask) & ~mask) - offs,
-            bm->stride, 1)) {
+            bm->stride)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
         ass_free_bitmap(bm);
         return NULL;
