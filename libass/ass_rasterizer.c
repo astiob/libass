@@ -27,7 +27,7 @@
 
 
 
-static inline int ilog2(uint32_t n)  // XXX: different compilers
+static inline int ilog2(uint32_t n)  // XXX: to utils
 {
 #ifdef __GNUC__
     return __builtin_clz(n) ^ 31;
@@ -47,7 +47,7 @@ static inline int ilog2(uint32_t n)  // XXX: different compilers
 }
 
 
-void rasterizer_init(ASS_Rasterizer *rst)
+void rasterizer_init(RasterizerData *rst)
 {
     rst->linebuf[0] = rst->linebuf[1] = NULL;
     rst->size[0] = rst->capacity[0] = 0;
@@ -60,7 +60,7 @@ void rasterizer_init(ASS_Rasterizer *rst)
  * \param delta requested size increase
  * \return zero on error
  */
-static inline int check_capacity(ASS_Rasterizer *rst, int index, size_t delta)
+static inline int check_capacity(RasterizerData *rst, int index, size_t delta)
 {
     delta += rst->size[index];
     if (rst->capacity[index] >= delta)
@@ -78,7 +78,7 @@ static inline int check_capacity(ASS_Rasterizer *rst, int index, size_t delta)
     return 1;
 }
 
-void rasterizer_done(ASS_Rasterizer *rst)
+void rasterizer_done(RasterizerData *rst)
 {
     free(rst->linebuf[0]);
     free(rst->linebuf[1]);
@@ -124,7 +124,7 @@ static inline int segment_subdivide(const OutlineSegment *seg,
 /**
  * \brief Add new segment to polyline
  */
-static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint pt1)
+static inline int add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint pt1)
 {
     int32_t x = pt1.x - pt0.x;
     int32_t y = pt1.y - pt0.y;
@@ -171,11 +171,11 @@ static inline int add_line(ASS_Rasterizer *rst, OutlinePoint pt0, OutlinePoint p
  * \brief Add quadratic spline to polyline
  * Preforms recursive subdivision if necessary.
  */
-static int add_quadratic(ASS_Rasterizer *rst,
+static int add_quadratic(TileEngine *engine, RasterizerData *rst,
                          OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2)
 {
     OutlineSegment seg;
-    segment_init(&seg, pt0, pt2, rst->outline_error);
+    segment_init(&seg, pt0, pt2, engine->outline_error);
     if (!segment_subdivide(&seg, pt0, pt1))
         return add_line(rst, pt0, pt2);
 
@@ -190,18 +190,19 @@ static int add_quadratic(ASS_Rasterizer *rst,
     p01.y >>= 1;
     p12.x >>= 1;
     p12.y >>= 1;
-    return add_quadratic(rst, pt0, p01, c) && add_quadratic(rst, c, p12, pt2);
+    return add_quadratic(engine, rst, pt0, p01, c) &&
+           add_quadratic(engine, rst, c, p12, pt2);
 }
 
 /**
  * \brief Add cubic spline to polyline
  * Preforms recursive subdivision if necessary.
  */
-static int add_cubic(ASS_Rasterizer *rst,
+static int add_cubic(TileEngine *engine, RasterizerData *rst,
                      OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2, OutlinePoint pt3)
 {
     OutlineSegment seg;
-    segment_init(&seg, pt0, pt3, rst->outline_error);
+    segment_init(&seg, pt0, pt3, engine->outline_error);
     if (!segment_subdivide(&seg, pt0, pt1) && !segment_subdivide(&seg, pt0, pt2))
         return add_line(rst, pt0, pt3);
 
@@ -226,11 +227,12 @@ static int add_cubic(ASS_Rasterizer *rst,
     p123.y >>= 2;
     p23.x >>= 1;
     p23.y >>= 1;
-    return add_cubic(rst, pt0, p01, p012, c) && add_cubic(rst, c, p123, p23, pt3);
+    return add_cubic(engine, rst, pt0, p01, p012, c) &&
+           add_cubic(engine, rst, c, p123, p23, pt3);
 }
 
 
-int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path)
+int rasterizer_set_outline(TileEngine *engine, RasterizerData *rst, const FT_Outline *path)
 {
     enum Status {
         S_ON, S_Q, S_C1, S_C2
@@ -296,7 +298,7 @@ int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path)
                 case S_Q:
                     p[2].x =  path->points[j].x;
                     p[2].y = -path->points[j].y;
-                    if (!add_quadratic(rst, p[0], p[1], p[2]))
+                    if (!add_quadratic(engine, rst, p[0], p[1], p[2]))
                         return 0;
                     p[0] = p[2];
                     st = S_ON;
@@ -305,7 +307,7 @@ int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path)
                 case S_C2:
                     p[3].x =  path->points[j].x;
                     p[3].y = -path->points[j].y;
-                    if (!add_cubic(rst, p[0], p[1], p[2], p[3]))
+                    if (!add_cubic(engine, rst, p[0], p[1], p[2], p[3]))
                         return 0;
                     p[0] = p[3];
                     st = S_ON;
@@ -329,7 +331,7 @@ int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path)
                     p[3].y = -path->points[j].y;
                     p[2].x = (p[1].x + p[3].x) >> 1;
                     p[2].y = (p[1].y + p[3].y) >> 1;
-                    if (!add_quadratic(rst, p[0], p[1], p[2]))
+                    if (!add_quadratic(engine, rst, p[0], p[1], p[2]))
                         return 0;
                     p[0] = p[2];
                     p[1] = p[3];
@@ -371,12 +373,12 @@ int rasterizer_set_outline(ASS_Rasterizer *rst, const FT_Outline *path)
                 break;
 
             case S_Q:
-                if (!add_quadratic(rst, p[0], p[1], start))
+                if (!add_quadratic(engine, rst, p[0], p[1], start))
                     return 0;
                 break;
 
             case S_C2:
-                if (!add_cubic(rst, p[0], p[1], p[2], start))
+                if (!add_cubic(engine, rst, p[0], p[1], p[2], start))
                     return 0;
                 break;
 
@@ -588,58 +590,70 @@ static int polyline_split_vert(const struct segment *src, size_t n_src,
 }
 
 
-static inline void rasterizer_fill_solid(ASS_Rasterizer *rst,
-                                         uint8_t *buf, int width, int height, ptrdiff_t stride)
+static inline int rasterizer_fill_halfplane(TileEngine *engine,
+                                            Quad **quad, int x_order, int y_order,
+                                            int32_t a, int32_t b, int64_t c, int32_t scale)
 {
-    assert(!(width  & ((1 << rst->tile_order) - 1)));
-    assert(!(height & ((1 << rst->tile_order) - 1)));
+    assert(y_order >= engine->tile_order);
+    assert(x_order == y_order || x_order == y_order + 1);
 
-    int i, j;
-    ptrdiff_t step = 1 << rst->tile_order;
-    ptrdiff_t tile_stride = stride << rst->tile_order;
-    width  >>= rst->tile_order;
-    height >>= rst->tile_order;
-    for (j = 0; j < height; ++j) {
-        for (i = 0; i < width; ++i)
-            rst->fill_solid(buf + i * step, stride);
-        buf += tile_stride;
+    if (x_order == engine->tile_order && y_order == engine->tile_order) {
+        *quad = alloc_tile(engine);
+        if (!*quad)
+            return 0;
+        engine->fill_halfplane((int16_t *)*quad, a, b, c, scale);
+        return 1;
     }
+
+    if (x_order > y_order) {
+        --x_order;
+        int64_t c1 = c - ((int64_t)a << (x_order + 6));
+
+        int32_t flag[] = {c1 >> 32, c1 >> 32};
+        flag[(a ^ b) < 0 ? 1 : 0] = (c1 - ((int64_t)b << (y_order + 6))) >> 32;
+
+        if ((flag[0] ^ a) >= 0)
+            quad[0] = (flag[0] ^ scale) < 0 ? NULL : SOLID_TILE;
+        else if (!rasterizer_fill_halfplane(engine, quad + 0, x_order, y_order,
+                                            a, b, c,  scale))
+            return 0;
+
+        if ((flag[1] ^ a) < 0)
+            quad[1] = (flag[1] ^ scale) < 0 ? NULL : SOLID_TILE;
+        else if (!rasterizer_fill_halfplane(engine, quad + 1, x_order, y_order,
+                                            a, b, c1, scale))
+            return 0;
+    } else {
+        *quad = alloc_quad(engine, NULL);
+        if (!*quad)
+            return 0;
+        quad = (*quad)->child;
+
+        --y_order;
+        int64_t c1 = c - ((int64_t)b << (y_order + 6));
+
+        int32_t flag[] = {c1 >> 32, c1 >> 32};
+        flag[(a ^ b) < 0 ? 1 : 0] = (c1 - ((int64_t)a << (x_order + 6))) >> 32;
+
+        if ((flag[0] ^ b) >= 0)
+            quad[0] = quad[1] = (flag[0] ^ scale) < 0 ? NULL : SOLID_TILE;
+        else if (!rasterizer_fill_halfplane(engine, quad + 0, x_order, y_order,
+                                            a, b, c,  scale))
+            return 0;
+
+        if ((flag[1] ^ b) < 0)
+            quad[2] = quad[3] = (flag[1] ^ scale) < 0 ? NULL : SOLID_TILE;
+        else if (!rasterizer_fill_halfplane(engine, quad + 2, x_order, y_order,
+                                            a, b, c1, scale))
+            return 0;
+    }
+    return 1;
 }
 
-static inline void rasterizer_fill_halfplane(ASS_Rasterizer *rst,
-                                             uint8_t *buf, int width, int height, ptrdiff_t stride,
-                                             int32_t a, int32_t b, int64_t c, int32_t scale)
-{
-    assert(!(width  & ((1 << rst->tile_order) - 1)));
-    assert(!(height & ((1 << rst->tile_order) - 1)));
-    if (width == 1 << rst->tile_order && height == 1 << rst->tile_order) {
-        rst->fill_halfplane(buf, stride, a, b, c, scale);
-        return;
-    }
 
-    uint32_t abs_a = a < 0 ? -a : a;
-    uint32_t abs_b = b < 0 ? -b : b;
-    int64_t size = (int64_t)(abs_a + abs_b) << (rst->tile_order + 5);
-    int64_t offs = ((int64_t)a + b) << (rst->tile_order + 5);
-
-    int i, j;
-    ptrdiff_t step = 1 << rst->tile_order;
-    ptrdiff_t tile_stride = stride << rst->tile_order;
-    width  >>= rst->tile_order;
-    height >>= rst->tile_order;
-    for (j = 0; j < height; ++j) {
-        for (i = 0; i < width; ++i) {
-            int64_t cc = c - ((a * (int64_t)i + b * (int64_t)j) << (rst->tile_order + 6));
-            int64_t offs_c = offs - cc;
-            int64_t abs_c = offs_c < 0 ? -offs_c : offs_c;
-            if (abs_c < size)
-                rst->fill_halfplane(buf + i * step, stride, a, b, cc, scale);
-            else if (((int32_t)(offs_c >> 32) ^ scale) & (1 << 31))
-                rst->fill_solid(buf + i * step, stride);
-        }
-        buf += tile_stride;
-    }
-}
+static int rasterizer_split(TileEngine *engine, RasterizerData *rst,
+                            Quad **quad, int x_order, int y_order,
+                            int index, size_t offs, int winding, int horz);
 
 /**
  * \brief Main quad-tree filling function
@@ -650,83 +664,113 @@ static inline void rasterizer_fill_halfplane(ASS_Rasterizer *rst,
  * Rasterizes (possibly recursive) one quad-tree level.
  * Truncates used input buffer.
  */
-static int rasterizer_fill_level(ASS_Rasterizer *rst,
-    uint8_t *buf, int width, int height, ptrdiff_t stride, int index, size_t offs, int winding)
+static int rasterizer_fill_level(TileEngine *engine, RasterizerData *rst,
+                                 Quad **quad, int x_order, int y_order,
+                                 int index, size_t offs, int winding)
 {
-    assert(width > 0 && height > 0);
+    assert(y_order >= engine->tile_order);
+    assert(x_order == y_order || x_order == y_order + 1);
     assert((unsigned)index < 2u && offs <= rst->size[index]);
-    assert(!(width  & ((1 << rst->tile_order) - 1)));
-    assert(!(height & ((1 << rst->tile_order) - 1)));
 
     size_t n = rst->size[index] - offs;
     struct segment *line = rst->linebuf[index] + offs;
     if (!n) {
-        if (winding)
-            rasterizer_fill_solid(rst, buf, width, height, stride);
+        quad[0] = winding ? SOLID_TILE : NULL;
+        if (x_order > y_order)
+            quad[1] = quad[0];
         return 1;
     }
     if (n == 1) {
+        rst->size[index] = offs;
+
         int flag = 0;
         if (line->c < 0)winding++;
         if (winding)
             flag ^= 1;
         if (winding - 1)
             flag ^= 3;
+
         if (flag & 1)
-            rasterizer_fill_halfplane(rst, buf, width, height, stride,
-                                      line->a, line->b, line->c,
-                                      flag & 2 ? -line->scale : line->scale);
-        else if (flag & 2)
-            rasterizer_fill_solid(rst, buf, width, height, stride);
-        rst->size[index] = offs;
+            return rasterizer_fill_halfplane(engine, quad, x_order, y_order,
+                                             line->a, line->b, line->c,
+                                             flag & 2 ? -line->scale : line->scale);
+        quad[0] = flag & 2 ? SOLID_TILE : NULL;
+        if (x_order > y_order)
+            quad[1] = quad[0];
         return 1;
     }
-    if (width == 1 << rst->tile_order && height == 1 << rst->tile_order) {
-        rst->fill_generic(buf, stride, line, rst->size[index] - offs, winding);
+    if (x_order == engine->tile_order && y_order == engine->tile_order) {
+        *quad = alloc_tile(engine);
+        if (!*quad)
+            return 0;
+
+        engine->fill_generic((int16_t *)*quad, line, rst->size[index] - offs, winding);
         rst->size[index] = offs;
         return 1;
     }
 
+    int horz = 1;
+    if (x_order <= y_order) {
+        horz = 0;
+        *quad = alloc_quad(engine, NULL);
+        if (!*quad)
+            return 0;
+        quad = (*quad)->child;
+    }
+    return rasterizer_split(engine, rst, quad, x_order, y_order,
+                            index, offs, winding, horz);
+}
+
+static int rasterizer_split(TileEngine *engine, RasterizerData *rst,
+                            Quad **quad, int x_order, int y_order,
+                            int index, size_t offs, int winding, int horz)
+{
+    size_t n = rst->size[index] - offs;
     size_t offs1 = rst->size[index ^ 1];
     if (!check_capacity(rst, index ^ 1, n))
         return 0;
-    struct segment *dst0 = line;
+
+    struct segment *dst0 = rst->linebuf[index ^ 0] + offs;
     struct segment *dst1 = rst->linebuf[index ^ 1] + offs1;
 
+    Quad **quad1 = quad;
     int winding1 = winding;
-    uint8_t *buf1 = buf;
-    int width1  = width;
-    int height1 = height;
-    if (width > height) {
-        width = 1 << ilog2(width - 1);
-        width1 -= width;
-        buf1 += width;
-        winding1 += polyline_split_horz(line, n, &dst0, &dst1, (int32_t)width << 6);
+    if (horz) {
+        --x_order;
+        ++quad1;
+        winding1 += polyline_split_horz(dst0, n, &dst0, &dst1, (int32_t)1 << (x_order + 6));
     } else {
-        height = 1 << ilog2(height - 1);
-        height1 -= height;
-        buf1 += height * stride;
-        winding1 += polyline_split_vert(line, n, &dst0, &dst1, (int32_t)height << 6);
+        --y_order;
+        quad1 += 2;
+        winding1 += polyline_split_vert(dst0, n, &dst0, &dst1, (int32_t)1 << (y_order + 6));
     }
     rst->size[index ^ 0] = dst0 - rst->linebuf[index ^ 0];
     rst->size[index ^ 1] = dst1 - rst->linebuf[index ^ 1];
 
-    if (!rasterizer_fill_level(rst, buf,  width,  height,  stride, index ^ 0, offs,  winding))
+    if (!rasterizer_fill_level(engine, rst, quad,  x_order, y_order, index ^ 0, offs,  winding))
         return 0;
     assert(rst->size[index ^ 0] == offs);
-    if (!rasterizer_fill_level(rst, buf1, width1, height1, stride, index ^ 1, offs1, winding1))
+    if (!rasterizer_fill_level(engine, rst, quad1, x_order, y_order, index ^ 1, offs1, winding1))
         return 0;
     assert(rst->size[index ^ 1] == offs1);
     return 1;
 }
 
-int rasterizer_fill(ASS_Rasterizer *rst,
-                    uint8_t *buf, int x0, int y0, int width, int height, ptrdiff_t stride)
+TileTree *rasterizer_fill(TileEngine *engine, RasterizerData *rst)
 {
-    assert(width > 0 && height > 0);
-    assert(!(width  & ((1 << rst->tile_order) - 1)));
-    assert(!(height & ((1 << rst->tile_order) - 1)));
-    x0 <<= 6;  y0 <<= 6;
+    rst->size[1] = 0;
+    if (!check_capacity(rst, 1, rst->size[0]))
+        return NULL;
+
+    TileTree *tree = alloc_tile_tree(engine, NULL);
+    if (!tree)
+        return NULL;
+
+    calc_tree_bounds(engine, tree,
+                     (rst->x_min -  1) >> 6, (rst->y_min -  1) >> 6,
+                     (rst->x_max + 64) >> 6, (rst->y_max + 64) >> 6);
+    assert(tree->size_order > engine->tile_order);
+    int32_t x0 = tree->x << 6, y0 = tree->y << 6;
 
     size_t n = rst->size[0];
     struct segment *line = rst->linebuf[0];
@@ -743,40 +787,23 @@ int rasterizer_fill(ASS_Rasterizer *rst,
     rst->y_min -= y0;
     rst->y_max -= y0;
 
-    int index = 0;
-    int winding = 0;
-    if (!check_capacity(rst, 1, rst->size[0]))
-        return 0;
-    int32_t size_x = (int32_t)width << 6;
-    int32_t size_y = (int32_t)height << 6;
-    if (rst->x_max >= size_x) {
-        struct segment *dst0 = rst->linebuf[index];
-        struct segment *dst1 = rst->linebuf[index ^ 1];
-        polyline_split_horz(rst->linebuf[index], n, &dst0, &dst1, size_x);
-        n = dst0 - rst->linebuf[index];
-    }
-    if (rst->y_max >= size_y) {
-        struct segment *dst0 = rst->linebuf[index];
-        struct segment *dst1 = rst->linebuf[index ^ 1];
-        polyline_split_vert(rst->linebuf[index], n, &dst0, &dst1, size_y);
-        n = dst0 - rst->linebuf[index];
-    }
-    if (rst->x_min <= 0) {
-        struct segment *dst0 = rst->linebuf[index];
-        struct segment *dst1 = rst->linebuf[index ^ 1];
-        polyline_split_horz(rst->linebuf[index], n, &dst0, &dst1, 0);
-        index ^= 1;
-        n = dst1 - rst->linebuf[index];
-    }
-    if (rst->y_min <= 0) {
-        struct segment *dst0 = rst->linebuf[index];
-        struct segment *dst1 = rst->linebuf[index ^ 1];
-        winding = polyline_split_vert(rst->linebuf[index], n, &dst0, &dst1, 0);
-        index ^= 1;
-        n = dst1 - rst->linebuf[index];
-    }
-    rst->size[index] = n;
-    rst->size[index ^ 1] = 0;
-    return rasterizer_fill_level(rst, buf, width, height, stride,
-                                 index, 0, winding);
+    int32_t size = (int32_t)1 << (tree->size_order + 5);
+    assert(rst->x_min > 0 && rst->x_max < 2 * size);
+    assert(rst->y_min > 0 && rst->y_max < 2 * size);
+
+    int x_order = tree->size_order;
+    if (rst->x_max < size)
+        --x_order;
+
+    int res;
+    if (rst->y_max >= size)
+        res = rasterizer_split(engine, rst, tree->quad.child,
+                               x_order, tree->size_order, 0, 0, 0, 0);
+    else
+        res = rasterizer_fill_level(engine, rst, tree->quad.child,
+                                    x_order, tree->size_order - 1, 0, 0, 0);
+    if (res)
+        return tree;
+    free_tile_tree(engine, tree);
+    return 0;
 }

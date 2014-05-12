@@ -17,29 +17,46 @@
  */
 
 #include "ass_utils.h"
+#include "ass_tile_func.h"
 #include "ass_rasterizer.h"
 #include <assert.h>
 
 
 
-void ass_fill_solid_tile16_c(uint8_t *buf, ptrdiff_t stride)
+void ass_finalize_solid_c(uint8_t *buf, ptrdiff_t stride, int size_order, int set)
 {
     int i, j;
-    int8_t value = 255;
-    for (j = 0; j < 16; ++j) {
-        for (i = 0; i < 16; ++i)
+    int size = 1 << size_order;
+    int8_t value = set ? 255 : 0;
+    for (j = 0; j < size; ++j) {
+        for (i = 0; i < size; ++i)
             buf[i] = value;
         buf += stride;
     }
 }
 
-void ass_fill_solid_tile32_c(uint8_t *buf, ptrdiff_t stride)
+void ass_finalize_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
+                                   const int16_t *src)
 {
     int i, j;
-    int8_t value = 255;
+    for (j = 0; j < 16; ++j) {
+        for (i = 0; i < 16; ++i) {
+            buf[i] = FFMIN(*src >> 6, 255);
+            ++src;
+        }
+        buf += stride;
+    }
+}
+
+void ass_finalize_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
+                                   const int16_t *src)
+{
+    int i, j;
     for (j = 0; j < 32; ++j) {
-        for (i = 0; i < 32; ++i)
-            buf[i] = value;
+        for (i = 0; i < 32; ++i) {
+            buf[i] = FFMIN(*src >> 6, 255);
+            ++src;
+        }
         buf += stride;
     }
 }
@@ -67,7 +84,7 @@ void ass_fill_solid_tile32_c(uint8_t *buf, ptrdiff_t stride)
  * where clamp(Z) = max(-0.5, min(0.5, Z)).
  */
 
-void ass_fill_halfplane_tile16_c(uint8_t *buf, ptrdiff_t stride,
+void ass_fill_halfplane_tile16_c(int16_t *buf,
                                  int32_t a, int32_t b, int64_t c, int32_t scale)
 {
     int16_t aa = (a * (int64_t)scale + ((int64_t)1 << 49)) >> 50;
@@ -93,14 +110,13 @@ void ass_fill_halfplane_tile16_c(uint8_t *buf, ptrdiff_t stride,
             int16_t c2 = cc - va2[i];
             c1 = FFMINMAX(c1, 0, full);
             c2 = FFMINMAX(c2, 0, full);
-            buf[i] = (c1 + c2) >> 3;
+            *buf++ = (c1 + c2) << 3;
         }
-        buf += stride;
         cc -= bb;
     }
 }
 
-void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
+void ass_fill_halfplane_tile32_c(int16_t *buf,
                                  int32_t a, int32_t b, int64_t c, int32_t scale)
 {
     int16_t aa = (a * (int64_t)scale + ((int64_t)1 << 50)) >> 51;
@@ -126,9 +142,8 @@ void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
             int16_t c2 = cc - va2[i];
             c1 = FFMINMAX(c1, 0, full);
             c2 = FFMINMAX(c2, 0, full);
-            buf[i] = (c1 + c2) >> 2;
+            *buf++ = (c1 + c2) << 4;
         }
-        buf += stride;
         cc -= bb;
     }
 }
@@ -144,7 +159,7 @@ void ass_fill_halfplane_tile32_c(uint8_t *buf, ptrdiff_t stride,
  */
 
 // Render top/bottom line of the trapezium with antialiasing
-static inline void update_border_line16(int16_t res[16],
+static inline void update_border_line16(int16_t buf[16],
                                         int16_t abs_a, const int16_t va[16],
                                         int16_t b, int16_t abs_b,
                                         int16_t c, int up, int dn)
@@ -168,19 +183,19 @@ static inline void update_border_line16(int16_t res[16],
         int16_t c2 = cw + offs2;
         c1 = FFMINMAX(c1, 0, size);
         c2 = FFMINMAX(c2, 0, size);
-        res[i] += c1 + c2;
+        buf[i] += c1 + c2;
     }
 }
 
-void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
+void ass_fill_generic_tile16_c(int16_t *buf,
                                const struct segment *line, size_t n_lines,
                                int winding)
 {
     int i, j;
-    int16_t res[16][16], delta[18];
+    int16_t delta[18];
     for (j = 0; j < 16; ++j)
         for (i = 0; i < 16; ++i)
-            res[j][i] = 0;
+            buf[16 * j + i] = 0;
     for (j = 0; j < 18; ++j)
         delta[j] = 0;
 
@@ -229,10 +244,10 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
 
         if (up_pos) {
             if (dn == up) {
-                update_border_line16(res[up], abs_a, va, b, abs_b, c, up_pos, dn_pos);
+                update_border_line16(buf + 16 * up, abs_a, va, b, abs_b, c, up_pos, dn_pos);
                 continue;
             }
-            update_border_line16(res[up], abs_a, va, b, abs_b, c, up_pos, 64);
+            update_border_line16(buf + 16 * up, abs_a, va, b, abs_b, c, up_pos, 64);
             up++;
             c -= b;
         }
@@ -242,28 +257,27 @@ void ass_fill_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,
                 int16_t c2 = c - va[i] + dc2;
                 c1 = FFMINMAX(c1, 0, full);
                 c2 = FFMINMAX(c2, 0, full);
-                res[j][i] += (c1 + c2) >> 3;
+                buf[16 * j + i] += (c1 + c2) >> 3;
             }
             c -= b;
         }
         if (dn_pos)
-            update_border_line16(res[dn], abs_a, va, b, abs_b, c, 0, dn_pos);
+            update_border_line16(buf + 16 * dn, abs_a, va, b, abs_b, c, 0, dn_pos);
     }
 
     int16_t cur = winding << 8;
     for (j = 0; j < 16; ++j) {
         cur += delta[j];
         for (i = 0; i < 16; ++i) {
-            int16_t val = res[j][i] + cur, neg_val = -val;
+            int16_t val = buf[16 * j + i] + cur, neg_val = -val;
             val = (val > neg_val ? val : neg_val);
-            buf[i] = FFMIN(val, 255);
+            buf[16 * j + i] = FFMIN(val, 256) << 6;
         }
-        buf += stride;
     }
 }
 
 // Render top/bottom line of the trapezium with antialiasing
-static inline void update_border_line32(int16_t res[32],
+static inline void update_border_line32(int16_t buf[32],
                                         int16_t abs_a, const int16_t va[32],
                                         int16_t b, int16_t abs_b,
                                         int16_t c, int up, int dn)
@@ -287,19 +301,19 @@ static inline void update_border_line32(int16_t res[32],
         int16_t c2 = cw + offs2;
         c1 = FFMINMAX(c1, 0, size);
         c2 = FFMINMAX(c2, 0, size);
-        res[i] += c1 + c2;
+        buf[i] += c1 + c2;
     }
 }
 
-void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
+void ass_fill_generic_tile32_c(int16_t *buf,
                                const struct segment *line, size_t n_lines,
                                int winding)
 {
     int i, j;
-    int16_t res[32][32], delta[34];
+    int16_t delta[34];
     for (j = 0; j < 32; ++j)
         for (i = 0; i < 32; ++i)
-            res[j][i] = 0;
+            buf[32 * j + i] = 0;
     for (j = 0; j < 34; ++j)
         delta[j] = 0;
 
@@ -348,10 +362,10 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
 
         if (up_pos) {
             if (dn == up) {
-                update_border_line32(res[up], abs_a, va, b, abs_b, c, up_pos, dn_pos);
+                update_border_line32(buf + 32 * up, abs_a, va, b, abs_b, c, up_pos, dn_pos);
                 continue;
             }
-            update_border_line32(res[up], abs_a, va, b, abs_b, c, up_pos, 64);
+            update_border_line32(buf + 32 * up, abs_a, va, b, abs_b, c, up_pos, 64);
             up++;
             c -= b;
         }
@@ -361,22 +375,52 @@ void ass_fill_generic_tile32_c(uint8_t *buf, ptrdiff_t stride,
                 int16_t c2 = c - va[i] + dc2;
                 c1 = FFMINMAX(c1, 0, full);
                 c2 = FFMINMAX(c2, 0, full);
-                res[j][i] += (c1 + c2) >> 2;
+                buf[32 * j + i] += (c1 + c2) >> 2;
             }
             c -= b;
         }
         if (dn_pos)
-            update_border_line32(res[dn], abs_a, va, b, abs_b, c, 0, dn_pos);
+            update_border_line32(buf + 32 * dn, abs_a, va, b, abs_b, c, 0, dn_pos);
     }
 
     int16_t cur = winding << 8;
     for (j = 0; j < 32; ++j) {
         cur += delta[j];
         for (i = 0; i < 32; ++i) {
-            int16_t val = res[j][i] + cur, neg_val = -val;
+            int16_t val = buf[32 * j + i] + cur, neg_val = -val;
             val = (val > neg_val ? val : neg_val);
-            buf[i] = FFMIN(val, 255);
+            buf[32 * j + i] = FFMIN(val, 256) << 6;
         }
-        buf += stride;
     }
+}
+
+
+int ass_mul_tile16_c(int16_t *dst,
+                     const int16_t *src1, const int16_t *src2)
+{
+    int k;
+    int16_t flag = 0;
+    for (k = 0; k < 16 * 16; k++)
+        flag |= dst[k] = src1[k] * src2[k] >> 14;
+    return flag != 0;
+}
+
+int ass_add_tile16_c(int16_t *dst,
+                     const int16_t *src1, const int16_t *src2)
+{
+    int k;
+    int16_t flag = -1;
+    for (k = 0; k < 16 * 16; k++)
+        flag &= dst[k] = FFMIN(1 << 14, src1[k] + src2[k]);
+    return flag != -1;
+}
+
+int ass_sub_tile16_c(int16_t *dst,
+                     const int16_t *src1, const int16_t *src2)
+{
+    int k;
+    int16_t flag = 0;
+    for (k = 0; k < 16 * 16; k++)
+        flag |= dst[k] = FFMAX(0, src1[k] - src2[k]);
+    return flag != 0;
 }

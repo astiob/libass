@@ -163,8 +163,9 @@ Bitmap *copy_bitmap(const Bitmap *src)
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           FT_Outline *outline, int bord)
 {
-    ASS_Rasterizer *rst = &render_priv->rasterizer;
-    if (!rasterizer_set_outline(rst, outline)) {
+    TileEngine *engine = &render_priv->tile_engine;
+    RasterizerData *rst = &render_priv->rasterizer;
+    if (!rasterizer_set_outline(engine, rst, outline)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return NULL;
     }
@@ -175,39 +176,28 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return bm;
     }
 
-    int x_min = rst->x_min >> 6;
-    int y_min = rst->y_min >> 6;
-    int x_max = (rst->x_max + 63) >> 6;
-    int y_max = (rst->y_max + 63) >> 6;
-    int w = x_max - x_min;
-    int h = y_max - y_min;
-
+    rst->x_min -= bord << 6;
+    rst->y_min -= bord << 6;
+    rst->x_max += bord << 6;
+    rst->y_max += bord << 6;
+    int w = (rst->x_max - rst->x_min) >> 6;
+    int h = (rst->y_max - rst->y_min) >> 6;
     if (w * h > 8000000) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                 w, h);
         return NULL;
     }
 
-    int mask = (1 << rst->tile_order) - 1;
-    int tile_w = (w + 2 * bord + mask) & ~mask;
-    int tile_h = (h + 2 * bord + mask) & ~mask;
-    Bitmap *bm = alloc_bitmap(tile_w, tile_h);
-    bm->left = x_min - bord;
-    bm->top =  y_min - bord;
-
-    int offs = bord & ~mask;
-    if (!rasterizer_fill(rst,
-            bm->buffer + offs * (bm->stride + 1),
-            x_min - bord + offs,
-            y_min - bord + offs,
-            ((w + bord + mask) & ~mask) - offs,
-            ((h + bord + mask) & ~mask) - offs,
-            bm->stride)) {
+    TileTree *tree = rasterizer_fill(engine, rst);
+    if (!tree) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
-        ass_free_bitmap(bm);
         return NULL;
     }
 
+    Bitmap *bm = alloc_bitmap(1 << tree->size_order, 1 << tree->size_order);
+    finalize_quad(engine, bm->buffer, bm->stride, &tree->quad, tree->size_order);
+    bm->left = tree->x;
+    bm->top =  tree->y;
     return bm;
 }
 
