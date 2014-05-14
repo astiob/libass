@@ -78,6 +78,11 @@ typedef struct {
 } TileEngine;
 
 
+void prepare_solid_tiles(void);  // XXX: do static filling
+extern const TileEngine ass_engine_tile16_c;
+extern const TileEngine ass_engine_tile32_c;
+
+
 void *alloc_tile(const TileEngine *engine);
 const void *copy_tile(const TileEngine *engine, const void *tile);
 void free_tile(const TileEngine *engine, const void *tile);

@@ -42,7 +42,6 @@ typedef struct ass_shaper ASS_Shaper;
 #include "ass_library.h"
 #include "ass_drawing.h"
 #include "ass_bitmap.h"
-#include "ass_tile_func.h"
 #include "ass_rasterizer.h"
 
 #define GLYPH_CACHE_MAX 10000
@@ -355,7 +354,7 @@ struct ass_renderer {
     CacheStore cache;
 
 #if CONFIG_RASTERIZER
-    TileEngine tile_engine;
+    const TileEngine *tile_engine;
     RasterizerData rasterizer;
 #endif
     BitmapBlendFunc add_bitmaps_func;

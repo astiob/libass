@@ -94,43 +94,19 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
 #if CONFIG_RASTERIZER
     prepare_solid_tiles();
-    priv->tile_engine.solid_tile[0] = empty_tile;
-    priv->tile_engine.solid_tile[1] = solid_tile;
 #if CONFIG_LARGE_TILES
-    priv->tile_engine.tile_order = 5;
     #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM && 0
-        priv->tile_engine.fill_solid = avx2 ? ass_fill_solid_tile32_avx2 :
-            (sse2 ? ass_fill_solid_tile32_sse2 : ass_fill_solid_tile32_c);
-        priv->tile_engine.fill_halfplane = avx2 ? ass_fill_halfplane_tile32_avx2 :
-            (sse2 ? ass_fill_halfplane_tile32_sse2 : ass_fill_halfplane_tile32_c);
-        priv->tile_engine.fill_generic = avx2 ? ass_fill_generic_tile32_avx2 :
-            (sse2 ? ass_fill_generic_tile32_sse2 : ass_fill_generic_tile32_c);
+        priv->tile_engine = avx2 ? &ass_engine_tile32_avx2 :
+            (sse2 ? &ass_engine_tile32_sse2 : &ass_engine_tile32_c);
     #else
-        priv->tile_engine.finalize_solid = ass_finalize_solid_c;
-        priv->tile_engine.finalize_generic = ass_finalize_generic_tile32_c;
-        priv->tile_engine.fill_halfplane = ass_fill_halfplane_tile32_c;
-        priv->tile_engine.fill_generic = ass_fill_generic_tile32_c;
-        priv->tile_engine.tile_combine[COMBINE_MUL] = 0;
-        priv->tile_engine.tile_combine[COMBINE_ADD] = 0;
-        priv->tile_engine.tile_combine[COMBINE_SUB] = 0;
+        priv->tile_engine = &ass_engine_tile32_c;
     #endif
 #else
-    priv->tile_engine.tile_order = 4;
     #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM && 0
-        priv->tile_engine.fill_solid = avx2 ? ass_fill_solid_tile16_avx2 :
-            (sse2 ? ass_fill_solid_tile16_sse2 : ass_fill_solid_tile16_c);
-        priv->tile_engine.fill_halfplane = avx2 ? ass_fill_halfplane_tile16_avx2 :
-            (sse2 ? ass_fill_halfplane_tile16_sse2 : ass_fill_halfplane_tile16_c);
-        priv->tile_engine.fill_generic = avx2 ? ass_fill_generic_tile16_avx2 :
-            (sse2 ? ass_fill_generic_tile16_sse2 : ass_fill_generic_tile16_c);
+        priv->tile_engine = avx2 ? &ass_engine_tile16_avx2 :
+            (sse2 ? &ass_engine_tile16_sse2 : &ass_engine_tile16_c);
     #else
-        priv->tile_engine.finalize_solid = ass_finalize_solid_c;
-        priv->tile_engine.finalize_generic = ass_finalize_generic_tile16_c;
-        priv->tile_engine.fill_halfplane = ass_fill_halfplane_tile16_c;
-        priv->tile_engine.fill_generic = ass_fill_generic_tile16_c;
-        priv->tile_engine.tile_combine[COMBINE_MUL] = ass_mul_tile16_c;
-        priv->tile_engine.tile_combine[COMBINE_ADD] = ass_add_tile16_c;
-        priv->tile_engine.tile_combine[COMBINE_SUB] = ass_sub_tile16_c;
+        priv->tile_engine = &ass_engine_tile16_c;
     #endif
 #endif
     rasterizer_init(&priv->rasterizer, 16);

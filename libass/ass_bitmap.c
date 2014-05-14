@@ -187,7 +187,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
     }
 
-    TileEngine *engine = &render_priv->tile_engine;
+    const TileEngine *engine = render_priv->tile_engine;
     TileTree *tree = rasterizer_fill(engine, rst);
     if (!tree) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");

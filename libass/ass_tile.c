@@ -95,7 +95,7 @@ static inline int is_trivial_quad(const Quad *quad)
 void *alloc_tile(const TileEngine *engine)
 {
     const int size = 2 << (2 * engine->tile_order);
-    void *res = ass_aligned_alloc(32, size + REFCOUNT_SIZE);
+    void *res = ass_aligned_alloc(engine->tile_alignment, size + REFCOUNT_SIZE);
     if (res)
         init_ref_count(res, size);
     return res;
