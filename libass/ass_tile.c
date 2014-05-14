@@ -482,8 +482,8 @@ static const Quad *combine_quad(const TileEngine *engine,
     switch (flags)
     {
         case 0: return quad;
-        case SRC1_FLAG: res = src1; break;
-        case SRC2_FLAG: res = src2; break;
+        case SRC1_FLAG: res = copy_quad(engine, src1, size_order); break;
+        case SRC2_FLAG: res = copy_quad(engine, src2, size_order); break;
         case EMPTY_FLAG: res = EMPTY_QUAD; break;
         case SOLID_FLAG: res = SOLID_QUAD; break;
         default: assert(flags == ERROR_FLAG); res = INVALID_QUAD;
