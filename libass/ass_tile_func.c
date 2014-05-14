@@ -26,8 +26,7 @@ int16_t empty_tile[32 * 32], solid_tile[32 * 32];
 
 void prepare_solid_tiles()
 {
-    int k;
-    for (k = 0; k < 32 * 32; k++) {
+    for (int k = 0; k < 32 * 32; k++) {
         empty_tile[k] = 0;
         solid_tile[k] = 1 << 14;
     }
@@ -35,11 +34,10 @@ void prepare_solid_tiles()
 
 void ass_finalize_solid_c(uint8_t *buf, ptrdiff_t stride, int size_order, int set)
 {
-    int i, j;
     int size = 1 << size_order;
     int8_t value = set ? 255 : 0;
-    for (j = 0; j < size; ++j) {
-        for (i = 0; i < size; ++i)
+    for (int j = 0; j < size; ++j) {
+        for (int i = 0; i < size; ++i)
             buf[i] = value;
         buf += stride;
     }

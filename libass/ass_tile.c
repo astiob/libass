@@ -124,8 +124,7 @@ Quad *alloc_quad(const TileEngine *engine, const Quad *fill)
         return NULL;
     init_ref_count(res, sizeof(Quad));
 
-    int i;
-    for (i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         res->child[i] = fill;
     return res;
 }
@@ -159,8 +158,7 @@ void free_quad(const TileEngine *engine, const Quad *quad, int size_order)
     if (dec_ref_count(quad, sizeof(Quad)))
         return;
 
-    int i;
-    for (i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         free_quad(engine, quad->child[i], size_order - 1);
     free((void *)quad);
 }
@@ -176,8 +174,7 @@ TileTree *alloc_tile_tree(const TileEngine *engine, const Quad *fill)
     res->size_order = -1;
     res->outside = fill;
 
-    int i;
-    for (i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         res->quad.child[i] = fill;
     return res;
 }
@@ -195,9 +192,7 @@ TileTree *copy_tile_tree(const TileEngine *engine, const TileTree *src)
         return res;
 
     assert(src->size_order > engine->tile_order);
-
-    int i;
-    for (i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         res->quad.child[i] = copy_quad(engine, src->quad.child[i], src->size_order - 1);
     return res;
 }
@@ -206,9 +201,7 @@ void free_tile_tree(const TileEngine *engine, TileTree *tree)
 {
     if (tree->size_order >= 0) {
         assert(tree->size_order > engine->tile_order);
-
-        int i;
-        for (i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i)
             free_quad(engine, tree->quad.child[i], tree->size_order - 1);
     }
     free(tree);
@@ -238,8 +231,7 @@ void finalize_quad(const TileEngine *engine, uint8_t *buf, ptrdiff_t stride,
         buf + offset * stride,
         buf + offset * stride + offset
     };
-    int i;
-    for (i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         finalize_quad(engine, next[i], stride, quad->child[i], size_order);
 }
 
@@ -369,7 +361,6 @@ static inline int tree_union(const TileEngine *engine, TileTree *dst,
 static int crop_tree(const TileEngine *engine, TileTree *dst,
                      const TileTree *src, int op_flags)
 {
-    int i;
     TileTree old = *dst;
     if (src->outside == trivial_quad(op_flags & 2)) {
         if (dst->outside != trivial_quad(op_flags & 1)) {
@@ -380,7 +371,7 @@ static int crop_tree(const TileEngine *engine, TileTree *dst,
         } else if (!tree_cross(engine, dst, dst, src)) {
             if (old.size_order < 0)
                 return 1;
-            for (i = 0; i < 4; ++i) {
+            for (int i = 0; i < 4; ++i) {
                 free_quad(engine, old.quad.child[i], old.size_order - 1);
                 dst->quad.child[i] = dst->outside;
             }
@@ -395,12 +386,12 @@ static int crop_tree(const TileEngine *engine, TileTree *dst,
     if (old.size_order < 0 || (dst->x == old.x && dst->y == old.y && dst->size_order == old.size_order))
         return 1;
 
-    for (i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         dst->quad.child[i] = dst->outside;
 
     int res = 1;
     if (old.size_order <= dst->size_order) {
-        for (i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i) {
             if (old.quad.child[i] == dst->outside)
                 continue;
             int delta_x = old.x - dst->x + (((i >> 0) & 1) << (old.size_order - 1));
@@ -416,14 +407,14 @@ static int crop_tree(const TileEngine *engine, TileTree *dst,
             old.quad.child[i] = EMPTY_QUAD;
         }
     } else {
-        for (i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i) {
             int delta_x = dst->x - old.x + (((i >> 0) & 1) << (dst->size_order - 1));
             int delta_y = dst->y - old.y + (((i >> 1) & 1) << (dst->size_order - 1));
             dst->quad.child[i] = (delta_x | delta_y) >> old.size_order ? dst->outside :
                 extract_sub_quad(engine, &old.quad, dst->size_order - 1, old.size_order, delta_x, delta_y);
         }
     }
-    for (i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         free_quad(engine, old.quad.child[i], old.size_order - 1);
     return res;
 }
@@ -470,8 +461,8 @@ static const Quad *combine_quad(const TileEngine *engine,
         ERROR_FLAG = -1
     };
 
-    int i, flags = SRC1_FLAG | SRC2_FLAG | EMPTY_FLAG | SOLID_FLAG;
-    for (i = 0; i < 4; ++i) {
+    int flags = SRC1_FLAG | SRC2_FLAG | EMPTY_FLAG | SOLID_FLAG;
+    for (int i = 0; i < 4; ++i) {
         quad->child[i] = combine_quad(engine, src1->child[i], src2->child[i],
                                       size_order - 1, tile_func, op_flags);
         if (quad->child[i] != src1->child[i])
@@ -537,8 +528,8 @@ static const Quad *combine_small_quad(const TileEngine *engine, const Quad *src1
     if (quad == dominant_quad && src1 != trivial_quad(~op_flags & 1)) {
         if (src1 == dominant_quad)
             return dominant_quad;
-        int i, empty = 1;
-        for (i = 0; i < 4; ++i)
+        int empty = 1;
+        for (int i = 0; i < 4; ++i)
             if (i != index && src1->child[i] == dominant_quad)
                 empty = 0;
         if (empty)
@@ -556,8 +547,7 @@ static const Quad *combine_small_quad(const TileEngine *engine, const Quad *src1
     Quad *res = alloc_quad(engine, INVALID_QUAD);
     if (!res)
         return INVALID_QUAD;
-    int i;
-    for (i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         res->child[i] = (i == index ? quad :
             copy_quad(engine, src1->child[i], src1_order));
     return res;
@@ -608,9 +598,8 @@ int combine_tile_tree(const TileEngine *engine, TileTree *dst, const TileTree *s
     if (dst->size_order < 0 || src->size_order < 0)
         return 1;
 
-    int i;
     if (src->size_order < dst->size_order) {
-        for (i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i) {
             if (src->quad.child[i] == trivial_quad(~op_flags[op] & 2))
                 continue;
             int delta_x = src->x - dst->x + (((i >> 0) & 1) << (src->size_order - 1));
@@ -628,7 +617,7 @@ int combine_tile_tree(const TileEngine *engine, TileTree *dst, const TileTree *s
             dst->quad.child[index] = quad;
         }
     } else {
-        for (i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i) {
             if (dst->quad.child[i] == trivial_quad(op_flags[op] & 1))
                 continue;
             int delta_x = dst->x - src->x + (((i >> 0) & 1) << (dst->size_order - 1));

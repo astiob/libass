@@ -239,9 +239,9 @@ int rasterizer_set_outline(RasterizerData *rst, const FT_Outline *path)
         S_ON, S_Q, S_C1, S_C2
     };
 
-    int i, j = 0;
+    int j = 0;
     rst->size[0] = 0;
-    for (i = 0; i < path->n_contours; ++i) {
+    for (int i = 0; i < path->n_contours; ++i) {
         OutlinePoint start, p[4];
         int process_end = 1;
         enum Status st;
@@ -388,10 +388,9 @@ int rasterizer_set_outline(RasterizerData *rst, const FT_Outline *path)
             }
     }
 
-    size_t k;
     rst->x_min = rst->y_min = 0x7FFFFFFF;
     rst->x_max = rst->y_max = 0x80000000;
-    for (k = 0; k < rst->size[0]; ++k) {
+    for (size_t k = 0; k < rst->size[0]; ++k) {
         rst->x_min = FFMIN(rst->x_min, rst->linebuf[0][k].x_min);
         rst->x_max = FFMAX(rst->x_max, rst->linebuf[0][k].x_max);
         rst->y_min = FFMIN(rst->y_min, rst->linebuf[0][k].y_min);

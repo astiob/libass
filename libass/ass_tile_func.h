@@ -21,9 +21,8 @@
 void DECORATE(finalize_generic_tile)(uint8_t *buf, ptrdiff_t stride,
                                      const int16_t *src)
 {
-    int i, j;
-    for (j = 0; j < TILE_SIZE; ++j) {
-        for (i = 0; i < TILE_SIZE; ++i) {
+    for (int j = 0; j < TILE_SIZE; ++j) {
+        for (int i = 0; i < TILE_SIZE; ++i) {
             buf[i] = FFMIN(*src >> 6, 255);
             ++src;
         }
@@ -67,16 +66,15 @@ void DECORATE(fill_halfplane_tile)(int16_t *buf,
     int16_t abs_b = bb < 0 ? -bb : bb;
     int16_t delta = (FFMIN(abs_a, abs_b) + 2) >> 2;
 
-    int i, j;
     int16_t va1[TILE_SIZE], va2[TILE_SIZE];
-    for (i = 0; i < TILE_SIZE; ++i) {
+    for (int i = 0; i < TILE_SIZE; ++i) {
         va1[i] = aa * i - delta;
         va2[i] = aa * i + delta;
     }
 
     static const int16_t full = (1 << (14 - TILE_ORDER)) - 1;
-    for (j = 0; j < TILE_SIZE; ++j) {
-        for (i = 0; i < TILE_SIZE; ++i) {
+    for (int j = 0; j < TILE_SIZE; ++j) {
+        for (int i = 0; i < TILE_SIZE; ++i) {
             int16_t c1 = cc - va1[i];
             int16_t c2 = cc - va2[i];
             c1 = FFMINMAX(c1, 0, full);
@@ -114,9 +112,8 @@ static inline void DECORATE(update_border_line)(int16_t buf[],
     int16_t offs1 = size - ((base + dc) * (int32_t)w >> 16);
     int16_t offs2 = size - ((base - dc) * (int32_t)w >> 16);
 
-    int i;
     size <<= 1;
-    for (i = 0; i < TILE_SIZE; ++i) {
+    for (int i = 0; i < TILE_SIZE; ++i) {
         int16_t cw = (c - va[i]) * (int32_t)w >> 16;
         int16_t c1 = cw + offs1;
         int16_t c2 = cw + offs2;
@@ -130,11 +127,10 @@ void DECORATE(fill_generic_tile)(int16_t *buf,
                                  const struct segment *line, size_t n_lines,
                                  int winding)
 {
-    int i, j;
     int16_t delta[TILE_SIZE + 2];
-    for (i = 0; i < TILE_SIZE * TILE_SIZE; ++i)
-        buf[i] = 0;
-    for (j = 0; j < TILE_SIZE + 2; ++j)
+    for (int k = 0; k < TILE_SIZE * TILE_SIZE; ++k)
+        buf[k] = 0;
+    for (int j = 0; j < TILE_SIZE + 2; ++j)
         delta[j] = 0;
 
     const int16_t full = 1 << (14 - TILE_ORDER);
@@ -172,7 +168,7 @@ void DECORATE(fill_generic_tile)(int16_t *buf,
         c -= (a >> 1) + b * up;
 
         int16_t va[TILE_SIZE];
-        for (i = 0; i < TILE_SIZE; ++i)
+        for (int i = 0; i < TILE_SIZE; ++i)
             va[i] = a * i;
         int16_t abs_a = a < 0 ? -a : a;
         int16_t abs_b = b < 0 ? -b : b;
@@ -190,8 +186,8 @@ void DECORATE(fill_generic_tile)(int16_t *buf,
             up++;
             c -= b;
         }
-        for (j = up; j < dn; ++j) {
-            for (i = 0; i < TILE_SIZE; ++i) {
+        for (int j = up; j < dn; ++j) {
+            for (int i = 0; i < TILE_SIZE; ++i) {
                 int16_t c1 = c - va[i] + dc1;
                 int16_t c2 = c - va[i] + dc2;
                 c1 = FFMINMAX(c1, 0, full);
@@ -205,9 +201,9 @@ void DECORATE(fill_generic_tile)(int16_t *buf,
     }
 
     int16_t cur = winding << 8;
-    for (j = 0; j < TILE_SIZE; ++j) {
+    for (int j = 0; j < TILE_SIZE; ++j) {
         cur += delta[j];
-        for (i = 0; i < TILE_SIZE; ++i) {
+        for (int i = 0; i < TILE_SIZE; ++i) {
             int16_t val = buf[TILE_SIZE * j + i] + cur, neg_val = -val;
             val = (val > neg_val ? val : neg_val);
             buf[TILE_SIZE * j + i] = FFMIN(val, 256) << 6;
@@ -219,9 +215,8 @@ void DECORATE(fill_generic_tile)(int16_t *buf,
 int DECORATE(mul_tile)(int16_t *dst,
                        const int16_t *src1, const int16_t *src2)
 {
-    int k;
     int16_t flag = 0;
-    for (k = 0; k < TILE_SIZE * TILE_SIZE; k++)
+    for (int k = 0; k < TILE_SIZE * TILE_SIZE; k++)
         flag |= dst[k] = src1[k] * src2[k] >> 14;
     return flag != 0;
 }
@@ -229,9 +224,8 @@ int DECORATE(mul_tile)(int16_t *dst,
 int DECORATE(add_tile)(int16_t *dst,
                        const int16_t *src1, const int16_t *src2)
 {
-    int k;
     int16_t flag = -1;
-    for (k = 0; k < TILE_SIZE * TILE_SIZE; k++)
+    for (int k = 0; k < TILE_SIZE * TILE_SIZE; k++)
         flag &= dst[k] = FFMIN(1 << 14, src1[k] + src2[k]);
     return flag != -1;
 }
@@ -239,9 +233,8 @@ int DECORATE(add_tile)(int16_t *dst,
 int DECORATE(sub_tile)(int16_t *dst,
                        const int16_t *src1, const int16_t *src2)
 {
-    int k;
     int16_t flag = 0;
-    for (k = 0; k < TILE_SIZE * TILE_SIZE; k++)
+    for (int k = 0; k < TILE_SIZE * TILE_SIZE; k++)
         flag |= dst[k] = FFMAX(0, src1[k] - src2[k]);
     return flag != 0;
 }
