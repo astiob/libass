@@ -22,6 +22,11 @@
 #include "ass_tile.h"
 
 
+extern int16_t empty_tile[32 * 32], solid_tile[32 * 32];
+
+void prepare_solid_tiles(void);  // XXX: do static filling
+
+
 void ass_finalize_solid_c(uint8_t *buf, ptrdiff_t stride,
                           int size_order, int set);
 void ass_finalize_generic_tile16_c(uint8_t *buf, ptrdiff_t stride,

@@ -47,8 +47,9 @@ static inline int ilog2(uint32_t n)  // XXX: to utils
 }
 
 
-void rasterizer_init(RasterizerData *rst)
+void rasterizer_init(RasterizerData *rst, int outline_error)
 {
+    rst->outline_error = outline_error;
     rst->linebuf[0] = rst->linebuf[1] = NULL;
     rst->size[0] = rst->capacity[0] = 0;
     rst->size[1] = rst->capacity[1] = 0;
@@ -171,11 +172,11 @@ static inline int add_line(RasterizerData *rst, OutlinePoint pt0, OutlinePoint p
  * \brief Add quadratic spline to polyline
  * Preforms recursive subdivision if necessary.
  */
-static int add_quadratic(TileEngine *engine, RasterizerData *rst,
+static int add_quadratic(RasterizerData *rst,
                          OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2)
 {
     OutlineSegment seg;
-    segment_init(&seg, pt0, pt2, engine->outline_error);
+    segment_init(&seg, pt0, pt2, rst->outline_error);
     if (!segment_subdivide(&seg, pt0, pt1))
         return add_line(rst, pt0, pt2);
 
@@ -190,19 +191,19 @@ static int add_quadratic(TileEngine *engine, RasterizerData *rst,
     p01.y >>= 1;
     p12.x >>= 1;
     p12.y >>= 1;
-    return add_quadratic(engine, rst, pt0, p01, c) &&
-           add_quadratic(engine, rst, c, p12, pt2);
+    return add_quadratic(rst, pt0, p01, c) &&
+           add_quadratic(rst, c, p12, pt2);
 }
 
 /**
  * \brief Add cubic spline to polyline
  * Preforms recursive subdivision if necessary.
  */
-static int add_cubic(TileEngine *engine, RasterizerData *rst,
+static int add_cubic(RasterizerData *rst,
                      OutlinePoint pt0, OutlinePoint pt1, OutlinePoint pt2, OutlinePoint pt3)
 {
     OutlineSegment seg;
-    segment_init(&seg, pt0, pt3, engine->outline_error);
+    segment_init(&seg, pt0, pt3, rst->outline_error);
     if (!segment_subdivide(&seg, pt0, pt1) && !segment_subdivide(&seg, pt0, pt2))
         return add_line(rst, pt0, pt3);
 
@@ -227,12 +228,12 @@ static int add_cubic(TileEngine *engine, RasterizerData *rst,
     p123.y >>= 2;
     p23.x >>= 1;
     p23.y >>= 1;
-    return add_cubic(engine, rst, pt0, p01, p012, c) &&
-           add_cubic(engine, rst, c, p123, p23, pt3);
+    return add_cubic(rst, pt0, p01, p012, c) &&
+           add_cubic(rst, c, p123, p23, pt3);
 }
 
 
-int rasterizer_set_outline(TileEngine *engine, RasterizerData *rst, const FT_Outline *path)
+int rasterizer_set_outline(RasterizerData *rst, const FT_Outline *path)
 {
     enum Status {
         S_ON, S_Q, S_C1, S_C2
@@ -298,7 +299,7 @@ int rasterizer_set_outline(TileEngine *engine, RasterizerData *rst, const FT_Out
                 case S_Q:
                     p[2].x =  path->points[j].x;
                     p[2].y = -path->points[j].y;
-                    if (!add_quadratic(engine, rst, p[0], p[1], p[2]))
+                    if (!add_quadratic(rst, p[0], p[1], p[2]))
                         return 0;
                     p[0] = p[2];
                     st = S_ON;
@@ -307,7 +308,7 @@ int rasterizer_set_outline(TileEngine *engine, RasterizerData *rst, const FT_Out
                 case S_C2:
                     p[3].x =  path->points[j].x;
                     p[3].y = -path->points[j].y;
-                    if (!add_cubic(engine, rst, p[0], p[1], p[2], p[3]))
+                    if (!add_cubic(rst, p[0], p[1], p[2], p[3]))
                         return 0;
                     p[0] = p[3];
                     st = S_ON;
@@ -331,7 +332,7 @@ int rasterizer_set_outline(TileEngine *engine, RasterizerData *rst, const FT_Out
                     p[3].y = -path->points[j].y;
                     p[2].x = (p[1].x + p[3].x) >> 1;
                     p[2].y = (p[1].y + p[3].y) >> 1;
-                    if (!add_quadratic(engine, rst, p[0], p[1], p[2]))
+                    if (!add_quadratic(rst, p[0], p[1], p[2]))
                         return 0;
                     p[0] = p[2];
                     p[1] = p[3];
@@ -373,12 +374,12 @@ int rasterizer_set_outline(TileEngine *engine, RasterizerData *rst, const FT_Out
                 break;
 
             case S_Q:
-                if (!add_quadratic(engine, rst, p[0], p[1], start))
+                if (!add_quadratic(rst, p[0], p[1], start))
                     return 0;
                 break;
 
             case S_C2:
-                if (!add_cubic(engine, rst, p[0], p[1], p[2], start))
+                if (!add_cubic(rst, p[0], p[1], p[2], start))
                     return 0;
                 break;
 
@@ -590,8 +591,8 @@ static int polyline_split_vert(const struct segment *src, size_t n_src,
 }
 
 
-static inline int rasterizer_fill_halfplane(TileEngine *engine,
-                                            Quad **quad, int x_order, int y_order,
+static inline int rasterizer_fill_halfplane(const TileEngine *engine,
+                                            const Quad **quad, int x_order, int y_order,
                                             int32_t a, int32_t b, int64_t c, int32_t scale)
 {
     assert(y_order >= engine->tile_order);
@@ -613,21 +614,22 @@ static inline int rasterizer_fill_halfplane(TileEngine *engine,
         flag[(a ^ b) < 0 ? 1 : 0] = (c1 - ((int64_t)b << (y_order + 6))) >> 32;
 
         if ((flag[0] ^ a) >= 0)
-            quad[0] = (flag[0] ^ scale) < 0 ? NULL : SOLID_TILE;
+            quad[0] = (flag[0] ^ scale) < 0 ? EMPTY_QUAD : SOLID_QUAD;
         else if (!rasterizer_fill_halfplane(engine, quad + 0, x_order, y_order,
                                             a, b, c,  scale))
             return 0;
 
         if ((flag[1] ^ a) < 0)
-            quad[1] = (flag[1] ^ scale) < 0 ? NULL : SOLID_TILE;
+            quad[1] = (flag[1] ^ scale) < 0 ? EMPTY_QUAD : SOLID_QUAD;
         else if (!rasterizer_fill_halfplane(engine, quad + 1, x_order, y_order,
                                             a, b, c1, scale))
             return 0;
     } else {
-        *quad = alloc_quad(engine, NULL);
-        if (!*quad)
+        Quad *next = alloc_quad(engine, EMPTY_QUAD);
+        if (!next)
             return 0;
-        quad = (*quad)->child;
+        *quad = next;
+        quad = next->child;
 
         --y_order;
         int64_t c1 = c - ((int64_t)b << (y_order + 6));
@@ -636,13 +638,13 @@ static inline int rasterizer_fill_halfplane(TileEngine *engine,
         flag[(a ^ b) < 0 ? 1 : 0] = (c1 - ((int64_t)a << (x_order + 6))) >> 32;
 
         if ((flag[0] ^ b) >= 0)
-            quad[0] = quad[1] = (flag[0] ^ scale) < 0 ? NULL : SOLID_TILE;
+            quad[0] = quad[1] = (flag[0] ^ scale) < 0 ? EMPTY_QUAD : SOLID_QUAD;
         else if (!rasterizer_fill_halfplane(engine, quad + 0, x_order, y_order,
                                             a, b, c,  scale))
             return 0;
 
         if ((flag[1] ^ b) < 0)
-            quad[2] = quad[3] = (flag[1] ^ scale) < 0 ? NULL : SOLID_TILE;
+            quad[2] = quad[3] = (flag[1] ^ scale) < 0 ? EMPTY_QUAD : SOLID_QUAD;
         else if (!rasterizer_fill_halfplane(engine, quad + 2, x_order, y_order,
                                             a, b, c1, scale))
             return 0;
@@ -651,8 +653,8 @@ static inline int rasterizer_fill_halfplane(TileEngine *engine,
 }
 
 
-static int rasterizer_split(TileEngine *engine, RasterizerData *rst,
-                            Quad **quad, int x_order, int y_order,
+static int rasterizer_split(const TileEngine *engine, RasterizerData *rst,
+                            const Quad **quad, int x_order, int y_order,
                             int index, size_t offs, int winding, int horz);
 
 /**
@@ -664,8 +666,8 @@ static int rasterizer_split(TileEngine *engine, RasterizerData *rst,
  * Rasterizes (possibly recursive) one quad-tree level.
  * Truncates used input buffer.
  */
-static int rasterizer_fill_level(TileEngine *engine, RasterizerData *rst,
-                                 Quad **quad, int x_order, int y_order,
+static int rasterizer_fill_level(const TileEngine *engine, RasterizerData *rst,
+                                 const Quad **quad, int x_order, int y_order,
                                  int index, size_t offs, int winding)
 {
     assert(y_order >= engine->tile_order);
@@ -675,7 +677,7 @@ static int rasterizer_fill_level(TileEngine *engine, RasterizerData *rst,
     size_t n = rst->size[index] - offs;
     struct segment *line = rst->linebuf[index] + offs;
     if (!n) {
-        quad[0] = winding ? SOLID_TILE : NULL;
+        quad[0] = winding ? SOLID_QUAD : EMPTY_QUAD;
         if (x_order > y_order)
             quad[1] = quad[0];
         return 1;
@@ -694,7 +696,7 @@ static int rasterizer_fill_level(TileEngine *engine, RasterizerData *rst,
             return rasterizer_fill_halfplane(engine, quad, x_order, y_order,
                                              line->a, line->b, line->c,
                                              flag & 2 ? -line->scale : line->scale);
-        quad[0] = flag & 2 ? SOLID_TILE : NULL;
+        quad[0] = flag & 2 ? SOLID_QUAD : EMPTY_QUAD;
         if (x_order > y_order)
             quad[1] = quad[0];
         return 1;
@@ -712,17 +714,18 @@ static int rasterizer_fill_level(TileEngine *engine, RasterizerData *rst,
     int horz = 1;
     if (x_order <= y_order) {
         horz = 0;
-        *quad = alloc_quad(engine, NULL);
-        if (!*quad)
+        Quad *next = alloc_quad(engine, EMPTY_QUAD);
+        if (!next)
             return 0;
-        quad = (*quad)->child;
+        *quad = next;
+        quad = next->child;
     }
     return rasterizer_split(engine, rst, quad, x_order, y_order,
                             index, offs, winding, horz);
 }
 
-static int rasterizer_split(TileEngine *engine, RasterizerData *rst,
-                            Quad **quad, int x_order, int y_order,
+static int rasterizer_split(const TileEngine *engine, RasterizerData *rst,
+                            const Quad **quad, int x_order, int y_order,
                             int index, size_t offs, int winding, int horz)
 {
     size_t n = rst->size[index] - offs;
@@ -733,7 +736,7 @@ static int rasterizer_split(TileEngine *engine, RasterizerData *rst,
     struct segment *dst0 = rst->linebuf[index ^ 0] + offs;
     struct segment *dst1 = rst->linebuf[index ^ 1] + offs1;
 
-    Quad **quad1 = quad;
+    const Quad **quad1 = quad;
     int winding1 = winding;
     if (horz) {
         --x_order;
@@ -756,13 +759,13 @@ static int rasterizer_split(TileEngine *engine, RasterizerData *rst,
     return 1;
 }
 
-TileTree *rasterizer_fill(TileEngine *engine, RasterizerData *rst)
+TileTree *rasterizer_fill(const TileEngine *engine, RasterizerData *rst)
 {
     rst->size[1] = 0;
     if (!check_capacity(rst, 1, rst->size[0]))
         return NULL;
 
-    TileTree *tree = alloc_tile_tree(engine, NULL);
+    TileTree *tree = alloc_tile_tree(engine, EMPTY_QUAD);
     if (!tree)
         return NULL;
 

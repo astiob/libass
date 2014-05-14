@@ -93,6 +93,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->restride_bitmap_func = restride_bitmap_c;
 
 #if CONFIG_RASTERIZER
+    prepare_solid_tiles();
+    priv->tile_engine.solid_tile[0] = empty_tile;
+    priv->tile_engine.solid_tile[1] = solid_tile;
 #if CONFIG_LARGE_TILES
     priv->tile_engine.tile_order = 5;
     #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM && 0
@@ -125,13 +128,12 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->tile_engine.finalize_generic = ass_finalize_generic_tile16_c;
         priv->tile_engine.fill_halfplane = ass_fill_halfplane_tile16_c;
         priv->tile_engine.fill_generic = ass_fill_generic_tile16_c;
-        priv->tile_engine.tile_combine[COMBINE_MUL] = 0;
-        priv->tile_engine.tile_combine[COMBINE_ADD] = 0;
-        priv->tile_engine.tile_combine[COMBINE_SUB] = 0;
+        priv->tile_engine.tile_combine[COMBINE_MUL] = ass_mul_tile16_c;
+        priv->tile_engine.tile_combine[COMBINE_ADD] = ass_add_tile16_c;
+        priv->tile_engine.tile_combine[COMBINE_SUB] = ass_sub_tile16_c;
     #endif
 #endif
-    priv->tile_engine.outline_error = 16;
-    rasterizer_init(&priv->rasterizer);
+    rasterizer_init(&priv->rasterizer, 16);
 #endif
 
     priv->cache.font_cache = ass_font_cache_create();

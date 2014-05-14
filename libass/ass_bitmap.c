@@ -163,9 +163,8 @@ Bitmap *copy_bitmap(const Bitmap *src)
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           FT_Outline *outline, int bord)
 {
-    TileEngine *engine = &render_priv->tile_engine;
     RasterizerData *rst = &render_priv->rasterizer;
-    if (!rasterizer_set_outline(engine, rst, outline)) {
+    if (!rasterizer_set_outline(rst, outline)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return NULL;
     }
@@ -188,6 +187,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
     }
 
+    TileEngine *engine = &render_priv->tile_engine;
     TileTree *tree = rasterizer_fill(engine, rst);
     if (!tree) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
@@ -198,6 +198,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     finalize_quad(engine, bm->buffer, bm->stride, &tree->quad, tree->size_order);
     bm->left = tree->x;
     bm->top =  tree->y;
+    free_tile_tree(engine, tree);
     return bm;
 }
 

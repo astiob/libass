@@ -23,6 +23,18 @@
 
 
 
+int16_t empty_tile[32 * 32], solid_tile[32 * 32];
+
+void prepare_solid_tiles()
+{
+    int k;
+    for (k = 0; k < 32 * 32; k++) {
+        empty_tile[k] = 0;
+        solid_tile[k] = 1 << 14;
+    }
+}
+
+
 void ass_finalize_solid_c(uint8_t *buf, ptrdiff_t stride, int size_order, int set)
 {
     int i, j;

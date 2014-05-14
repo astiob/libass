@@ -42,6 +42,8 @@ struct segment {
 };
 
 typedef struct {
+    int outline_error;  // acceptable error (in 1/64 pixel units)
+
     // usable after rasterizer_set_outline
     int32_t x_min, x_max, y_min, y_max;
 
@@ -50,18 +52,17 @@ typedef struct {
     size_t size[2], capacity[2];
 } RasterizerData;
 
-void rasterizer_init(RasterizerData *rst);
+void rasterizer_init(RasterizerData *rst, int outline_error);
 void rasterizer_done(RasterizerData *rst);
 /**
  * \brief Convert FreeType outline to polyline and calculate exact bounds
  */
-int rasterizer_set_outline(TileEngine *engine, RasterizerData *rst,
-                           const FT_Outline *path);
+int rasterizer_set_outline(RasterizerData *rst, const FT_Outline *path);
 /**
  * \brief Polyline rasterization function
  * Deletes preprocessed polyline after work.
  */
-TileTree *rasterizer_fill(TileEngine *engine, RasterizerData *rst);
+TileTree *rasterizer_fill(const TileEngine *engine, RasterizerData *rst);
 
 
 #endif                          /* LIBASS_RASTERIZER_H */

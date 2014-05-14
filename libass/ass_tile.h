@@ -27,15 +27,17 @@
 
 typedef struct tree_level {
     // pointers to int16_t tile[tile_size^2] at last level
-    struct tree_level *child[4];  // UL, UR, DL, DR
+    const struct tree_level *child[4];  // UL, UR, DL, DR
 } Quad;
 
-#define SOLID_TILE ((Quad *)1)
+#define EMPTY_QUAD   ((const Quad *)0)
+#define SOLID_QUAD   ((const Quad *)1)
+#define INVALID_QUAD ((const Quad *)-1)
 
 typedef struct {
     int x, y;  // aligned to 2^(size_order - 1)
     int size_order;  // larger then tile_order
-    Quad *outside;  // NULL or SOLID_TILE
+    const Quad *outside;  // NULL or SOLID_QUAD
     Quad quad;
 } TileTree;
 
@@ -52,7 +54,7 @@ typedef void (*FillGenericTileFunc)(int16_t *buf,
                                     const struct segment *line, size_t n_lines,
                                     int winding);
 // return value:
-// == 0 - dominant tile
+// == 0 - trivial tile
 // != 0 - generic tile
 typedef int (*TileCombineFunc)(int16_t *dst,
                                const int16_t *src1, const int16_t *src2);
@@ -66,7 +68,7 @@ enum {
 
 typedef struct {
     int tile_order;  // log2(tile_size)
-    int outline_error;  // acceptable error (in 1/64 pixel units)
+    int tile_alignment;
     const int16_t *solid_tile[2];
     FinalizeSolidFunc finalize_solid;
     FinalizeGenericTileFunc finalize_generic;
@@ -76,24 +78,23 @@ typedef struct {
 } TileEngine;
 
 
-void *alloc_tile(TileEngine *engine);
-void *copy_tile(TileEngine *engine, const void *tile);
-void free_tile(TileEngine *engine, void *tile);
-Quad *alloc_quad(TileEngine *engine, Quad *fill);
-int copy_quad(TileEngine *engine, Quad **dst, const Quad *src, int size_order);
-void free_empty_quad(TileEngine *engine, Quad *quad);
-void free_quad(TileEngine *engine, Quad *quad, int size_order);
-TileTree *alloc_tile_tree(TileEngine *engine, Quad *fill);
-TileTree *copy_tile_tree(TileEngine *engine, const TileTree *src);
-void free_tile_tree(TileEngine *engine, TileTree *tree);
+void *alloc_tile(const TileEngine *engine);
+const void *copy_tile(const TileEngine *engine, const void *tile);
+void free_tile(const TileEngine *engine, const void *tile);
+Quad *alloc_quad(const TileEngine *engine, const Quad *fill);
+const Quad *copy_quad(const TileEngine *engine, const Quad *quad, int size_order);
+void free_quad(const TileEngine *engine, const Quad *quad, int size_order);
+TileTree *alloc_tile_tree(const TileEngine *engine, const Quad *fill);
+TileTree *copy_tile_tree(const TileEngine *engine, const TileTree *src);
+void free_tile_tree(const TileEngine *engine, TileTree *tree);
 
 
-void finalize_quad(TileEngine *engine, uint8_t *buf, ptrdiff_t stride,
+void finalize_quad(const TileEngine *engine, uint8_t *buf, ptrdiff_t stride,
                    const Quad *quad, int size_order);
 
-void calc_tree_bounds(TileEngine *engine, TileTree *dst,
+void calc_tree_bounds(const TileEngine *engine, TileTree *dst,
                       int x_min, int y_min, int x_max, int y_max);
-int combine_tile_tree(TileEngine *engine, TileTree *dst, const TileTree *src, int op);
+int combine_tile_tree(const TileEngine *engine, TileTree *dst, const TileTree *src, int op);
 
 
 #endif                          /* LIBASS_TILE_H */
