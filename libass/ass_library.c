@@ -44,6 +44,7 @@ ASS_Library *ass_library_init(void)
     ASS_Library* lib = calloc(1, sizeof(*lib));
     if (lib)
         lib->msg_callback = ass_msg_handler;
+    fprintf(stderr, "%s %p\n", __func__, lib);
     return lib;
 }
 
@@ -55,6 +56,7 @@ void ass_library_done(ASS_Library *priv)
         ass_clear_fonts(priv);
         free(priv);
     }
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_fonts_dir(ASS_Library *priv, const char *fonts_dir)
@@ -62,11 +64,13 @@ void ass_set_fonts_dir(ASS_Library *priv, const char *fonts_dir)
     free(priv->fonts_dir);
 
     priv->fonts_dir = fonts_dir ? strdup(fonts_dir) : 0;
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_extract_fonts(ASS_Library *priv, int extract)
 {
     priv->extract_fonts = !!extract;
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_style_overrides(ASS_Library *priv, char **list)
@@ -83,7 +87,7 @@ void ass_set_style_overrides(ASS_Library *priv, char **list)
     priv->style_overrides = NULL;
 
     if (!list)
-        return;
+        return (void) fprintf(stderr, "%s\n", __func__);
 
     for (p = list, cnt = 0; *p; ++p, ++cnt) {
     }
@@ -93,6 +97,7 @@ void ass_set_style_overrides(ASS_Library *priv, char **list)
         return;
     for (p = list, q = priv->style_overrides; *p; ++p, ++q)
         *q = strdup(*p);
+    fprintf(stderr, "%s\n", __func__);
 }
 
 static int grow_array(void **array, int nelem, size_t elsize)
@@ -126,6 +131,8 @@ void ass_add_font(ASS_Library *priv, char *name, char *data, int size)
     priv->fontdata[idx].size = size;
 
     priv->num_fontdata++;
+    fprintf(stderr, "%s(%p, \"%s\", %p, %i)\n",
+            __func__, priv, name, data, size);
     return;
 
 error:
@@ -161,4 +168,5 @@ void ass_set_message_cb(ASS_Library *priv,
         priv->msg_callback = msg_cb;
         priv->msg_callback_data = data;
     }
+    fprintf(stderr, "%s\n", __func__);
 }

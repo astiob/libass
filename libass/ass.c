@@ -92,6 +92,7 @@ void ass_free_track(ASS_Track *track)
     free(track->events);
     free(track->name);
     free(track);
+    fprintf(stderr, "%s\n", __func__);
 }
 
 /// \brief Allocate a new style struct
@@ -820,6 +821,8 @@ static int process_line(ASS_Track *track, char *str)
             break;
         }
     }
+
+    fprintf(stderr, "%s(%p, \"%s\") %i\n", __func__, track, str, 0);
     return 0;
 }
 
@@ -850,6 +853,7 @@ static int process_text(ASS_Track *track, char *str)
     // there is no explicit end-of-font marker in ssa/ass
     if (track->parser_priv->fontname)
         decode_font(track);
+    fprintf(stderr, "%s(%p, <<'EOF'\n%s\nEOF) %i\n", __func__, track, str, 0);
     return 0;
 }
 
@@ -890,6 +894,7 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size)
         event_format_fallback(track);
 
     ass_process_force_style(track);
+    fprintf(stderr, "%s\n", __func__);
 }
 
 static int check_duplicate_event(ASS_Track *track, int ReadOrder)
@@ -935,6 +940,7 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
 
     if (!track->event_format) {
         ass_msg(track->library, MSGL_WARN, "Event format header missing");
+        fprintf(stderr, "%s\n", __func__);
         return;
     }
 
@@ -966,6 +972,7 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
         event->Duration = duration;
 
         free(str);
+        fprintf(stderr, "%s\n", __func__);
         return;
 //              dump_events(tid);
     } while (0);
@@ -973,6 +980,7 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
     ass_free_event(track, eid);
     track->n_events--;
     free(str);
+    fprintf(stderr, "%s\n", __func__);
 }
 
 /**
@@ -1067,6 +1075,7 @@ out:
         ass_msg(library, MSGL_V, "Closed iconv descriptor");
     }
 
+    fprintf(stderr, "%s %p\n", __func__, outbuf);
     return outbuf;
 }
 #endif                          // ICONV
@@ -1148,11 +1157,13 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
 
     if (track->track_type == TRACK_TYPE_UNKNOWN) {
         ass_free_track(track);
+        fprintf(stderr, "%s %p\n", __func__, 0);
         return 0;
     }
 
     ass_process_force_style(track);
 
+    fprintf(stderr, "%s %p\n", __func__, track);
     return track;
 }
 
@@ -1167,17 +1178,19 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
 ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
                            size_t bufsize, char *codepage)
 {
+    fprintf(stderr, "%s(%p, <<<'EOF'\n%s\nEOF, %zu, \"%s\") ",
+            __func__, library, buf, bufsize, codepage);
     ASS_Track *track;
     int copied = 0;
 
     if (!buf)
-        return 0;
+        return fprintf(stderr, "%s %p\n", __func__, 0), 0;
 
 #ifdef CONFIG_ICONV
     if (codepage) {
         buf = sub_recode(library, buf, bufsize, codepage);
         if (!buf)
-            return 0;
+            return fprintf(stderr, "%s %p\n", __func__, 0), 0;
         else
             copied = 1;
     }
@@ -1185,7 +1198,7 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
     if (!copied) {
         char *newbuf = malloc(bufsize + 1);
         if (!newbuf)
-            return 0;
+            return fprintf(stderr, "%s %p\n", __func__, 0), 0;
         memcpy(newbuf, buf, bufsize);
         newbuf[bufsize] = '\0';
         buf = newbuf;
@@ -1193,11 +1206,12 @@ ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
     track = parse_memory(library, buf);
     free(buf);
     if (!track)
-        return 0;
+        return fprintf(stderr, "%s %p\n", __func__, 0), 0;
 
     ass_msg(library, MSGL_INFO, "Added subtitle file: "
             "<memory> (%d styles, %d events)",
             track->n_styles, track->n_events);
+    fprintf(stderr, "%s %p\n", __func__, track);
     return track;
 }
 
@@ -1239,11 +1253,11 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
 
     buf = read_file_recode(library, fname, codepage, &bufsize);
     if (!buf)
-        return 0;
+        return fprintf(stderr, "%s %p\n", __func__, 0), 0;
     track = parse_memory(library, buf);
     free(buf);
     if (!track)
-        return 0;
+        return fprintf(stderr, "%s %p\n", __func__, 0), 0;
 
     track->name = strdup(fname);
 
@@ -1251,6 +1265,7 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
             "Added subtitle file: '%s' (%d styles, %d events)",
             fname, track->n_styles, track->n_events);
 
+    fprintf(stderr, "%s %p\n", __func__, track);
     return track;
 }
 
@@ -1349,6 +1364,7 @@ ASS_Track *ass_new_track(ASS_Library *library)
         return NULL;
     }
     track->parser_priv->check_readorder = 1;
+    fprintf(stderr, "%s %p\n", __func__, track);
     return track;
 }
 

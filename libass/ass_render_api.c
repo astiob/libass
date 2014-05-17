@@ -52,6 +52,7 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
         priv->settings.frame_height = h;
         ass_reconfigure(priv);
     }
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_storage_size(ASS_Renderer *priv, int w, int h)
@@ -85,16 +86,19 @@ void ass_set_margins(ASS_Renderer *priv, int t, int b, int l, int r)
         priv->settings.bottom_margin = b;
         ass_reconfigure(priv);
     }
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_use_margins(ASS_Renderer *priv, int use)
 {
     priv->settings.use_margins = use;
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar)
 {
     ass_set_pixel_aspect(priv, dar / sar);
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_pixel_aspect(ASS_Renderer *priv, double par)
@@ -111,6 +115,7 @@ void ass_set_font_scale(ASS_Renderer *priv, double font_scale)
         priv->settings.font_size_coeff = font_scale;
         ass_reconfigure(priv);
     }
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_hinting(ASS_Renderer *priv, ASS_Hinting ht)
@@ -150,6 +155,7 @@ void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
         ass_fontselect_free(priv->fontselect);
     priv->fontselect = ass_fontselect_init(priv->library, priv->ftlibrary,
             default_family, default_font, config, dfp);
+    fprintf(stderr, "%s\n", __func__);
 }
 
 void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits)

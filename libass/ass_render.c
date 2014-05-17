@@ -111,6 +111,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     else
         ass_msg(library, MSGL_ERR, "Initialization failed");
 
+    fprintf(stderr, "%s %p\n", __func__, priv);
     return priv;
 }
 
@@ -149,6 +150,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     free(render_priv->user_override_style.FontName);
 
     free(render_priv);
+    fprintf(stderr, "%s\n", __func__);
 }
 
 /**
@@ -3005,6 +3007,7 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
         if (detect_change) {
             *detect_change = 2;
         }
+        fprintf(stderr, "%s %p\n", __func__, NULL);
         return NULL;
     }
 
@@ -3058,6 +3061,7 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
     ass_frame_unref(priv->prev_images_root);
     priv->prev_images_root = NULL;
 
+    fprintf(stderr, "%s %p\n", __func__, priv->images_root);
     return priv->images_root;
 }
 
