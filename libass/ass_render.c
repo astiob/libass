@@ -1199,6 +1199,9 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             return;
         }
 
+        val->asc  &= ~7;
+        val->desc &= ~7;
+
         outline_get_cbox(val->outline, &val->bbox_scaled);
 
         if (info->border_style == 3) {
@@ -1417,8 +1420,8 @@ static void measure_text(ASS_Renderer *render_priv)
     for (i = 0; i < text_info->length + 1; ++i) {
         if ((i == text_info->length) || text_info->glyphs[i].linebreak) {
             if (empty_line && cur_line > 0 && last) {
-                max_asc = d6_to_double(last->asc) / 2.0;
-                max_desc = d6_to_double(last->desc) / 2.0;
+                max_asc = d6_to_double((last->asc / 2) & ~7);
+                max_desc = d6_to_double((last->desc / 2) & ~7);
             }
             text_info->lines[cur_line].asc = max_asc;
             text_info->lines[cur_line].desc = max_desc;

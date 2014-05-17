@@ -342,6 +342,8 @@ void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
                 *asc = FT_MulFix(face->ascender, y_scale);
                 *desc = FT_MulFix(-face->descender, y_scale);
             }
+            *asc = (*asc + 4) & ~7;
+            *desc = (*desc + 4) & ~7;
             return;
         }
     }
