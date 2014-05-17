@@ -1664,9 +1664,11 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info,
                                ASS_Renderer *render_priv,
                                unsigned char glyph_alpha)
 {
+    bool blurred = info->filter.be || (info->filter.blur > 0.0);
+
     if (!(info->filter.flags & FILTER_NONZERO_SHADOW)) {
         if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
-            fix_outline(info->bm, info->bm_o, glyph_alpha);
+            fix_outline(info->bm, info->bm_o, glyph_alpha, blurred);
         } else if (info->bm_o && !(info->filter.flags & FILTER_NONZERO_BORDER)) {
             ass_free_bitmap(info->bm_o);
             info->bm_o = 0;
@@ -1680,9 +1682,9 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info,
     if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
         if (glyph_alpha) {
             info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
-            fix_outline(info->bm, info->bm_o, glyph_alpha);
+            fix_outline(info->bm, info->bm_o, glyph_alpha, blurred);
         } else {
-            fix_outline(info->bm, info->bm_o, glyph_alpha);
+            fix_outline(info->bm, info->bm_o, glyph_alpha, blurred);
             info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
         }
     } else if (info->bm_o && (info->filter.flags & FILTER_NONZERO_BORDER)) {

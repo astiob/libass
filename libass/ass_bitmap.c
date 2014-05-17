@@ -246,7 +246,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
  * The glyph bitmap is subtracted from outline bitmap to preserve
  * the final color despite alpha blending being done in two steps.
  */
-void fix_outline(Bitmap *bm_g, Bitmap *bm_o, unsigned char a_g)
+void fix_outline(Bitmap *bm_g, Bitmap *bm_o, unsigned char a_g, bool blurred)
 {
     int x, y;
     const int l = bm_o->left > bm_g->left ? bm_o->left : bm_g->left;
@@ -266,10 +266,15 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o, unsigned char a_g)
     for (y = 0; y < b - t; ++y) {
         for (x = 0; x < r - l; ++x) {
             unsigned char c_g, c_o;
+            int num, den;
             c_g = g[x];
             c_o = o[x];
-            int divisor = 65025 - a_g * c_g;
-            o[x] = (c_o > c_g) ? ((c_o - c_g) * 65025 + divisor / 2) / divisor : 0;
+            if (blurred)
+                num = c_o * (255 - c_g) * 255;
+            else
+                num = FFMAX(c_o - c_g, 0) * 65025;
+            den = 65025 - a_g * c_g;
+            o[x] = den ? (num + den / 2) / den : 0;
         }
         g += bm_g->stride;
         o += bm_o->stride;
