@@ -471,31 +471,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
  */
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 {
-    int x, y;
-    const int l = bm_o->left > bm_g->left ? bm_o->left : bm_g->left;
-    const int t = bm_o->top > bm_g->top ? bm_o->top : bm_g->top;
-    const int r =
-        bm_o->left + bm_o->stride <
-        bm_g->left + bm_g->stride ? bm_o->left + bm_o->stride : bm_g->left + bm_g->stride;
-    const int b =
-        bm_o->top + bm_o->h <
-        bm_g->top + bm_g->h ? bm_o->top + bm_o->h : bm_g->top + bm_g->h;
-
-    unsigned char *g =
-        bm_g->buffer + (t - bm_g->top) * bm_g->stride + (l - bm_g->left);
-    unsigned char *o =
-        bm_o->buffer + (t - bm_o->top) * bm_o->stride + (l - bm_o->left);
-
-    for (y = 0; y < b - t; ++y) {
-        for (x = 0; x < r - l; ++x) {
-            unsigned char c_g, c_o;
-            c_g = g[x];
-            c_o = o[x];
-            o[x] = (c_o > c_g) ? c_o - (c_g / 2) : 0;
-        }
-        g += bm_g->stride;
-        o += bm_o->stride;
-    }
+    return;
 }
 
 /**
