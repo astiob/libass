@@ -56,8 +56,21 @@ typedef void (*FillGenericTileFunc)(int16_t *buf,
 // return value:
 // == 0 - trivial tile
 // != 0 - generic tile
-typedef int (*TileCombineFunc)(int16_t *dst,
+typedef int (*CombineTileFunc)(int16_t *dst,
                                const int16_t *src1, const int16_t *src2);
+typedef void (*ShrinkTileFunc)(int16_t *dst,
+                               const int16_t *side1, const int16_t *src1,
+                               const int16_t *src2, const int16_t *side2);
+typedef int (*ShrinkSolidTileFunc)(int16_t *dst,
+                                   const int16_t *side1, int set, const int16_t *side2);
+typedef void (*ExpandTileFunc)(int16_t *dst, const int16_t *side, const int16_t *src);
+typedef int (*ExpandSolidTileFunc)(int16_t *dst, const int16_t *side, int set);
+typedef void (*FilterTileFunc)(int16_t *dst,
+                               const int16_t *side1, const int16_t *src, const int16_t *side2,
+                               void *param);
+typedef int (*FilterSolidTileFunc)(int16_t *dst,
+                                   const int16_t *side1, int set, const int16_t *side2,
+                                   void *param);
 
 
 enum {
@@ -74,7 +87,16 @@ typedef struct {
     FinalizeGenericTileFunc finalize_generic;
     FillHalfplaneTileFunc fill_halfplane;
     FillGenericTileFunc fill_generic;
-    TileCombineFunc tile_combine[3];
+    CombineTileFunc combine[3];
+    ShrinkTileFunc shrink[2];
+    ShrinkSolidTileFunc shrink_solid[2];
+    ExpandTileFunc expand[2][2];
+    ExpandSolidTileFunc expand_solid_out[2][2];
+    ExpandSolidTileFunc expand_solid_in[2][2];
+    FilterTileFunc pre_blur[3][2];
+    FilterSolidTileFunc pre_blur_solid[3][2];
+    FilterTileFunc main_blur[3][2];
+    FilterSolidTileFunc main_blur_solid[3][2];
 } TileEngine;
 
 
@@ -100,6 +122,7 @@ void finalize_quad(const TileEngine *engine, uint8_t *buf, ptrdiff_t stride,
 void calc_tree_bounds(const TileEngine *engine, TileTree *dst,
                       int x_min, int y_min, int x_max, int y_max);
 int combine_tile_tree(const TileEngine *engine, TileTree *dst, const TileTree *src, int op);
+int blur_tile_tree(const TileEngine *engine, TileTree *tree, double r2);
 
 
 #endif                          /* LIBASS_TILE_H */
