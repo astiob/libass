@@ -1021,14 +1021,13 @@ static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
     // Borders are equal; use the regular stroker
     if (sx == sy && render_priv->state.stroker) {
         int error;
-        FT_StrokerBorder border = FT_Outline_GetOutsideBorder(&ftol);
         error = FT_Stroker_ParseOutline(render_priv->state.stroker, &ftol, 0);
         if (error) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "FT_Stroker_ParseOutline failed, error: %d", error);
         }
         unsigned new_points, new_contours;
-        error = FT_Stroker_GetBorderCounts(render_priv->state.stroker, border,
+        error = FT_Stroker_GetCounts(render_priv->state.stroker,
                 &new_points, &new_contours);
         if (error) {
             ass_msg(render_priv->library, MSGL_WARN,
@@ -1054,7 +1053,7 @@ static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
         ftol.points = outline->points;
         ftol.tags = outline->tags;
 
-        FT_Stroker_ExportBorder(render_priv->state.stroker, border, &ftol);
+        FT_Stroker_Export(render_priv->state.stroker, &ftol);
 
         outline->n_points = n_points;
         outline->n_contours = n_contours;
