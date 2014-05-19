@@ -80,6 +80,7 @@ void outline_transform(const ASS_Outline *outline, const FT_Matrix *matrix);
 void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox);
 void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y);
 int outline_alloc(ASS_Outline *outline, size_t n_contours, size_t n_points);
+int outline_realloc(ASS_Outline *outline, size_t n_contours, size_t n_points);
 ASS_Outline *outline_convert(const FT_Outline *source);
 ASS_Outline *outline_copy(const ASS_Outline *source);
 void outline_free(ASS_Outline *outline);

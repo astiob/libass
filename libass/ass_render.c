@@ -1033,8 +1033,8 @@ static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
             ass_msg(render_priv->library, MSGL_WARN,
                     "FT_Stroker_GetBorderCounts failed, error: %d", error);
         }
-        outline_free(outline);
-        outline->n_points = outline->n_contours = 0;
+        new_points += outline->n_points;
+        new_contours += outline->n_contours;
         if (new_contours > FFMAX(EFFICIENT_CONTOUR_COUNT, n_contours)) {
             if (!ASS_REALLOC_ARRAY(contours_large, new_contours)) {
                 free(contours_large);
@@ -1043,22 +1043,21 @@ static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
         }
         n_points = new_points;
         n_contours = new_contours;
-        if (!outline_alloc(outline, n_points, n_contours)) {
+        if (!outline_realloc(outline, n_points, n_contours)) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Not enough memory for border outline");
             free(contours_large);
             return;
         }
-        ftol.n_points = ftol.n_contours = 0;
         ftol.points = outline->points;
         ftol.tags = outline->tags;
 
         FT_Stroker_Export(render_priv->state.stroker, &ftol);
 
+        for (size_t i = outline->n_contours; i < n_contours; ++i)
+            outline->contours[i] = (unsigned short) contours[i];
         outline->n_points = n_points;
         outline->n_contours = n_contours;
-        for (size_t i = 0; i < n_contours; ++i)
-            outline->contours[i] = (unsigned short) contours[i];
 
     // "Stroke" with the outline emboldener (in two passes if needed).
     // The outlines look uglier, but the emboldening never adds any points

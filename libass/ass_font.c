@@ -406,6 +406,25 @@ int outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_contours)
     return 1;
 }
 
+int outline_realloc(ASS_Outline *outline, size_t n_points, size_t n_contours)
+{
+    if (n_contours > outline->max_contours) {
+        if (!ASS_REALLOC_ARRAY(outline->contours, n_contours))
+            return 0;
+        outline->max_contours = n_contours;
+    }
+
+    if (n_points > outline->max_points) {
+        if (!ASS_REALLOC_ARRAY(outline->points, n_points))
+            return 0;
+        if (!ASS_REALLOC_ARRAY(outline->tags, n_points))
+            return 0;
+        outline->max_points = n_points;
+    }
+
+    return 1;
+}
+
 ASS_Outline *outline_convert(const FT_Outline *source)
 {
     if (!source)
