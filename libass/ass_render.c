@@ -978,6 +978,24 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
     ol->contours[ol->n_contours++] = ol->n_points - 1;
 }
 
+static void dump_outine(const char *intro, ASS_Outline *outline)
+{
+    fprintf(stderr, "%s:\n", intro);
+    for (size_t i = 0; i < outline->n_contours; ++i)
+    {
+        size_t first = i ? outline->contours[i - 1] + 1 : 0;
+        size_t last = outline->contours[i];
+        fprintf(stderr, "  Contour:\n");
+        for (size_t j = first; j <= last; ++j)
+        {
+            fprintf(stderr, "    (%10f, %10f) tag=%d\n",
+                    d6_to_double(outline->points[j].x),
+                    d6_to_double(outline->points[j].y),
+                    outline->tags[j]);
+        }
+    }
+}
+
 /*
  * Stroke an outline glyph in x/y direction.  Applies various fixups to get
  * around limitations of the FreeType stroker.
@@ -988,7 +1006,9 @@ static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
     if (sx <= 0 && sy <= 0)
         return;
 
+    dump_outine("stroke_outline", outline);
     fix_freetype_stroker(outline, sx, sy);
+    dump_outine("fixed", outline);
 
     size_t n_points = outline->n_points;
     if (n_points > SHRT_MAX) {
@@ -1088,6 +1108,7 @@ static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
     }
 
     free(contours_large);
+    dump_outine("final", outline);
 }
 
 /**
