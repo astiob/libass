@@ -780,6 +780,8 @@ void outline_get_cbox(const ASS_Outline *outline, FT_BBox *cbox)
  *    borders do not reverse the winding direction, which leads to "holes"
  *    inside the border. The inside will be filled by the border of the
  *    outside contour anyway in this case.
+ * 3. Reverse the whole outline if needed to ensure that the overall
+ *    direction is clockwise.
  *
  * \param outline FreeType outline, modified in-place
  * \param border_x border size, x direction, d6 format
@@ -813,6 +815,8 @@ void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y)
         start = end + 1;
         end = outline->contours[i];
         int dir = get_contour_area(outline->points, start, end) > 0;
+        // reverse the whole outline if it has the wrong direction
+        int reverse = !inside_direction;
         valid_cont[i] = 1;
         if (dir == inside_direction) {
             for (j = 0; j < nc; j++) {
@@ -827,14 +831,7 @@ void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y)
             /* "inside" contour but we can't find anything it could be
              * inside of - assume the font is buggy and it should be
              * an "outside" contour, and reverse it */
-            for (j = 0; j < (end - start) / 2; j++) {
-                FT_Vector temp = outline->points[start + 1 + j];
-                char temp2 = outline->tags[start + 1 + j];
-                outline->points[start + 1 + j] = outline->points[end - j];
-                outline->points[end - j] = temp;
-                outline->tags[start + 1 + j] = outline->tags[end - j];
-                outline->tags[end - j] = temp2;
-            }
+            reverse ^= 1;
             dir ^= 1;
         }
         check_inside:
@@ -846,6 +843,18 @@ void fix_freetype_stroker(ASS_Outline *outline, int border_x, int border_y)
             if (width < border_x * 2 || height < border_y * 2) {
                 valid_cont[i] = 0;
                 modified = 1;
+                // don't waste any more effort on this contour
+                reverse = 0;
+            }
+        }
+        if (reverse) {
+            for (j = 0; j < (end - start) / 2; j++) {
+                FT_Vector temp = outline->points[start + 1 + j];
+                char temp2 = outline->tags[start + 1 + j];
+                outline->points[start + 1 + j] = outline->points[end - j];
+                outline->points[end - j] = temp;
+                outline->tags[start + 1 + j] = outline->tags[end - j];
+                outline->tags[end - j] = temp2;
             }
         }
     }
