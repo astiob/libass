@@ -93,6 +93,12 @@ static inline int is_trivial_quad(const Quad *quad)
     return !quad || quad == SOLID_QUAD || quad == INVALID_QUAD;
 }
 
+static const Quad solid_sub_tile[] = {
+    { .child = { EMPTY_QUAD, EMPTY_QUAD, EMPTY_QUAD, EMPTY_QUAD } },
+    { .child = { SOLID_QUAD, SOLID_QUAD, SOLID_QUAD, SOLID_QUAD } }
+};
+
+
 void *alloc_tile(const TileEngine *engine)
 {
     const int size = 2 << (2 * engine->tile_order);
@@ -196,6 +202,17 @@ TileTree *copy_tile_tree(const TileEngine *engine, const TileTree *src)
     for (int i = 0; i < 4; ++i)
         res->quad.child[i] = copy_quad(engine, src->quad.child[i], src->size_order - 1);
     return res;
+}
+
+static void clear_tile_tree(const TileEngine *engine, TileTree *tree)
+{
+    if (tree->size_order < 0)
+        return;
+    for (int i = 0; i < 4; ++i) {
+        free_quad(engine, tree->quad.child[i], tree->size_order - 1);
+        tree->quad.child[i] = tree->outside;
+    }
+    tree->size_order = -1;
 }
 
 void free_tile_tree(const TileEngine *engine, TileTree *tree)
@@ -326,80 +343,52 @@ void calc_tree_bounds(const TileEngine *engine, TileTree *dst,
     dst->size_order = ord + 1;
 }
 
-static inline int tree_cross(const TileEngine *engine, TileTree *dst,
-                             const TileTree *src1, const TileTree *src2)
-{
-    if (src1->size_order < 0 || src2->size_order < 0) {
-        dst->size_order = -1;
-        return 0;
-    }
-
-    int size1 = 1 << src1->size_order;
-    int size2 = 1 << src2->size_order;
-    int x_min = FFMAX(src1->x, src2->x);
-    int y_min = FFMAX(src1->y, src2->y);
-    int x_max = FFMIN(src1->x + size1, src2->x + size2);
-    int y_max = FFMIN(src1->y + size1, src2->y + size2);
-    if (x_min >= x_max || y_min >= y_max) {
-        dst->size_order = -1;
-        return 0;
-    }
-    calc_tree_bounds(engine, dst, x_min, y_min, x_max, y_max);
-    return 1;
-}
-
-static inline int tree_union(const TileEngine *engine, TileTree *dst,
-                             const TileTree *src1, const TileTree *src2)
-{
-    if (src1->size_order < 0) {
-        dst->x = src2->x;
-        dst->y = src2->y;
-        dst->size_order = src2->size_order;
-        return dst->size_order >= 0;
-    }
-    if (src2->size_order < 0) {
-        dst->x = src1->x;
-        dst->y = src1->y;
-        dst->size_order = src1->size_order;
-        return 1;
-    }
-
-    int size1 = 1 << src1->size_order;
-    int size2 = 1 << src2->size_order;
-    int x_min = FFMIN(src1->x, src2->x);
-    int y_min = FFMIN(src1->y, src2->y);
-    int x_max = FFMAX(src1->x + size1, src2->x + size2);
-    int y_max = FFMAX(src1->y + size1, src2->y + size2);
-    calc_tree_bounds(engine, dst, x_min, y_min, x_max, y_max);
-    return 1;
-}
-
 static int crop_tree(const TileEngine *engine, TileTree *dst,
                      const TileTree *src, int op_flags)
 {
-    TileTree old = *dst;
-    if (src->outside == trivial_quad(op_flags & 2)) {
-        if (dst->outside != trivial_quad(op_flags & 1)) {
-            dst->x = src->x;
-            dst->y = src->y;
-            dst->size_order = src->size_order;
-            dst->outside = trivial_quad(op_flags & 1);
-        } else if (!tree_cross(engine, dst, dst, src)) {
-            if (old.size_order < 0)
-                return 1;
-            for (int i = 0; i < 4; ++i) {
-                free_quad(engine, old.quad.child[i], old.size_order - 1);
-                dst->quad.child[i] = dst->outside;
-            }
+    if (src->size_order < 0) {
+        if (src->outside != trivial_quad(op_flags & 2))
             return 1;
+        dst->outside = trivial_quad(op_flags & 1);
+        clear_tile_tree(engine, dst);
+        return 1;
+    }
+
+    int x_min = src->x;
+    int y_min = src->y;
+    int x_max = src->x + (1 << src->size_order);
+    int y_max = src->y + (1 << src->size_order);
+
+    if (src->outside == trivial_quad(op_flags & 2)) {
+        if (dst->outside != trivial_quad(op_flags & 1))
+            dst->outside = trivial_quad(op_flags & 1);
+        else {
+            if (dst->size_order < 0)
+                return 1;
+            x_min = FFMAX(x_min, dst->x);
+            y_min = FFMAX(y_min, dst->y);
+            x_max = FFMIN(x_max, dst->x + (1 << dst->size_order));
+            y_max = FFMIN(y_max, dst->y + (1 << dst->size_order));
+            if (x_min >= x_max || y_min >= y_max) {
+                clear_tile_tree(engine, dst);
+                return 1;
+            }
         }
     } else {
         if (dst->outside == trivial_quad(op_flags & 1))
             return 1;
-        else if (!tree_union(engine, dst, dst, src))
-            return 1;
+        if (dst->size_order >= 0) {
+            x_min = FFMIN(x_min, dst->x);
+            y_min = FFMIN(y_min, dst->y);
+            x_max = FFMAX(x_max, dst->x + (1 << dst->size_order));
+            y_max = FFMAX(y_max, dst->y + (1 << dst->size_order));
+        }
     }
-    if (old.size_order < 0 || (dst->x == old.x && dst->y == old.y && dst->size_order == old.size_order))
+
+    TileTree old = *dst;
+    calc_tree_bounds(engine, dst, x_min, y_min, x_max, y_max);
+    if (old.size_order < 0 || (x_min == old.x && y_min == old.y &&
+        x_max - x_min == 1 << old.size_order && y_max - y_min == 1 << old.size_order))
         return 1;
 
     for (int i = 0; i < 4; ++i)
@@ -410,24 +399,34 @@ static int crop_tree(const TileEngine *engine, TileTree *dst,
         for (int i = 0; i < 4; ++i) {
             if (old.quad.child[i] == dst->outside)
                 continue;
-            int delta_x = old.x - dst->x + (((i >> 0) & 1) << (old.size_order - 1));
-            int delta_y = old.y - dst->y + (((i >> 1) & 1) << (old.size_order - 1));
-            if ((delta_x | delta_y) >> dst->size_order)
+            int delta_x = old.x + (((i >> 0) & 1) << (old.size_order - 1));
+            int delta_y = old.y + (((i >> 1) & 1) << (old.size_order - 1));
+            if (delta_x < x_min || delta_x >= x_max ||
+                delta_y < y_min || delta_y >= y_max)
                 continue;
+            delta_x -= dst->x;
+            delta_y -= dst->y;
+            assert(!((delta_x | delta_y) >> dst->size_order));
             if (!insert_sub_quad(engine, &dst->quad, old.quad.child[i],
                                  dst->size_order, old.size_order - 1,
                                  delta_x, delta_y, dst->outside)) {
                 res = 0;
                 break;
             }
-            old.quad.child[i] = EMPTY_QUAD;
+            old.quad.child[i] = INVALID_QUAD;
         }
     } else {
         for (int i = 0; i < 4; ++i) {
-            int delta_x = dst->x - old.x + (((i >> 0) & 1) << (dst->size_order - 1));
-            int delta_y = dst->y - old.y + (((i >> 1) & 1) << (dst->size_order - 1));
-            dst->quad.child[i] = (delta_x | delta_y) >> old.size_order ? dst->outside :
-                extract_sub_quad(engine, &old.quad, dst->size_order - 1, old.size_order, delta_x, delta_y);
+            int delta_x = dst->x + (((i >> 0) & 1) << (dst->size_order - 1));
+            int delta_y = dst->y + (((i >> 1) & 1) << (dst->size_order - 1));
+            if (delta_x < x_min || delta_x >= x_max ||
+                delta_y < y_min || delta_y >= y_max)
+                continue;
+            delta_x -= old.x;
+            delta_y -= old.y;
+            assert(!((delta_x | delta_y) >> old.size_order));
+            dst->quad.child[i] = extract_sub_quad(engine, &old.quad, dst->size_order - 1,
+                                                  old.size_order, delta_x, delta_y);
         }
     }
     for (int i = 0; i < 4; ++i)
@@ -453,6 +452,7 @@ static const Quad *combine_quad(const TileEngine *engine,
         if (trivial_quad(op_flags & 1) == trivial_quad(op_flags & 2))
             return copy_quad(engine, src2, size_order);
         tile = engine->solid_tile[src1 ? 1 : 0];
+        src1 = &solid_sub_tile[src1 ? 1 : 0];
     }
 
     if (size_order == engine->tile_order) {
@@ -656,11 +656,6 @@ int combine_tile_tree(const TileEngine *engine, TileTree *dst, const TileTree *s
 }
 
 
-static const Quad solid_sub_tile[] = {
-    { .child = { EMPTY_QUAD, EMPTY_QUAD, EMPTY_QUAD, EMPTY_QUAD } },
-    { .child = { SOLID_QUAD, SOLID_QUAD, SOLID_QUAD, SOLID_QUAD } }
-};
-
 static const Quad *shrink_quad(const TileEngine *engine,
                                const Quad *side1, const Quad *src1,
                                const Quad *src2, const Quad *side2,
@@ -804,6 +799,11 @@ int shrink_tile_tree(const TileEngine *engine, TileTree *tree, int dir)
     for (int i = 0; i < 4; ++i) {
         free_quad(engine, tree->quad.child[i], size_order);
         tree->quad.child[i] = tree->outside;
+    }
+
+    if (min1 > max1 || min2 > max2) {
+        tree->size_order = -1;
+        return 1;
     }
 
     if (!error) {
@@ -1047,6 +1047,11 @@ int expand_tile_tree(const TileEngine *engine, TileTree *tree, int dir)
         tree->quad.child[i] = tree->outside;
     }
 
+    if (min1 > max1 || min2 > max2) {
+        tree->size_order = -1;
+        return 1;
+    }
+
     if (!error) {
         calc_tree_bounds(engine, tree,
                          base1 + (min1 << size_order),
@@ -1237,6 +1242,11 @@ int filter_tile_tree(const TileEngine *engine, TileTree *tree, int dir,
     for (int i = 0; i < 4; ++i) {
         free_quad(engine, tree->quad.child[i], size_order);
         tree->quad.child[i] = tree->outside;
+    }
+
+    if (min1 > max1 || min2 > max2) {
+        tree->size_order = -1;
+        return 1;
     }
 
     if (!error) {
