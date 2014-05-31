@@ -1794,6 +1794,66 @@ int DECORATE(blur1246_vert_solid_tile)(int16_t *dst,
 }
 
 
+int DECORATE(shift_tile)(int16_t *dst,
+                         const int16_t *src0, const int16_t *src1,
+                         const int16_t *src2, const int16_t *src3,
+                         int dx, int dy)
+{
+#define LERP(s0, s1, c) ((s0) + ((((s1) - (s0)) * (c) + 32) >> 6));
+#define PIXEL(index, s0, s1) \
+    next = LERP(s0, s1, sub_dx); \
+    dst[index] = LERP(prev[index], next, sub_dy); \
+    flag0 |= dst[index]; \
+    flag1 |= dst[index] ^ full; \
+    prev[index] = next;
+
+    int sub_dx = dx & 63;
+    int sub_dy = dy & 63;
+    dx >>= 6;
+    dy >>= 6;
+
+    int16_t prev[TILE_SIZE];
+    src0 += dy * TILE_SIZE;
+    src1 += dy * TILE_SIZE;
+    for (int j = dx; j < TILE_SIZE - 1; ++j)
+        prev[j - dx] = LERP(src0[j], src0[j + 1], sub_dx);
+    prev[TILE_SIZE - dx - 1] = LERP(src0[TILE_SIZE - 1], src1[0], sub_dx);
+    for (int j = 0; j < dx; ++j)
+        prev[j + TILE_SIZE - dx] = LERP(src1[j], src1[j + 1], sub_dx);
+
+    const int16_t full = 1 << 14;
+    int16_t next, flag0 = 0, flag1 = 0;
+    for (int i = dy + 1; i < TILE_SIZE; ++i) {
+        src0 += TILE_SIZE;
+        src1 += TILE_SIZE;
+        for (int j = dx; j < TILE_SIZE - 1; ++j) {
+            PIXEL(j - dx, src0[j], src0[j + 1]);
+        }
+        PIXEL(TILE_SIZE - dx - 1, src0[TILE_SIZE - 1], src1[0]);
+        for (int j = 0; j < dx; ++j) {
+            PIXEL(j + TILE_SIZE - dx, src1[j], src1[j + 1]);
+        }
+        dst += TILE_SIZE;
+    }
+    for (int i = 0; i <= dy; ++i) {
+        for (int j = dx; j < TILE_SIZE - 1; ++j) {
+            PIXEL(j - dx, src2[j], src2[j + 1]);
+        }
+        PIXEL(TILE_SIZE - dx - 1, src2[TILE_SIZE - 1], src3[0]);
+        for (int j = 0; j < dx; ++j) {
+            PIXEL(j + TILE_SIZE - dx, src3[j], src3[j + 1]);
+        }
+        src2 += TILE_SIZE;
+        src3 += TILE_SIZE;
+        dst += TILE_SIZE;
+    }
+    return (flag0 ? 1 : 0) - (flag1 ? 1 : 0);
+
+#undef LERP
+#undef PIXEL
+}
+
+
 const TileEngine DECORATE(engine_tile) =
 {
     .tile_order = TILE_ORDER,
@@ -1838,4 +1898,5 @@ const TileEngine DECORATE(engine_tile) =
         { DECORATE(blur1235_horz_solid_tile), DECORATE(blur1235_vert_solid_tile) },
         { DECORATE(blur1246_horz_solid_tile), DECORATE(blur1246_vert_solid_tile) },
     },
+    .shift = DECORATE(shift_tile),
 };

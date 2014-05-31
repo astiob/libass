@@ -71,6 +71,14 @@ typedef void (*FilterTileFunc)(int16_t *dst,
 typedef int (*FilterSolidTileFunc)(int16_t *dst,
                                    const int16_t *side1, int set, const int16_t *side2,
                                    void *param);
+// return value:
+// = 0 - generic tile
+// < 0 - empty tile
+// > 0 - solid tile
+typedef int (*ShiftTileFunc)(int16_t *dst,
+                             const int16_t *src0, const int16_t *src1,
+                             const int16_t *src2, const int16_t *src3,
+                             int dx, int dy);
 
 
 enum {
@@ -97,6 +105,7 @@ typedef struct {
     FilterSolidTileFunc pre_blur_solid[3][2];
     FilterTileFunc main_blur[3][2];
     FilterSolidTileFunc main_blur_solid[3][2];
+    ShiftTileFunc shift;
 } TileEngine;
 
 
@@ -123,6 +132,7 @@ void calc_tree_bounds(const TileEngine *engine, TileTree *dst,
                       int x_min, int y_min, int x_max, int y_max);
 int combine_tile_tree(const TileEngine *engine, TileTree *dst, const TileTree *src, int op);
 int blur_tile_tree(const TileEngine *engine, TileTree *tree, double r2);
+int shift_tile_tree(const TileEngine *engine, TileTree *tree, int dx, int dy);
 
 
 #endif                          /* LIBASS_TILE_H */
