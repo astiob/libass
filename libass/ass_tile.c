@@ -1226,7 +1226,7 @@ static void calc_matrix(double mat[4][4], const double *base_exp, const int *ind
     }
 
     // invert transpose
-    for (int k = 0; k < 4; k++) {
+    for (int k = 0; k < 4; ++k) {
         int ip = k, jp = k;  // pivot
         double z = 1 / mat[ip][jp];
         mat[ip][jp] = 1;
@@ -1308,7 +1308,7 @@ int blur_tile_tree(const TileEngine *engine, TileTree *tree, double r2)
             level = 1;
             double val = r2 + 1;
             for (; val > 33; val /= 4)
-                level++;
+                ++level;
 
             if (val < 14.5)
                 prefilter = 0;
@@ -1324,7 +1324,7 @@ int blur_tile_tree(const TileEngine *engine, TileTree *tree, double r2)
 
     int16_t coeff[5];
     int rest = 0x10000;
-    for(int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= 4; ++i) {
         coeff[i] = (int)(0x8000 * mu[i - 1] + 0.5);
         rest -= 2 * coeff[i];
     }
