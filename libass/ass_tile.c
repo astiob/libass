@@ -831,15 +831,17 @@ static const Quad *combine_small_quad(const TileEngine *engine, const Quad *src1
                                   tile_func, op_flags);
     if (quad == INVALID_QUAD)
         return INVALID_QUAD;
-    if (quad == next)
+    if (quad == next) {
+        free_quad(engine, quad, src1_order);
         return copy_quad(engine, src1, src1_order + 1);
+    }
 
     if (quad == dominant_quad && src1 != trivial_quad(~op_flags & 1)) {
         if (src1 == dominant_quad)
             return dominant_quad;
         int empty = 1;
         for (int i = 0; i < 4; ++i)
-            if (i != index && src1->child[i] == dominant_quad)
+            if (i != index && src1->child[i] != dominant_quad)
                 empty = 0;
         if (empty)
             return dominant_quad;
