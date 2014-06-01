@@ -269,296 +269,299 @@ void finalize_quad(const TileEngine *engine, uint8_t *buf, ptrdiff_t stride,
 }
 
 
-static inline int find_split(int *split, int start, int count, int value)
+typedef struct
 {
-    int res;
-    for (res = start; res < count; ++res)
-        if (split[res] >= value)
-            break;
-    return res;
-}
+    int x[4], y[4];
+    int size_order;
+    const Quad *corner[2][2];
+    const Quad *horz_side[2];
+    const Quad *vert_side[2];
+    const Quad *inside, *outside;
+} QuadRect;
 
-static const Quad *build_axis_aligned_quad(const TileEngine *engine,
-                                           int x, int y, int size_order,
-                                           int *x_split, int x_count,
-                                           int *y_split, int y_count,
-                                           const Quad **fill, int stride)
+static int rectangle_level_up(const TileEngine *engine, QuadRect *rect)
 {
-    if (!x_count && !y_count)
-        return copy_quad(engine, *fill, size_order);
+    int x[4], y[4];
+    for (int j = 0; j < 4; ++j) {
+        x[j] = rect->x[j] & 1;
+        rect->x[j] = (rect->x[j] + (j & 1)) >> 1;
+    }
+    for (int i = 0; i < 4; ++i) {
+        y[i] = rect->y[i] & 1;
+        rect->y[i] = (rect->y[i] + (i & 1)) >> 1;
+    }
 
-    assert(size_order > engine->tile_order);
+    int i0[2] = { 0, 1 }, j0[2] = { 0, 1 };
+    if (rect->x[2] < rect->x[1]) {
+        rect->x[2] = rect->x[1];
+        j0[1] = 0;
+    }
+    if (rect->y[2] < rect->y[1]) {
+        rect->y[2] = rect->y[1];
+        i0[1] = 0;
+    }
 
-    int size = 1 << (size_order - 1);
+    int size_order = rect->size_order;
+    ++rect->size_order;
 
-    int n_x[2], offs_x[2];
-    offs_x[0] = 0;
-    n_x[0] = find_split(x_split, offs_x[0], x_count, x + size);
-    offs_x[1] = find_split(x_split, n_x[0], x_count, x + size + 1);
-    n_x[1] = x_count - offs_x[1];
-
-    int n_y[2], offs_y[2];
-    offs_y[0] = 0;
-    n_y[0] = find_split(y_split, offs_y[0], y_count, y + size);
-    offs_y[1] = find_split(y_split, n_y[0], y_count, y + size + 1);
-    n_y[1] = y_count - offs_y[1];
-
-    Quad *quad = alloc_quad(engine, INVALID_QUAD);
-    if (!quad)
-        return INVALID_QUAD;
-
-    int flag = 3;
+    int error = 0;
     for (int i = 0; i < 2; ++i)
         for (int j = 0; j < 2; ++j) {
-            const Quad *res = build_axis_aligned_quad(engine,
-                                                      x + j * size, y + i * size, size_order - 1,
-                                                      x_split + offs_x[j], n_x[j],
-                                                      y_split + offs_y[i], n_y[i],
-                                                      fill + offs_y[i] * stride + offs_x[j], stride);
-            quad->child[2 * i + j] = res;
-            if (res == INVALID_QUAD) {
-                free_quad(engine, quad, size_order);
-                return INVALID_QUAD;
+            Quad *next = NULL;
+            if (rect->x[2 * j + 1] > rect->x[2 * j] &&
+                rect->y[2 * i + 1] > rect->y[2 * i]) {
+                next = alloc_quad(engine, rect->outside);
+                if (!next)
+                    error = 1;
+                else if (i0[1] && j0[1])
+                    next->child[(2 * i + j) ^ 3] = rect->inside;
             }
-            if (res == EMPTY_QUAD)
-                flag &= 1;
-            else if (res == SOLID_QUAD)
-                flag &= 2;
+            const Quad *prev = rect->corner[i][j];
+            rect->corner[i][j] = next;
+            if (!prev)
+                continue;
+
+            next = (Quad *)rect->corner[i0[i]][j0[j]];
+            if (next)
+                next->child[2 * y[2 * i] + x[2 * j]] = prev;
             else
-                flag = 0;
+                free_quad(engine, prev, size_order);
         }
-    if (!flag)
-        return quad;
-    free_quad(engine, quad, size_order);
-    return flag == 1 ? EMPTY_QUAD : SOLID_QUAD;
+
+    for (int i = 0; i < 2; ++i) {
+        Quad *next = NULL;
+        if (rect->x[2] > rect->x[1] &&
+            rect->y[2 * i + 1] > rect->y[2 * i]) {
+            next = alloc_quad(engine, rect->outside);
+            if (!next)
+                error = 1;
+            else if (i0[1]) {
+                next->child[(2 * i + 0) ^ 3] = rect->inside;
+                next->child[(2 * i + 1) ^ 3] = rect->inside;
+            }
+        }
+        const Quad *prev = rect->horz_side[i];
+        rect->horz_side[i] = next;
+        if (!prev)
+            continue;
+
+        for (int j = 0; j < 2; ++j)
+            if (x[j + 1]) {
+                Quad *quad = (Quad *)rect->corner[i0[i]][j];
+                if (quad)
+                    quad->child[2 * y[2 * i] + (j ^ 1)] = copy_quad(engine, prev, size_order);
+            }
+
+        next = (Quad *)rect->horz_side[i0[i]];
+        if (next) {
+            prev = copy_quad(engine, prev, size_order);
+            next->child[2 * y[2 * i] + 0] = prev;
+            next->child[2 * y[2 * i] + 1] = prev;
+        } else
+            free_quad(engine, prev, size_order);
+    }
+
+    for (int j = 0; j < 2; ++j) {
+        Quad *next = NULL;
+        if (rect->y[2] > rect->y[1] &&
+            rect->x[2 * j + 1] > rect->x[2 * j]) {
+            next = alloc_quad(engine, rect->outside);
+            if (!next)
+                error = 1;
+            else if (j0[1]) {
+                next->child[(2 * 0 + j) ^ 3] = rect->inside;
+                next->child[(2 * 1 + j) ^ 3] = rect->inside;
+            }
+        }
+        const Quad *prev = rect->vert_side[j];
+        rect->vert_side[j] = next;
+        if (!prev)
+            continue;
+
+        for (int i = 0; i < 2; ++i)
+            if (y[i + 1]) {
+                Quad *quad = (Quad *)rect->corner[i][j0[j]];
+                if (quad)
+                    quad->child[2 * (i ^ 1) + x[2 * j]] = copy_quad(engine, prev, size_order);
+            }
+
+        next = (Quad *)rect->vert_side[j0[j]];
+        if (next) {
+            prev = copy_quad(engine, prev, size_order);
+            next->child[2 * 0 + x[2 * j]] = prev;
+            next->child[2 * 1 + x[2 * j]] = prev;
+        } else
+            free_quad(engine, prev, size_order);
+    }
+
+    return !error;
 }
 
-static int build_axis_aligned_tree(const TileEngine *engine, Quad *quad,
-                                   int x, int y, int size_order,
-                                   int *x_split, int x_count,
-                                   int *y_split, int y_count,
-                                   const Quad **fill, int stride)
-{
-    assert(size_order > engine->tile_order);
-
-    int size = 1 << (size_order - 1);
-
-    int n_x[2], offs_x[2];
-    offs_x[0] = find_split(x_split, 0, x_count, x + 1);
-    n_x[0] = find_split(x_split, offs_x[0], x_count, x + size);
-    offs_x[1] = find_split(x_split, n_x[0], x_count, x + size + 1);
-    n_x[1] = find_split(x_split, offs_x[1], x_count, x + 2 * size);
-    n_x[0] -= offs_x[0];
-    n_x[1] -= offs_x[1];
-
-    int n_y[2], offs_y[2];
-    offs_y[0] = find_split(y_split, 0, y_count, y + 1);
-    n_y[0] = find_split(y_split, offs_y[0], y_count, y + size);
-    offs_y[1] = find_split(y_split, n_y[0], y_count, y + size + 1);
-    n_y[1] = find_split(y_split, offs_y[1], y_count, y + 2 * size);
-    n_y[0] -= offs_y[0];
-    n_y[1] -= offs_y[1];
-
-    for (int i = 0; i < 2; ++i)
-        for (int j = 0; j < 2; ++j) {
-            const Quad *res = build_axis_aligned_quad(engine,
-                                                      x + j * size, y + i * size, size_order - 1,
-                                                      x_split + offs_x[j], n_x[j],
-                                                      y_split + offs_y[i], n_y[i],
-                                                      fill + offs_y[i] * stride + offs_x[j], stride);
-            quad->child[2 * i + j] = res;
-            if (res == INVALID_QUAD)
-                return 0;
-        }
-    return 1;
-}
-
-TileTree *create_rectangle(const TileEngine *engine,
-                           int x_min, int y_min, int x_max, int y_max,
-                           int inverse)
+static TileTree *rectangle_process(const TileEngine *engine, QuadRect *rect,
+                                   int32_t x_min, int32_t y_min, int32_t x_max, int32_t y_max,
+                                   int inverse)
 {
     assert(x_min < x_max && y_min < y_max);
 
-    int tile_size = 1 << engine->tile_order;
-    int mask = (tile_size << 6) - 1;
+    memset(rect, 0, sizeof(QuadRect));
+    rect->size_order = engine->tile_order;
+    rect->inside = inverse ? EMPTY_QUAD : SOLID_QUAD;
+    rect->outside = inverse ? SOLID_QUAD : EMPTY_QUAD;
 
-    enum { MIN_POS, CNT_POS, MAX_POS, ALL_POS };
-
-    int x[4], n_x = 1;
-    int x_pos[4] = { -1, -1, -1, -1 };
-    x[0] = (x_min & ~mask) >> 6;
-    if (x_min & mask) {
-        x_pos[MIN_POS] = n_x;
-        x[n_x] = x[n_x - 1] + tile_size;
-        ++n_x;
-    }
-    x[n_x] = (x_max & ~mask) >> 6;
-    if (x[n_x] < x[n_x - 1])
-        x_pos[MAX_POS] = x_pos[ALL_POS] = n_x;
-    else {
-        if (x[n_x] > x[n_x - 1]) {
-            x_pos[CNT_POS] = n_x;
-            ++n_x;
-        }
-        if (x_max & mask) {
-            x_pos[MAX_POS] = n_x;
-            x[n_x] = x[n_x - 1] + tile_size;
-            ++n_x;
-        }
-    }
-
-    int y[4], n_y = 1;
-    int y_pos[4] = { -1, -1, -1, -1 };
-    y[0] = (y_min & ~mask) >> 6;
-    if (y_min & mask) {
-        y_pos[MIN_POS] = n_y;
-        y[n_y] = y[n_y - 1] + tile_size;
-        ++n_y;
-    }
-    y[n_y] = (y_max & ~mask) >> 6;
-    if (y[n_y] < y[n_y - 1])
-        y_pos[MAX_POS] = y_pos[ALL_POS] = n_y;
-    else {
-        if (y[n_y] > y[n_y - 1]) {
-            y_pos[CNT_POS] = n_y;
-            ++n_y;
-        }
-        if (y_max & mask) {
-            y_pos[MAX_POS] = n_y;
-            y[n_y] = y[n_y - 1] + tile_size;
-            ++n_y;
-        }
-    }
+    int shift = engine->tile_order + 6;
+    int32_t mask = ((int32_t)1 << shift) - 1;
+    rect->x[0] = (x_min +    0) >> shift;
+    rect->x[1] = (x_min + mask) >> shift;
+    rect->x[2] = (x_max +    0) >> shift;
+    rect->x[3] = (x_max + mask) >> shift;
+    rect->y[0] = (y_min +    0) >> shift;
+    rect->y[1] = (y_min + mask) >> shift;
+    rect->y[2] = (y_max +    0) >> shift;
+    rect->y[3] = (y_max + mask) >> shift;
 
     int32_t ab = (int32_t)1 << 30, scale = inverse ? -ab : ab;
     CombineTileFunc combine = engine->combine[inverse ? COMBINE_ADD : COMBINE_MUL];
-    int error = 0;
 
-    int16_t *tile_x[2] = { NULL, NULL };
-    if (x_pos[MIN_POS] >= 0) {
-        tile_x[0] = alloc_tile(engine);
-        if (tile_x[0])
-            engine->fill_halfplane(tile_x[0], ab, 0, (int64_t)(x_min & mask) << 30, -scale);
-        else
-            error = 1;
+    if (x_min & mask) {
+        int16_t *buf = alloc_tile(engine);
+        if (!buf)
+            return NULL;
+        engine->fill_halfplane(buf, ab, 0, (int64_t)(x_min & mask) << 30, -scale);
+        rect->vert_side[0] = (const Quad *)buf;
     }
-    if (x_pos[MAX_POS] >= 0) {
-        tile_x[1] = alloc_tile(engine);
-        if (tile_x[1])
-            engine->fill_halfplane(tile_x[1], ab, 0, (int64_t)(x_max & mask) << 30, scale);
-        else
-            error = 1;
+    if (x_max & mask) {
+        int16_t *buf = alloc_tile(engine);
+        if (!buf)
+            return NULL;
+        engine->fill_halfplane(buf, ab, 0, (int64_t)(x_max & mask) << 30, scale);
+        rect->vert_side[1] = (const Quad *)buf;
     }
-    if (x_pos[ALL_POS] >= 0) {
-        combine(tile_x[0], tile_x[0], tile_x[1]);
-        x_pos[MAX_POS] = -1;
-    }
-
-    int16_t *tile_y[2] = { NULL, NULL };
-    if (y_pos[MIN_POS] >= 0) {
-        tile_y[0] = alloc_tile(engine);
-        if (tile_y[0])
-            engine->fill_halfplane(tile_y[0], 0, ab, (int64_t)(y_min & mask) << 30, -scale);
-        else
-            error = 1;
-    }
-    if (y_pos[MAX_POS] >= 0) {
-        tile_y[1] = alloc_tile(engine);
-        if (tile_y[1])
-            engine->fill_halfplane(tile_y[1], 0, ab, (int64_t)(y_max & mask) << 30, scale);
-        else
-            error = 1;
-    }
-    if (y_pos[ALL_POS] >= 0) {
-        combine(tile_y[0], tile_y[0], tile_y[1]);
-        y_pos[MAX_POS] = -1;
+    if (rect->x[2] < rect->x[1]) {
+        rect->x[2] = rect->x[1];
+        combine((int16_t *)rect->vert_side[0],
+                (int16_t *)rect->vert_side[0], (int16_t *)rect->vert_side[1]);
+        free_tile(engine, (int16_t *)rect->vert_side[1]);
+        rect->vert_side[1] = NULL;
     }
 
-    if (error) {
+    if (y_min & mask) {
+        int16_t *buf = alloc_tile(engine);
+        if (!buf)
+            return NULL;
+        engine->fill_halfplane(buf, 0, ab, (int64_t)(y_min & mask) << 30, -scale);
+        rect->horz_side[0] = (const Quad *)buf;
+    }
+    if (y_max & mask) {
+        int16_t *buf = alloc_tile(engine);
+        if (!buf)
+            return NULL;
+        engine->fill_halfplane(buf, 0, ab, (int64_t)(y_max & mask) << 30, scale);
+        rect->horz_side[1] = (const Quad *)buf;
+    }
+    if (rect->y[2] < rect->y[1]) {
+        rect->y[2] = rect->y[1];
+        combine((int16_t *)rect->horz_side[0],
+                (int16_t *)rect->horz_side[0], (int16_t *)rect->horz_side[1]);
+        free_tile(engine, (int16_t *)rect->horz_side[1]);
+        rect->horz_side[1] = NULL;
+    }
+
+    for (int i = 0; i < 2; ++i)
+        for (int j = 0; j < 2; ++j)
+            if (rect->horz_side[i] && rect->vert_side[j]) {
+                int16_t *buf = alloc_tile(engine);
+                if (!buf)
+                    return NULL;
+                combine(buf, (int16_t *)rect->horz_side[i], (int16_t *)rect->vert_side[j]);
+                rect->corner[i][j] = (const Quad *)buf;
+            }
+    if (rect->x[1] == rect->x[2])
         for (int i = 0; i < 2; ++i)
-            if (tile_x[i])
-                free_tile(engine, tile_x[i]);
-        for (int i = 0; i < 2; ++i)
-            if (tile_y[i])
-                free_tile(engine, tile_y[i]);
+            if (rect->horz_side[i]) {
+                free_tile(engine, rect->horz_side[i]);
+                rect->horz_side[i] = NULL;
+            }
+    if (rect->y[1] == rect->y[2])
+        for (int j = 0; j < 2; ++j)
+            if (rect->vert_side[j]) {
+                free_tile(engine, rect->vert_side[j]);
+                rect->vert_side[j] = NULL;
+            }
+
+    while (rect->x[3] > rect->x[0] + 2 || rect->y[3] > rect->y[0] + 2)
+        if (!rectangle_level_up(engine, rect))
+            return NULL;
+
+    int x0 = rect->x[0], y0 = rect->y[0];
+    for (int j = 0; j < 4; ++j)
+        rect->x[j] -= x0;
+    for (int i = 0; i < 4; ++i)
+        rect->y[i] -= y0;
+    if (!rectangle_level_up(engine, rect))
         return NULL;
-    }
 
-    const int n = 5;
-    const Quad *fill[n * n];
-    const Quad *empty = inverse ? SOLID_QUAD : EMPTY_QUAD;
-    for (int k = 0; k < n * n; ++k)
-        fill[k] = empty;
+    assert(!rect->x[0] && rect->x[3] == 1);
+    assert(!rect->y[0] && rect->y[3] == 1);
 
-    if (y_pos[MIN_POS] >= 0) {
-        if (x_pos[MIN_POS] >= 0) {
-            int16_t *buf = alloc_tile(engine);
-            fill[n * y_pos[MIN_POS] + x_pos[MIN_POS]] = (const Quad *)buf;
-            if (buf)
-                combine(buf, tile_x[0], tile_y[0]);
-            else
-                error = 1;
-        }
-        if (x_pos[CNT_POS] >= 0)
-            fill[n * y_pos[MIN_POS] + x_pos[CNT_POS]] = (const Quad *)copy_tile(engine, tile_y[0]);
-        if (x_pos[MAX_POS] >= 0) {
-            int16_t *buf = alloc_tile(engine);
-            fill[n * y_pos[MIN_POS] + x_pos[MAX_POS]] = (const Quad *)buf;
-            if (buf)
-                combine(buf, tile_x[1], tile_y[0]);
-            else
-                error = 1;
-        }
-    }
-    if (y_pos[CNT_POS] >= 0) {
-        if (x_pos[MIN_POS] >= 0)
-            fill[n * y_pos[CNT_POS] + x_pos[MIN_POS]] = (const Quad *)copy_tile(engine, tile_x[0]);
-        if (x_pos[CNT_POS] >= 0)
-            fill[n * y_pos[CNT_POS] + x_pos[CNT_POS]] = inverse ? EMPTY_QUAD : SOLID_QUAD;
-        if (x_pos[MAX_POS] >= 0)
-            fill[n * y_pos[CNT_POS] + x_pos[MAX_POS]] = (const Quad *)copy_tile(engine, tile_x[1]);
-    }
-    if (y_pos[MAX_POS] >= 0) {
-        if (x_pos[MIN_POS] >= 0) {
-            int16_t *buf = alloc_tile(engine);
-            fill[n * y_pos[MAX_POS] + x_pos[MIN_POS]] = (const Quad *)buf;
-            if (buf)
-                combine(buf, tile_x[0], tile_y[1]);
-            else
-                error = 1;
-        }
-        if (x_pos[CNT_POS] >= 0)
-            fill[n * y_pos[MAX_POS] + x_pos[CNT_POS]] = (const Quad *)copy_tile(engine, tile_y[1]);
-        if (x_pos[MAX_POS] >= 0) {
-            int16_t *buf = alloc_tile(engine);
-            fill[n * y_pos[MAX_POS] + x_pos[MAX_POS]] = (const Quad *)buf;
-            if (buf)
-                combine(buf, tile_x[1], tile_y[1]);
-            else
-                error = 1;
-        }
-    }
+    TileTree *tree = alloc_tile_tree(engine, rect->inside);
+    if (!tree)
+        return NULL;
+    tree->x = x0 << (rect->size_order - 1);
+    tree->y = y0 << (rect->size_order - 1);
+    tree->size_order = rect->size_order;
+    tree->outside = rect->outside;
 
     for (int i = 0; i < 2; ++i)
-        if (tile_x[i])
-            free_tile(engine, tile_x[i]);
-    for (int i = 0; i < 2; ++i)
-        if (tile_y[i])
-            free_tile(engine, tile_y[i]);
-
-    TileTree *tree = error ? NULL : alloc_tile_tree(engine, empty);
-    if (tree) {
-        calc_tree_bounds(engine, tree, x[0], y[0], x[n_x - 1], y[n_y - 1]);
-        if (!build_axis_aligned_tree(engine, &tree->quad,
-                                     tree->x, tree->y, tree->size_order,
-                                     x, n_x, y, n_y, fill, n)) {
-            free_tile_tree(engine, tree);
-            tree = NULL;
+        for (int j = 0; j < 2; ++j) {
+            const Quad *quad = rect->corner[i][j];
+            if (!quad)
+                continue;
+            for (int k = 0; k < 4; ++k)
+                tree->quad.child[k] = copy_quad(engine, quad->child[k], rect->size_order - 1);
+            free_quad(engine, quad, rect->size_order);
+            return tree;
         }
+    for (int i = 0; i < 2; ++i) {
+        const Quad *quad = rect->horz_side[i];
+        if (!quad)
+            continue;
+        for (int k = 0; k < 4; ++k)
+            tree->quad.child[k] = copy_quad(engine, quad->child[k], rect->size_order - 1);
+        free_quad(engine, quad, rect->size_order);
+        return tree;
     }
-    for (int k = 0; k < n * n; ++k)
-        free_quad(engine, fill[k], engine->tile_order);
+    for (int j = 0; j < 2; ++j) {
+        const Quad *quad = rect->vert_side[j];
+        if (!quad)
+            continue;
+        for (int k = 0; k < 4; ++k)
+            tree->quad.child[k] = copy_quad(engine, quad->child[k], rect->size_order - 1);
+        free_quad(engine, quad, rect->size_order);
+        return tree;
+    }
     return tree;
+}
+
+TileTree *create_rectangle(const TileEngine *engine,
+                           int32_t x_min, int32_t y_min, int32_t x_max, int32_t y_max,
+                           int inverse)
+{
+    QuadRect rect;
+    TileTree *tree = rectangle_process(engine, &rect,
+                                       x_min, y_min, x_max, y_max,
+                                       inverse);
+    if (tree)
+        return tree;
+
+    for (int i = 0; i < 2; ++i)
+        for (int j = 0; j < 2; ++j)
+            free_quad(engine, rect.corner[i][j], rect.size_order);
+    for (int i = 0; i < 2; ++i)
+        free_quad(engine, rect.horz_side[i], rect.size_order);
+    for (int j = 0; j < 2; ++j)
+        free_quad(engine, rect.vert_side[j], rect.size_order);
+
+    return NULL;
 }
 
 
