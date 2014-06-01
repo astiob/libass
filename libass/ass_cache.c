@@ -93,9 +93,11 @@ static size_t bitmap_size(void *value, size_t value_size)
 {
     BitmapHashValue *val = value;
     if (val->bm_o)
-        return val->bm_o->w * val->bm_o->h * 3;
+        return 6 << (2 * val->bm_o->size_order);
+        //return val->bm_o->w * val->bm_o->h * 3;
     else if (val->bm)
-        return val->bm->w * val->bm->h * 3;
+        return 6 << (2 * val->bm->size_order);
+        //return val->bm->w * val->bm->h * 3;
     return 0;
 }
 
@@ -141,9 +143,11 @@ static size_t composite_size(void *value, size_t value_size)
 {
     CompositeHashValue *val = value;
     if (val->bm_o)
-        return val->bm_o->w * val->bm_o->h * 3;
+        return 6 << (2 * val->bm_o->size_order);
+        //return val->bm_o->w * val->bm_o->h * 3;
     else if (val->bm)
-        return val->bm->w * val->bm->h * 3;
+        return 6 << (2 * val->bm->size_order);
+        //return val->bm->w * val->bm->h * 3;
     return 0;
 }
 

@@ -32,6 +32,7 @@
 #include "ass_bitmap.h"
 #include "ass_render.h"
 
+/*
 static const unsigned base = 256;
 
 int generate_tables(ASS_SynthPriv *priv, double radius)
@@ -141,14 +142,19 @@ Bitmap *alloc_bitmap(int w, int h)
     bm->left = bm->top = 0;
     return bm;
 }
+*/
 
 void ass_free_bitmap(Bitmap *bm)
 {
+    free_tile_tree(tile_engine, bm);
+    /*
     if (bm)
         ass_aligned_free(bm->buffer);
     free(bm);
+    */
 }
 
+/*
 Bitmap *copy_bitmap(const Bitmap *src)
 {
     Bitmap *dst = alloc_bitmap(src->w, src->h);
@@ -157,8 +163,7 @@ Bitmap *copy_bitmap(const Bitmap *src)
     memcpy(dst->buffer, src->buffer, src->stride * src->h);
     return dst;
 }
-
-#if CONFIG_RASTERIZER
+*/
 
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           FT_Outline *outline, int bord)
@@ -169,12 +174,17 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
     }
 
+    const TileEngine *engine = render_priv->tile_engine;
     if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
+        /*
         Bitmap *bm = alloc_bitmap(2 * bord, 2 * bord);
         bm->left = bm->top = -bord;
         return bm;
+        */
+        return alloc_tile_tree(engine, EMPTY_QUAD);
     }
 
+    /*
     rst->x_min -= bord << 6;
     rst->y_min -= bord << 6;
     rst->x_max += bord << 6;
@@ -186,81 +196,24 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                 w, h);
         return NULL;
     }
+    */
 
-    const TileEngine *engine = render_priv->tile_engine;
     TileTree *tree = rasterizer_fill(engine, rst);
     if (!tree) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
         return NULL;
     }
+    return tree;
 
+    /*
     Bitmap *bm = alloc_bitmap(1 << tree->size_order, 1 << tree->size_order);
     finalize_quad(engine, bm->buffer, bm->stride, &tree->quad, tree->size_order);
     bm->left = tree->x;
     bm->top =  tree->y;
     free_tile_tree(engine, tree);
     return bm;
+    */
 }
-
-#else
-
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord)
-{
-    Bitmap *bm;
-    int w, h;
-    int error;
-    FT_BBox bbox;
-    FT_Bitmap bitmap;
-
-    FT_Outline_Get_CBox(outline, &bbox);
-    if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
-        bm = alloc_bitmap(2 * bord, 2 * bord);
-        bm->left = bm->top = -bord;
-        return bm;
-    }
-
-    // move glyph to origin (0, 0)
-    bbox.xMin &= ~63;
-    bbox.yMin &= ~63;
-    FT_Outline_Translate(outline, -bbox.xMin, -bbox.yMin);
-    // bitmap size
-    bbox.xMax = (bbox.xMax + 63) & ~63;
-    bbox.yMax = (bbox.yMax + 63) & ~63;
-    w = (bbox.xMax - bbox.xMin) >> 6;
-    h = (bbox.yMax - bbox.yMin) >> 6;
-    // pen offset
-    bbox.xMin >>= 6;
-    bbox.yMax >>= 6;
-
-    if (w * h > 8000000) {
-        ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
-                w, h);
-        return NULL;
-    }
-
-    // allocate and set up bitmap
-    bm = alloc_bitmap(w + 2 * bord, h + 2 * bord);
-    bm->left = bbox.xMin - bord;
-    bm->top = -bbox.yMax - bord;
-    bitmap.width = w;
-    bitmap.rows = h;
-    bitmap.pitch = bm->stride;
-    bitmap.buffer = bm->buffer + bord + bm->stride * bord;
-    bitmap.num_grays = 256;
-    bitmap.pixel_mode = FT_PIXEL_MODE_GRAY;
-
-    // render into target bitmap
-    if ((error = FT_Outline_Get_Bitmap(render_priv->ftlibrary, outline, &bitmap))) {
-        ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph: %d\n", error);
-        ass_free_bitmap(bm);
-        return NULL;
-    }
-
-    return bm;
-}
-
-#endif
 
 /**
  * \brief fix outline bitmap
@@ -268,6 +221,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
  * The glyph bitmap is subtracted from outline bitmap. This way looks much
  * better in some cases.
  */
+/*
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 {
     int x, y;
@@ -296,11 +250,13 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
         o += bm_o->stride;
     }
 }
+*/
 
 /**
  * \brief Shift a bitmap by the fraction of a pixel in x and y direction
  * expressed in 26.6 fixed point
  */
+/*
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 {
     int x, y, b;
@@ -349,6 +305,7 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
         }
     }
 }
+*/
 
 /*
  * Gaussian blur.  An fast pure C implementation from MPlayer.

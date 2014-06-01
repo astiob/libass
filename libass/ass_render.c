@@ -41,6 +41,8 @@
 
 #endif // ASM
 
+const TileEngine *tile_engine;  // XXX: temporary
+
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
     int error;
@@ -64,13 +66,14 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         goto ass_init_exit;
     }
 
-    priv->synth_priv = ass_synth_init(BLUR_MAX_RADIUS);
+    //priv->synth_priv = ass_synth_init(BLUR_MAX_RADIUS);
 
     priv->library = library;
     priv->ftlibrary = ft;
     // images_root and related stuff is zero-filled in calloc
 
     #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+        /*
         int sse2 = has_sse2();
         int avx2 = has_avx2();
         priv->add_bitmaps_func = avx2 ? ass_add_bitmaps_avx2 :
@@ -89,10 +92,10 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->sub_bitmaps_func = sub_bitmaps_c;
         priv->mul_bitmaps_func = mul_bitmaps_c;
         priv->be_blur_func = be_blur_c;
+        */
     #endif
-    priv->restride_bitmap_func = restride_bitmap_c;
+    //priv->restride_bitmap_func = restride_bitmap_c;
 
-#if CONFIG_RASTERIZER
     prepare_solid_tiles();
 #if CONFIG_LARGE_TILES
     #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM && 0
@@ -109,8 +112,8 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->tile_engine = &ass_engine_tile16_c;
     #endif
 #endif
+    tile_engine = priv->tile_engine;  // XXX; remove
     rasterizer_init(&priv->rasterizer, 16);
-#endif
 
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
@@ -171,9 +174,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_free_images(render_priv->images_root);
     ass_free_images(render_priv->prev_images_root);
 
-#if CONFIG_RASTERIZER
     rasterizer_done(&render_priv->rasterizer);
-#endif
 
     if (render_priv->state.stroker) {
         FT_Stroker_Done(render_priv->state.stroker);
@@ -183,8 +184,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         FT_Done_FreeType(render_priv->ftlibrary);
     if (render_priv->fontconfig_priv)
         fontconfig_done(render_priv->fontconfig_priv);
-    if (render_priv->synth_priv)
-        ass_synth_done(render_priv->synth_priv);
+    //if (render_priv->synth_priv)
+        //ass_synth_done(render_priv->synth_priv);
     ass_shaper_free(render_priv->shaper);
     free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
@@ -300,6 +301,7 @@ static double y2scr_sub(ASS_Renderer *render_priv, double y)
  * In an additional pass, the rectangles need to be split up left/right for
  * karaoke effects.  This can result in a lot of bitmaps (6 to be exact).
  */
+/*
 static ASS_Image **render_glyph_i(ASS_Renderer *render_priv, Bitmap *bm,
                                   uint32_t color, uint32_t color2, int brk,
                                   ASS_Image **tail, unsigned int type)
@@ -388,6 +390,64 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv, Bitmap *bm,
 
     return tail;
 }
+*/
+
+static void free_list_add(ASS_Renderer *render_priv, void *object);
+
+static ASS_Image **convert_to_images(ASS_Renderer *render_priv,
+                                     const Quad *quad, int size_order, int x, int y,
+                                     uint32_t color, uint32_t color2, int brk,
+                                     ASS_Image **tail, unsigned int type)
+{
+    assert(quad != INVALID_QUAD);
+
+    if (!quad)
+        return tail;
+
+    if (size_order <= 6 || quad == SOLID_QUAD) {
+        if (size_order < 0)
+            return tail;
+
+        uint8_t *nbuffer = ass_aligned_alloc(32, 1 << (2 * size_order));
+        if (!nbuffer)
+            return tail;
+
+        free_list_add(render_priv, nbuffer);
+        finalize_quad(render_priv->tile_engine,
+                      nbuffer, 1 << size_order,
+                      quad, size_order);
+
+        int size = 1 << size_order;
+        brk = FFMINMAX(brk - x, 0, size);
+        if (brk > 0) {  // draw left part
+            ASS_Image *img = my_draw_bitmap(nbuffer, brk, size,
+                                            size, x, y, color);
+            if (!img)
+                return tail;
+            img->type = type;
+            *tail = img;
+            tail = &img->next;
+        }
+        if (brk < size) {  // draw right part
+            ASS_Image *img = my_draw_bitmap(nbuffer + brk, size - brk, size,
+                                            size, x + brk, y, color2);
+            if (!img)
+                return tail;
+            img->type = type;
+            *tail = img;
+            tail = &img->next;
+        }
+        return tail;
+    }
+
+    --size_order;
+    for (int i = 0; i < 4; ++i)
+        tail = convert_to_images(render_priv, quad->child[i], size_order,
+                                 x + (((i >> 0) & 1) << size_order),
+                                 y + (((i >> 1) & 1) << size_order),
+                                 color, color2, brk, tail, type);
+    return tail;
+}
 
 /**
  * \brief convert bitmap glyph into ASS_Image struct(s)
@@ -400,9 +460,20 @@ static ASS_Image **render_glyph_i(ASS_Renderer *render_priv, Bitmap *bm,
  * Performs clipping. Uses my_draw_bitmap for actual bitmap convertion.
  */
 static ASS_Image **
-render_glyph(ASS_Renderer *render_priv, Bitmap *bm,
+render_glyph(ASS_Renderer *render_priv, Bitmap *clip, Bitmap *bm,
              uint32_t color, uint32_t color2, int brk, ASS_Image **tail, unsigned int type)
 {
+    TileTree *tree = copy_tile_tree(render_priv->tile_engine, bm);
+    if (!tree)
+        return tail;  // XXX: error message
+
+    if (combine_tile_tree(render_priv->tile_engine, tree, clip, COMBINE_MUL))
+        tail = convert_to_images(render_priv, &tree->quad, tree->size_order,
+                                 tree->x, tree->y, color, color2, brk, tail, type);
+    free_tile_tree(render_priv->tile_engine, tree);
+    return tail;
+
+    /*
     // Inverse clipping in use?
     if (render_priv->state.clip_mode)
         return render_glyph_i(render_priv, bm, color, color2,
@@ -471,6 +542,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm,
         *tail = img;
         tail = &img->next;
     }
+    */
     return tail;
 }
 
@@ -488,11 +560,85 @@ static void free_list_add(ASS_Renderer *render_priv, void *object)
     }
 }
 
+TileTree *create_clip_shape(ASS_Renderer *render_priv)
+{
+    int clip_x0 = FFMINMAX(render_priv->state.clip_x0, 0, render_priv->width)  << 6;
+    int clip_y0 = FFMINMAX(render_priv->state.clip_y0, 0, render_priv->height) << 6;
+    int clip_x1 = FFMINMAX(render_priv->state.clip_x1, 0, render_priv->width)  << 6;
+    int clip_y1 = FFMINMAX(render_priv->state.clip_y1, 0, render_priv->height) << 6;
+
+    TileTree *clip;
+    const TileEngine *engine = render_priv->tile_engine;
+    if (clip_x0 < clip_x1 && clip_y0 < clip_y1)
+        clip = create_rectangle(engine,
+                                clip_x0, clip_y0, clip_x1, clip_y1,
+                                render_priv->state.clip_mode);
+    else
+        clip = alloc_tile_tree(engine, render_priv->state.clip_mode ? SOLID_QUAD : EMPTY_QUAD);
+    if (!clip)
+        return NULL;
+
+    ASS_Drawing *drawing = render_priv->state.clip_drawing;
+    if (!drawing)
+        return clip;
+
+    // Try to get mask from cache
+    BitmapHashKey key;
+    memset(&key, 0, sizeof(key));
+    key.type = BITMAP_CLIP;
+    key.u.clip.text = drawing->text;
+    BitmapHashValue *val = ass_cache_get(render_priv->cache.bitmap_cache, &key);
+
+    Bitmap *clip_bm = NULL;
+    if (val) {
+        clip_bm = val->bm;
+    } else {
+        BitmapHashValue v;
+
+        // Not found in cache, parse and rasterize it
+        FT_Outline *outline = ass_drawing_parse(drawing, 1);
+        if (!outline) {
+            ass_msg(render_priv->library, MSGL_WARN,
+                    "Clip vector parsing failed. Skipping.");
+            free_tile_tree(engine, clip);
+            return NULL;
+        }
+
+        // We need to translate the clip according to screen borders
+        if (render_priv->settings.left_margin != 0 ||
+            render_priv->settings.top_margin != 0) {
+            FT_Vector trans = {
+                .x = int_to_d6(render_priv->settings.left_margin),
+                .y = -int_to_d6(render_priv->settings.top_margin),
+            };
+            FT_Outline_Translate(outline, trans.x, trans.y);
+        }
+
+        clip_bm = outline_to_bitmap(render_priv, outline, 0);
+
+        // Add to cache
+        memset(&v, 0, sizeof(v));
+        key.u.clip.text = strdup(drawing->text);
+        v.bm = clip_bm;
+        ass_cache_put(render_priv->cache.bitmap_cache, &key, &v);
+    }
+
+    if (!clip_bm)
+        return clip;
+
+    if (combine_tile_tree(engine, clip, clip_bm,
+                          render_priv->state.clip_drawing_mode ? COMBINE_SUB : COMBINE_ADD))
+        return clip;
+    free_tile_tree(engine, clip);
+    return NULL;
+}
+
 /**
  * Iterate through a list of bitmaps and blend with clip vector, if
  * applicable. The blended bitmaps are added to a free list which is freed
  * at the start of a new frame.
  */
+/*
 static void blend_vector_clip(ASS_Renderer *render_priv,
                               ASS_Image *head)
 {
@@ -627,6 +773,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         cur->bitmap = nbuffer;
     }
 }
+*/
 
 static inline int is_skip_symbol(uint32_t x)
 {
@@ -638,6 +785,10 @@ static inline int is_skip_symbol(uint32_t x)
  */
 static ASS_Image *render_text(ASS_Renderer *render_priv)
 {
+    TileTree *clip = create_clip_shape(render_priv);
+    if (!clip < 0)
+        return NULL;
+
     int i;
     ASS_Image *head;
     ASS_Image **tail = &head;
@@ -649,8 +800,9 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
             continue;
 
         tail =
-            render_glyph(render_priv, info->bm_s, info->c[3], 0,
-                    1000000, tail, IMAGE_TYPE_SHADOW);
+            render_glyph(render_priv, clip,
+                         info->bm_s, info->c[3], 0,
+                         1000000, tail, IMAGE_TYPE_SHADOW);
     }
 
     for (i = 0; i < text_info->n_bitmaps; ++i) {
@@ -663,8 +815,9 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
             // do nothing
         } else {
             tail =
-                render_glyph(render_priv, info->bm_o, info->c[2],
-                        0, 1000000, tail, IMAGE_TYPE_OUTLINE);
+                render_glyph(render_priv, clip,
+                             info->bm_o, info->c[2], 0,
+                             1000000, tail, IMAGE_TYPE_OUTLINE);
         }
     }
 
@@ -677,25 +830,31 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
                 || (info->effect_type == EF_KARAOKE_KO)) {
             if (info->effect_timing > info->first_pos_x)
                 tail =
-                    render_glyph(render_priv, info->bm,
-                            info->c[0], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
+                    render_glyph(render_priv, clip,
+                                 info->bm, info->c[0], 0,
+                                 1000000, tail, IMAGE_TYPE_CHARACTER);
             else
                 tail =
-                    render_glyph(render_priv, info->bm,
-                            info->c[1], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
+                    render_glyph(render_priv, clip,
+                                 info->bm, info->c[1], 0,
+                                 1000000, tail, IMAGE_TYPE_CHARACTER);
         } else if (info->effect_type == EF_KARAOKE_KF) {
             tail =
-                render_glyph(render_priv, info->bm, info->c[0],
-                        info->c[1], info->effect_timing, tail, IMAGE_TYPE_CHARACTER);
+                render_glyph(render_priv, clip,
+                             info->bm, info->c[0], info->c[1],
+                             info->effect_timing, tail, IMAGE_TYPE_CHARACTER);
         } else
             tail =
-                render_glyph(render_priv, info->bm, info->c[0],
-                        0, 1000000, tail, IMAGE_TYPE_CHARACTER);
+                render_glyph(render_priv, clip,
+                             info->bm, info->c[0], 0,
+                             1000000, tail, IMAGE_TYPE_CHARACTER);
     }
 
     *tail = 0;
-    blend_vector_clip(render_priv, head);
+    //blend_vector_clip(render_priv, head);
+    free_tile_tree(render_priv->tile_engine, clip);
 
+    /*
     for (ASS_Image* cur = head; cur; cur = cur->next) {
         unsigned w = cur->w,
                  h = cur->h,
@@ -718,6 +877,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
             cur->bitmap = nbuffer;
         }
     }
+    */
 
     return head;
 }
@@ -988,10 +1148,13 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
  */
 static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
 {
+    hk->w = hk->h = hk->o_w = hk->o_h = 0;  // XXX: remove
+    /*
     hk->w = info->w;
     hk->h = info->h;
     hk->o_w = info->o_w;
     hk->o_h = info->o_h;
+    */
     hk->be = info->be;
     hk->blur = info->blur;
     hk->border_style = info->border_style;
@@ -1687,6 +1850,17 @@ static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
 
 static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 {
+    double blur_radius = info->blur * render_priv->blur_scale * 2;
+    double r2 = blur_radius * blur_radius / log(256) + 0.5 * info->be;
+    //if (r2 > 0.001) {
+    if (r2 > 1) {
+        if (info->bm_o)
+            blur_tile_tree(render_priv->tile_engine, info->bm_o, r2);
+        if (!info->bm_o || info->border_style == 3)
+            blur_tile_tree(render_priv->tile_engine, info->bm, r2);
+    }
+
+    /*
     int be = info->be;
     double blur_radius = info->blur * render_priv->blur_scale * 2;
     ASS_SynthPriv *priv_blur = render_priv->synth_priv;
@@ -1750,9 +1924,10 @@ static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
                            priv_blur->gt2, priv_blur->g_r,
                            priv_blur->g_w);
     }
+    */
 }
 
-static void make_shadow_bitmap(CombinedBitmapInfo *info, double scale)
+static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 {
     // VSFilter compatibility: invisible fill and no border?
     // In this case no shadow is supposed to be rendered.
@@ -1765,23 +1940,20 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, double scale)
 
     // Create shadow and fix outline as needed
     if (info->bm_o && info->border_style != 3) {
-        info->bm_s = copy_bitmap(info->bm_o);
-        fix_outline(info->bm, info->bm_o);
+        info->bm_s = copy_tile_tree(render_priv->tile_engine, info->bm_o);
+        combine_tile_tree(render_priv->tile_engine, info->bm_o, info->bm, COMBINE_SUB);  // XXX: better formula
     } else if (info->bm_o && (info->border_x || info->border_y)) {
-        info->bm_s = copy_bitmap(info->bm_o);
+        info->bm_s = copy_tile_tree(render_priv->tile_engine, info->bm_o);
     } else if (info->bm_o) {
         info->bm_s = info->bm_o;
         info->bm_o = 0;
     } else
-        info->bm_s = copy_bitmap(info->bm);
+        info->bm_s = copy_tile_tree(render_priv->tile_engine, info->bm);
 
     assert(info->bm_s);
-
-    int offset_x = double_to_d6(info->shadow_x * scale);
-    int offset_y = double_to_d6(info->shadow_y * scale);
-    info->bm_s->left += offset_x >> 6;
-    info->bm_s->top  += offset_y >> 6;
-    shift_bitmap(info->bm_s, offset_x & SUBPIXEL_MASK, offset_y & SUBPIXEL_MASK);
+    int offset_x = double_to_d6(info->shadow_x * render_priv->border_scale);
+    int offset_y = double_to_d6(info->shadow_y * render_priv->border_scale);
+    shift_tile_tree(render_priv->tile_engine, info->bm_s, offset_x, offset_y);
 }
 
 /**
@@ -2276,6 +2448,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             key->advance.y = double_to_d6(device_y) + info->pos.y;
             get_bitmap_glyph(render_priv, info);
 
+            /*
             int bm_x = key->advance.x >> 6,
                 bm_y = key->advance.y >> 6,
                 bm_o_x = bm_x, bm_o_y = bm_y, min_bm_x = bm_x, min_bm_y = bm_y;
@@ -2293,6 +2466,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 min_bm_x = FFMIN(min_bm_x, bm_o_x);
                 min_bm_y = FFMIN(min_bm_y, bm_o_y);
             }
+            */
 
             if(linebreak || is_new_bm_run(info, last_info)){
                 linebreak = 0;
@@ -2307,8 +2481,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
                 current_info = &combined_info[nb_bitmaps - 1];
 
-                current_info->pos.x = min_bm_x;
-                current_info->pos.y = min_bm_y;
+                //current_info->pos.x = min_bm_x;
+                //current_info->pos.y = min_bm_y;
 
                 current_info->first_pos_x = (info->bbox.xMax >> 6) + (key->advance.x >> 6);
 
@@ -2351,7 +2525,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 current_info->str = malloc(MAX_STR_LENGTH_INITIAL);
                 current_info->chars = 0;
 
-                current_info->w = current_info->h = current_info->o_w = current_info->o_h = 0;
+                //current_info->w = current_info->h = current_info->o_w = current_info->o_h = 0;
 
             }
 
@@ -2375,6 +2549,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
             current_info->has_outline = current_info->has_outline || !!info->bm_o;
 
+            /*
             if(min_bm_y < current_info->pos.y){
                 current_info->h += current_info->pos.y - min_bm_y;
                 current_info->o_h += current_info->pos.y - min_bm_y;
@@ -2400,6 +2575,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 current_info->o_h =
                     FFMAX(current_info->o_h, info->bm_o->h + bm_o_y - current_info->pos.y);
             }
+            */
 
             info->bm_run_id = nb_bitmaps - 1;
 
@@ -2425,13 +2601,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             free(info->str);
         }else{
             if(info->chars != 1 && !info->is_drawing){
+                info->bm = alloc_tile_tree(render_priv->tile_engine, EMPTY_QUAD);
+                /*
                 info->bm = alloc_bitmap(info->w, info->h);
                 info->bm->left = info->pos.x;
                 info->bm->top  = info->pos.y;
+                */
                 if(info->has_outline){
+                    info->bm_o = alloc_tile_tree(render_priv->tile_engine, EMPTY_QUAD);
+                    /*
                     info->bm_o = alloc_bitmap(info->o_w, info->o_h);
                     info->bm_o->left = info->pos.x;
                     info->bm_o->top  = info->pos.y;
+                    */
                 }
             }
         }
@@ -2445,10 +2627,15 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             if(!current_info->cached && !is_skip_symbol(info->symbol)){
                 if(current_info->chars == 1 || current_info->is_drawing){
                     if (info->bm)
-                        current_info->bm = copy_bitmap(info->bm);
+                        current_info->bm = copy_tile_tree(render_priv->tile_engine, info->bm);
                     if (info->bm_o)
-                        current_info->bm_o = copy_bitmap(info->bm_o);
+                        current_info->bm_o = copy_tile_tree(render_priv->tile_engine, info->bm_o);
                 }else{
+                    if (info->bm && info->bm->size_order >= 0)
+                        combine_tile_tree(render_priv->tile_engine, current_info->bm, info->bm, COMBINE_ADD);
+                    if (info->bm_o && info->bm_o->size_order >= 0)
+                        combine_tile_tree(render_priv->tile_engine, current_info->bm_o, info->bm_o, COMBINE_ADD);
+                    /*
                     unsigned offset_x, offset_y;
                     if(info->bm && info->bm->w && info->bm->h){
                         offset_x = info->bm->left - current_info->pos.x;
@@ -2474,6 +2661,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                             info->bm_o->w
                         );
                     }
+                    */
                 }
             }
             info = info->next;
@@ -2486,7 +2674,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             CombinedBitmapInfo *info = &combined_info[i];
             if(info->bm || info->bm_o){
                 apply_blur(info, render_priv);
-                make_shadow_bitmap(info, render_priv->border_scale);
+                make_shadow_bitmap(info, render_priv);
             }
 
             fill_composite_hash(&hk, info);

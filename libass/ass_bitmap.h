@@ -23,7 +23,9 @@
 #include FT_GLYPH_H
 
 #include "ass.h"
+#include "ass_tile.h"
 
+/*
 typedef struct ass_synth_priv {
     int tmp_w, tmp_h;
     void *tmp;
@@ -47,11 +49,13 @@ typedef struct {
     int stride;
     unsigned char *buffer;      // h * stride buffer
 } Bitmap;
+*/
+typedef TileTree Bitmap;
 
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           FT_Outline *outline, int bord);
 
-Bitmap *alloc_bitmap(int w, int h);
+//Bitmap *alloc_bitmap(int w, int h);
 /**
  * \brief perform glyph rendering
  * \param glyph original glyph
@@ -68,6 +72,7 @@ int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outlin
                        int border_style, int border_visible);
 
 void ass_free_bitmap(Bitmap *bm);
+/*
 void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
                     int width, int height, int stride,
                     unsigned *m2, int r, int mwidth);
@@ -92,5 +97,6 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o);
 void resize_tmp(ASS_SynthPriv *priv, int w, int h);
 int generate_tables(ASS_SynthPriv *priv, double radius);
 Bitmap *copy_bitmap(const Bitmap *src);
+*/
 
 #endif                          /* LIBASS_BITMAP_H */

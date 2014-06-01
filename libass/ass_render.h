@@ -109,13 +109,13 @@ typedef enum {
 // describes a combined bitmap
 typedef struct {
     Bitmap *bm;                 // glyphs bitmap
-    unsigned w;
-    unsigned h;
+    //unsigned w;
+    //unsigned h;
     Bitmap *bm_o;               // outline bitmap
-    unsigned o_w;
-    unsigned o_h;
+    //unsigned o_w;
+    //unsigned o_h;
     Bitmap *bm_s;               // shadow bitmap
-    FT_Vector pos;
+    //FT_Vector pos;
     uint32_t c[4];              // colors
     FT_Vector advance;          // 26.6
     Effect effect_type;
@@ -306,6 +306,7 @@ typedef struct {
     size_t composite_max_size;
 } CacheStore;
 
+/*
 typedef void (*BitmapBlendFunc)(uint8_t *dst, intptr_t dst_stride,
                                 uint8_t *src, intptr_t src_stride,
                                 intptr_t height, intptr_t width);
@@ -319,6 +320,7 @@ typedef void (*BEBlurFunc)(uint8_t *buf, intptr_t w,
 typedef void (*RestrideBitmapFunc)(uint8_t *dst, intptr_t dst_stride,
                                    uint8_t *src, intptr_t src_stride,
                                    intptr_t width, intptr_t height);
+*/
 
 struct ass_renderer {
     ASS_Library *library;
@@ -326,7 +328,7 @@ struct ass_renderer {
     FCInstance *fontconfig_priv;
     ASS_Settings settings;
     int render_id;
-    ASS_SynthPriv *synth_priv;
+    //ASS_SynthPriv *synth_priv;
     ASS_Shaper *shaper;
 
     ASS_Image *images_root;     // rendering result is stored here
@@ -353,19 +355,21 @@ struct ass_renderer {
     TextInfo text_info;
     CacheStore cache;
 
-#if CONFIG_RASTERIZER
     const TileEngine *tile_engine;
     RasterizerData rasterizer;
-#endif
+    /*
     BitmapBlendFunc add_bitmaps_func;
     BitmapBlendFunc sub_bitmaps_func;
     BitmapMulFunc mul_bitmaps_func;
     BEBlurFunc be_blur_func;
     RestrideBitmapFunc restride_bitmap_func;
+    */
 
     FreeList *free_head;
     FreeList *free_tail;
 };
+
+extern const TileEngine *tile_engine;  // XXX: temporary
 
 typedef struct render_priv {
     int top, height, left, width;
