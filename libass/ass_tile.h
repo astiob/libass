@@ -127,7 +127,9 @@ void free_tile_tree(const TileEngine *engine, TileTree *tree);
 
 void finalize_quad(const TileEngine *engine, uint8_t *buf, ptrdiff_t stride,
                    const Quad *quad, int size_order);
-
+TileTree *create_rectangle(const TileEngine *engine,
+                           int x_min, int y_min, int x_max, int y_max,
+                           int inverse);
 void calc_tree_bounds(const TileEngine *engine, TileTree *dst,
                       int x_min, int y_min, int x_max, int y_max);
 int combine_tile_tree(const TileEngine *engine, TileTree *dst, const TileTree *src, int op);
