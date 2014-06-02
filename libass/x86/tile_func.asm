@@ -1,5 +1,5 @@
 ;******************************************************************************
-;* rasterizer.asm: SSE2 tile rasterization functions
+;* tile_func.asm: SSE2/AVX2 tile functions
 ;******************************************************************************
 ;* Copyright (C) 2014 Vabishchevich Nikolay <vabnick@gmail.com>
 ;*
@@ -29,6 +29,7 @@ SECTION_RODATA 32
 words_index: dw 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F
 words_tile16: dw 1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024
 words_tile32: dw 512,512,512,512,512,512,512,512,512,512,512,512,512,512,512,512
+words_max: dw 256,256,256,256,256,256,256,256,256,256,256,256,256,256,256,256
 
 SECTION .text
 
@@ -97,59 +98,136 @@ SECTION .text
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_LINE r_dst, src, size
+; FINALIZE_SOLID
+; void finalize_solid(uint8_t *buf, ptrdiff_t stride, int size_order, int set);
 ;------------------------------------------------------------------------------
 
-%macro FILL_LINE 3
-%if ((%3) & (mmsize - 1)) == 0
-    %assign %%i 0
-    %rep (%3) / mmsize
-        mova [%1 + %%i], m%2
-    %assign %%i %%i + mmsize
-    %endrep
-%elif (%3) == 16
-    mova [%1], xm%2
+%macro FINALIZE_SOLID 0
+%if ARCH_X86_64 == 0
+cglobal finalize_solid, 0,5,1
+    DECLARE_REG_TMP 0,2,1,3
+    mov t0, r0m
+    mov t1, r1m
+    mov t2, r2m
+    mov t3, r3m
+%elif WIN64
+cglobal finalize_solid, 4,5,1
+    DECLARE_REG_TMP 2,1,0,3
+    xchg t0, t2
 %else
-    %error "invalid line size"
+cglobal finalize_solid, 4,5,1
+    DECLARE_REG_TMP 0,1,3,2
+    xchg t3, t2
+%endif
+
+    mov r4d, -1
+    test t3d, t3d
+    cmovnz t3d, r4d
+    movd xm0, t3d
+%if mmsize == 32
+    vpbroadcastd m0, xm0
+%else
+    pshufd m0, m0, q0000
+%endif
+
+%if mmsize == 32
+    cmp t2d, 5
+    jl .tile16
+%endif
+    mov t3d, 1
+    shl t3d, t2b
+
+    sub t1, t3
+    mov t2d, t3d
+.row_loop
+    mov r4d, t3d
+.col_loop
+    mova [t0], m0
+    add t0, mmsize
+    sub r4d, mmsize
+    jnz .col_loop
+    add t0, t1
+    sub t2d, 1
+    jnz .row_loop
+    RET
+
+%if mmsize == 32
+.tile16
+%rep 15
+    mova [t0], xm0
+    add t0, t1
+%endrep
+    mova [t0], xm0
+    RET
 %endif
 %endmacro
 
+INIT_XMM sse2
+FINALIZE_SOLID
+INIT_YMM avx2
+FINALIZE_SOLID
+
 ;------------------------------------------------------------------------------
-; FILL_SOLID_TILE tile_order, suffix
-; void fill_solid_tile%2(uint8_t *buf, ptrdiff_t stride);
+; FINALIZE_GENERIC_TILE tile_order, suffix
+; void finalize_generic_tile%2(uint8_t *buf, ptrdiff_t stride,
+;                              const int16_t *src)
 ;------------------------------------------------------------------------------
 
-%macro FILL_SOLID_TILE 2
-cglobal fill_solid_tile%2, 2,2,1
-    pcmpeqd m0, m0
-%rep (1 << %1) - 1
-    FILL_LINE r0, 0, 1 << %1
-    add r0, r1
+%macro FINALIZE_GENERIC_TILE 2
+cglobal finalize_generic_tile%2, 3,4,2
+    mov r3, 1 << %1
+.main_loop
+%assign %%i 0
+%rep (1 << %1) / mmsize
+    mova m0, [r2 + 2 * %%i]
+    psrlw m0, 6
+    mova m1, [r2 + 2 * %%i + mmsize]
+    psrlw m1, 6
+    packuswb m0, m1
+%if mmsize == 32
+    vpermq m0, m0, q3120
+%endif
+    mova [r0 + %%i], m0
+%assign %%i %%i + mmsize
 %endrep
-    FILL_LINE r0, 0, 1 << %1
+%if (1 << %1) < mmsize
+    mova m0, [r2 + 2 * %%i]
+    psrlw m0, 6
+    packuswb m0, m0
+    vpermq m0, m0, q3120
+    mova [r0 + %%i], xm0
+%endif
+    add r0, r1
+    add r2, 2 << %1
+    sub r3, 1
+    jnz .main_loop
     RET
 %endmacro
 
 INIT_XMM sse2
-FILL_SOLID_TILE 4,16
-FILL_SOLID_TILE 5,32
+FINALIZE_GENERIC_TILE 4,16
+FINALIZE_GENERIC_TILE 5,32
 INIT_YMM avx2
-FILL_SOLID_TILE 4,16
-FILL_SOLID_TILE 5,32
+FINALIZE_GENERIC_TILE 4,16
+FINALIZE_GENERIC_TILE 5,32
 
 ;------------------------------------------------------------------------------
-; CALC_LINE tile_order, m_dst, m_src, m_delta, m_zero, m_full, m_tmp
+; CALC_LINE m_dst, m_src, m_delta, m_zero, m_full, m_tmp, shift
 ; Calculate line using antialiased halfplane algorithm
 ;------------------------------------------------------------------------------
 
 %macro CALC_LINE 7
-    paddw m%7, m%3, m%4
-    pmaxsw m%2, m%3, m%5
-    pmaxsw m%7, m%5
-    pminsw m%2, m%6
-    pminsw m%7, m%6
-    paddw m%2, m%7
-    psraw m%2, 7 - %1
+    paddw m%6, m%2, m%3
+    pmaxsw m%1, m%2, m%4
+    pmaxsw m%6, m%4
+    pminsw m%1, m%5
+    pminsw m%6, m%5
+    paddw m%1, m%6
+%if (%7) < 0
+    psllw m%1, -(%7)
+%elif (%7) > 0
+    psraw m%1, %7
+%endif
 %endmacro
 
 ;------------------------------------------------------------------------------
@@ -173,41 +251,46 @@ FILL_SOLID_TILE 5,32
 
 ;------------------------------------------------------------------------------
 ; FILL_HALFPLANE_TILE tile_order, suffix
-; void fill_halfplane_tile%2(uint8_t *buf, ptrdiff_t stride,
+; void fill_halfplane_tile%2(uint16_t *buf,
 ;                            int32_t a, int32_t b, int64_t c, int32_t scale);
 ;------------------------------------------------------------------------------
 
 %macro FILL_HALFPLANE_TILE 2
     DEF_A_SHIFT %1
-%if ARCH_X86_64 && a_shift
-cglobal fill_halfplane_tile%2, 6,7,9
-%else
-cglobal fill_halfplane_tile%2, 6,7,8
-%endif
+%assign %%n 8
 %if a_shift == 0
-    SWAP 3, 8
+    SWAP 3, 7
+%assign %%n 7
 %endif
 
 %if ARCH_X86_64
-    movsxd r2, r2d  ; a
-    movsxd r3, r3d  ; b
-    sar r4, 7 + %1  ; c >> (tile_order + 7)
-    movsxd r5, r5d  ; scale
-    mov r6, 1 << (45 + %1)
-    imul r2, r5
-    add r2, r6
-    sar r2, 46 + %1  ; aa
-    imul r3, r5
-    add r3, r6
-    sar r3, 46 + %1  ; bb
-    imul r4, r5
-    shr r6, 1 + %1
-    add r4, r6
-    sar r4, 45  ; cc
+cglobal fill_halfplane_tile%2, 5,6,%%n
 %else
-    mov r0d, r4m  ; c_lo
-    mov r2d, r5m  ; c_hi
-    mov r1d, r6m  ; scale
+cglobal fill_halfplane_tile%2, 0,6,%%n
+%endif
+
+%if ARCH_X86_64
+    movsxd r1, r1d  ; a
+    movsxd r2, r2d  ; b
+    sar r3, 7 + %1  ; c >> (tile_order + 7)
+    movsxd r4, r4d  ; scale
+    mov r5, 1 << (45 + %1)
+    imul r1, r4
+    add r1, r5
+    sar r1, 46 + %1  ; aa
+    imul r2, r4
+    add r2, r5
+    sar r2, 46 + %1  ; bb
+    imul r3, r4
+    shr r5, 1 + %1
+    add r3, r5
+    sar r3, 45  ; cc
+
+    DECLARE_REG_TMP 4,5, 1,2,3  ; t2=aa t3=bb t4=cc
+%else
+    mov r0d, r3m  ; c_lo
+    mov r2d, r4m  ; c_hi
+    mov r1d, r5m  ; scale
     mov r5d, 1 << 12
     shr r0d, 7 + %1
     shl r2d, 25 - %1
@@ -217,94 +300,76 @@ cglobal fill_halfplane_tile%2, 6,7,8
     sar r2d, 13
     mov r4d, r2d  ; cc
     shl r5d, 1 + %1
-    mov r0d, r3m  ; r0d (eax) = b
+    mov r0d, r2m  ; r0d (eax) = b
     imul r1d  ; r2d (edx) = b * scale >> 32
     add r2d, r5d
     sar r2d, 14 + %1
     mov r3d, r2d  ; bb
-    mov r0d, r2m  ; r0d (eax) = a
+    mov r0d, r1m  ; r0d (eax) = a
     imul r1d  ; r2d (edx) = a * scale >> 32
     add r2d, r5d
     sar r2d, 14 + %1  ; aa
-    mov r0d, r0m
-    mov r1d, r1m
-%endif
-    add r4d, 1 << (13 - %1)
-    mov r6d, r2d
-    add r6d, r3d
-    sar r6d, 1
-    sub r4d, r6d
 
-    BCASTW 1, r4d  ; cc
-    BCASTW 2, r2d  ; aa
+    DECLARE_REG_TMP 1,5, 2,3,4  ; t2=aa t3=bb t4=cc
+    mov r0d, r0m
+%endif
+    add t4d, 1 << (13 - %1)
+    mov t1d, t2d
+    add t1d, t3d
+    sar t1d, 1
+    sub t4d, t1d
+
+    BCASTW 1, t4d  ; cc
+    BCASTW 2, t2d  ; aa
 %if a_shift
     psllw m3, m2, a_shift  ; aa * (mmsize / 2)
 %endif
     pmullw m2, [words_index]
     psubw m1, m2  ; cc - aa * i
 
-    mov r4d, r2d  ; aa
-    mov r6d, r4d
-    sar r6d, 31
-    xor r4d, r6d
-    sub r4d, r6d  ; abs_a
-    mov r5d, r3d  ; bb
-    mov r6d, r5d
-    sar r6d, 31
-    xor r5d, r6d
-    sub r5d, r6d  ; abs_b
-    cmp r4d, r5d
-    cmovg r4d, r5d
-    add r4d, 2
-    sar r4d, 2  ; delta
-    BCASTW 2, r4d
+    mov t4d, t2d  ; aa
+    mov t1d, t4d
+    sar t1d, 31
+    xor t4d, t1d
+    sub t4d, t1d  ; abs_a
+    mov t0d, t3d  ; bb
+    mov t1d, t0d
+    sar t1d, 31
+    xor t0d, t1d
+    sub t0d, t1d  ; abs_b
+    cmp t4d, t0d
+    cmovg t4d, t0d
+    add t4d, 2
+    sar t4d, 2  ; delta
+    BCASTW 2, t4d
     psubw m1, m2  ; c1 = cc - aa * i - delta
     paddw m2, m2  ; 2 * delta
 
 %if a_shift
-    MUL r2d, (1 << %1) - (mmsize / 2)
-    sub r3d, r2d  ; bb - (tile_size - mmsize / 2) * aa
+    MUL t2d, (1 << %1) - (mmsize / 2)
+    sub t3d, t2d  ; bb - (tile_size - mmsize / 2) * aa
 %endif
-%if ARCH_X86_64 || a_shift == 0
-    BCASTW 8, r3d
-%endif
+    BCASTW 7, t3d
 
     pxor m0, m0
     mova m4, [words_tile%2]
-    mov r2d, (1 << %1)
+    mov t0d, 1 << %1
     jmp .loop_entry
 
 .loop_start
-    add r0, r1
-%if ARCH_X86_64 || a_shift == 0
-    psubw m1, m8
-%else
-    BCASTW 7, r3d
+    add r0, 2 << %1
     psubw m1, m7
-%endif
 .loop_entry
-%assign i 0
-%rep (1 << %1) / mmsize
-%if i
+%assign %%i 0
+%rep (2 << %1) / mmsize
+%if %%i
     psubw m1, m3
 %endif
-    CALC_LINE %1, 5, 1,2, 0,4, 7
-    psubw m1, m3
-    CALC_LINE %1, 6, 1,2, 0,4, 7
-    packuswb m5, m6
-%if mmsize == 32
-    vpermq m5, m5, q3120
-%endif
-    mova [r0 + i], m5
-%assign i i + mmsize
+    CALC_LINE 5, 1,2, 0,4, 6, 1 - %1
+    mova [r0 + %%i], m5
+%assign %%i %%i + mmsize
 %endrep
-%if (1 << %1) < mmsize
-    CALC_LINE %1, 5, 1,2, 0,4, 7
-    packuswb m5, m6
-    vpermq m5, m5, q3120
-    mova [r0 + i], xm5
-%endif
-    sub r2d,1
+    sub t0d,1
     jnz .loop_start
     RET
 %endmacro
@@ -499,77 +564,35 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; SAVE_RESULT tile_order, buf, stride, src, delta,
-;             tmp6, tmp7, mt8, mt9, mt10, mt11
-; Convert and store internal buffer (with delta array) in the result buffer
+; SAVE_RESULT tile_order, buf, delta, m_max,
+;             tmp5, tmp6, mt7, mt8, mt9
+; Apply delta and rescale rusult
 ;------------------------------------------------------------------------------
 
-%macro SAVE_RESULT 11
-    mov %6d, 1 << %1
-    xor %7d, %7d
+%macro SAVE_RESULT 9
+    mov %5d, 1 << %1
+    xor %6d, %6d
 %%save_loop:
-    add %7w, [%5]
-    BCASTW %10, %7d
-    add %5, 2
-
+    add %6w, [%3]
+    BCASTW %8, %6d
+    add %3, 2
 %assign %%i 0
-%rep (1 << %1) / mmsize
-    paddw m%8, m%10, [%4 + 2 * %%i]
-    PABSW %8, %11
-    paddw m%9, m%10, [%4 + 2 * %%i + mmsize]
-    PABSW %9, %11
-    packuswb m%8, m%9
-%if mmsize == 32
-    vpermq m%8, m%8, q3120
-%endif
-    mova [%2 + %%i], m%8
+%rep (2 << %1) / mmsize
+    paddw m%7, m%8, [%2 + %%i]
+    PABSW %7, %9
+    pminsw m%7, m%4
+    psllw m%7, 6
+    mova [%2 + %%i], m%7
 %assign %%i %%i + mmsize
 %endrep
-%if (1 << %1) < mmsize
-    paddw m%8, m%10, [%4 + 2 * %%i]
-    PABSW %8, %11
-    packuswb m%8, m%8
-    vpermq m%8, m%8, q3120
-    mova [%2 + %%i], xm%8
-%endif
-
-    add %2, %3
-    add %4, 2 << %1
-    sub %6d, 1
+    add %2, 2 << %1
+    sub %5d, 1
     jnz %%save_loop
 %endmacro
 
 ;------------------------------------------------------------------------------
-; GET_RES_ADDR dst
-; CALC_RES_ADDR tile_order, dst/index, tmp, [skip_calc]
-; Calculate position of line in the internal buffer
-;------------------------------------------------------------------------------
-
-%macro GET_RES_ADDR 1
-%if mmsize <= 16 && HAVE_ALIGNED_STACK
-    mov %1, rstk
-%else
-    lea %1, [rstk + mmsize - 1]
-    and %1, ~(mmsize - 1)
-%endif
-%endmacro
-
-%macro CALC_RES_ADDR 3-4 noskip
-    shl %2d, 1 + %1
-%if mmsize <= 16 && HAVE_ALIGNED_STACK
-    add %2, rstk
-%else
-%ifidn %4, noskip
-    lea %3, [rstk + mmsize - 1]
-    and %3, ~(mmsize - 1)
-%endif
-    add %2, %3
-%endif
-%endmacro
-
-;------------------------------------------------------------------------------
 ; FILL_GENERIC_TILE tile_order, suffix
-; void fill_generic_tile%2(uint8_t *buf, ptrdiff_t stride,
+; void fill_generic_tile%2(uint16_t *buf,
 ;                          const struct segment *line, size_t n_lines,
 ;                          int winding);
 ;------------------------------------------------------------------------------
@@ -578,15 +601,13 @@ endstruc
     ; t3=line t4=up/cur t5=dn/end t6=dn_pos t7=up_pos
     ; t8=a/abs_a/abs_ab t9=b t10=c/abs_b
 %if ARCH_X86_64
-    DECLARE_REG_TMP 10,11,5,2, 4,9,6,7, 8,12,13
+    DECLARE_REG_TMP 9,10,4,1, 3,8,5,6, 7,11,12
 %else
     DECLARE_REG_TMP 0,1,5,3, 4,6,6,0, 2,3,5
 %endif
 
     %assign tile_size 1 << %1
-    %assign delta_offs 2 * tile_size * tile_size
-    %assign alloc_size 2 * tile_size * (tile_size + 1) + 4
-    %assign buf_size 2 * tile_size * (tile_size + 1)
+    %assign alloc_size 2 * tile_size + 4
     DEF_A_SHIFT %1
 
 %if ARCH_X86_64
@@ -597,9 +618,9 @@ endstruc
     %define m_vba   10
 %if a_shift
     %define m_van   11
-cglobal fill_generic_tile%2, 5,14,12
+cglobal fill_generic_tile%2, 4,13,12
 %else
-cglobal fill_generic_tile%2, 5,14,11
+cglobal fill_generic_tile%2, 4,13,11
 %endif
 
 %else
@@ -626,40 +647,41 @@ cglobal fill_generic_tile%2, 0,7,8
     %define mm_van   m %+ m_van
 %endif
 
-%if mmsize <= 16 && HAVE_ALIGNED_STACK
-    %assign alloc_size alloc_size + stack_offset + gprsize + (mmsize - 1)
-    %assign alloc_size (alloc_size & ~(mmsize - 1)) - stack_offset - gprsize
-%else
-    %assign alloc_size alloc_size + 2 * mmsize
-    %assign delta_offs delta_offs + mmsize
-    %assign buf_size buf_size + mmsize
-%endif
     SUB rstk, alloc_size
 
-    GET_RES_ADDR t0
+%if ARCH_X86_64
+    mov t0, r0
+%else
+    mov t0, r0m
+%endif
     pxor mm_zero, mm_zero
-    ZEROFILL t0, buf_size, t1
+    ZEROFILL t0, 2 * tile_size * tile_size, t1
+%assign %%i 0
+%rep 2 * tile_size / mmsize
+    movu [rstk + %%i], mm_zero
+%assign %%i %%i + mmsize
+%endrep
 
 %if ARCH_X86_64 == 0
-    mov r4d, r4m
+    mov r3d, r3m
 %endif
-    shl r4d, 8
-    mov [rstk + delta_offs], r4w
+    shl r3d, 8
+    mov [rstk], r3w
 
 %if ARCH_X86_64
     mova mm_index, [words_index]
     mova mm_full, [words_tile%2]
     %define dn_addr t5
 %else
-    %define dn_addr [rstk + delta_offs + 2 * tile_size + 4]
-    %define dn_pos [rstk + delta_offs + 2 * tile_size + 8]
+    %define dn_addr [rstk + 2 * tile_size + 4]
+    %define dn_pos [rstk + 2 * tile_size + 8]
 %endif
 
 .line_loop
 %if ARCH_X86_64 == 0
-    mov t3, r2m
+    mov t3, r1m
     lea t0, [t3 + line_size]
-    mov r2m, t0
+    mov r1m, t0
 %endif
     CALC_DELTA_FLAG t0, t3, t1,t2
 
@@ -675,8 +697,8 @@ cglobal fill_generic_tile%2, 0,7,8
     and t7d, 63  ; dn_pos
     shr t5d, 6  ; dn
 
-    UPDATE_DELTA up, rstk + 2 * t4 + delta_offs, t0,t6, t1
-    UPDATE_DELTA dn, rstk + 2 * t5 + delta_offs, t0,t7, t1
+    UPDATE_DELTA up, rstk + 2 * t4, t0,t6, t1
+    UPDATE_DELTA dn, rstk + 2 * t5, t0,t7, t1
     cmp t8d, t2d
 %else
     lea t1d, [t0d + 1]
@@ -686,16 +708,17 @@ cglobal fill_generic_tile%2, 0,7,8
     mov t6d, t2d
     and t6d, 63  ; dn_pos
     shr t2d, 6  ; dn
-    UPDATE_DELTA dn, rstk + 2 * t2 + delta_offs, t0,t6, t1
+    UPDATE_DELTA dn, rstk + 2 * t2, t0,t6, t1
 
-    CALC_RES_ADDR %1, t2, t1
+    shl t2d, 1 + %1
+    add t2, r0m
     mov dn_addr, t2
     mov dn_pos, t6d
 
     mov t6d, t4d
     and t6d, 63  ; up_pos
     shr t4d, 6  ; up
-    UPDATE_DELTA up, rstk + 2 * t4 + delta_offs, t0,t6, t1
+    UPDATE_DELTA up, rstk + 2 * t4, t0,t6, t1
     test t0d, 1
 %endif
     jz .end_line_loop
@@ -768,9 +791,13 @@ cglobal fill_generic_tile%2, 0,7,8
     or t8d, t10d  ; abs_ab
 %endif
 
-    CALC_RES_ADDR %1, t4, t0
+    shl t4d, 1 + %1
 %if ARCH_X86_64
-    CALC_RES_ADDR %1, t5, t0, skip
+    add t4, r0
+    shl t5d, 1 + %1
+    add t5, r0
+%else
+    add t4, r0m
 %endif
     cmp t4, dn_addr
     jz .single_line
@@ -849,7 +876,7 @@ cglobal fill_generic_tile%2, 0,7,8
 %if i
     psubw mm_c, mm_van
 %endif
-    CALC_LINE %1, 0, m_c,2, m_zero,m_full, 1
+    CALC_LINE 0, m_c,2, m_zero,m_full, 1, 7 - %1
     paddw m0, [t4 + i]
     mova [t4 + i], m0
 %assign i i + mmsize
@@ -890,20 +917,19 @@ cglobal fill_generic_tile%2, 0,7,8
 
 .end_line_loop
 %if ARCH_X86_64
-    add r2, line_size
-    sub r3, 1
+    add r1, line_size
+    sub r2, 1
 %else
-    sub dword r3m, 1
+    sub dword r2m, 1
 %endif
     jnz .line_loop
 
 %if ARCH_X86_64 == 0
     mov r0, r0m
-    mov r1, r1m
 %endif
-    GET_RES_ADDR r2
-    lea r3, [rstk + delta_offs]
-    SAVE_RESULT %1, r0,r1,r2,r3, r4,t2, 0,1,2,3
+    mov r1, rstk
+    mova m3, [words_max]
+    SAVE_RESULT %1, r0,r1,3, r2,r3, 0,1,2
     ADD rstk, alloc_size
     RET
 %endmacro

@@ -47,23 +47,20 @@ AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
-AC_ARG_ENABLE([rasterizer], AS_HELP_STRING([--disable-rasterizer],
-    [disable internal rasterizer @<:@default=enabled@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
-    [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
+    [use larger tiles for rendering (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
 AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
         [i?86-*], [
-            INTEL=true
             AS=yasm
             X86=true
             BITS=32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=0 -m x86" ],
         [x86_64-*|amd64-*], [
             AS=yasm
-            INTEL=true
-            X64=true
+            X86=true
+            X86_64=true
             BITS=64
             ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m amd64" ],
         )
@@ -80,7 +77,7 @@ AS_IF([test x$enable_asm != xno], [
                 ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
             ])
         ])
-    AS_IF([test x$INTEL = xtrue], [
+    AS_IF([test x$X86 = xtrue], [
         AC_CHECK_PROG([yasm_check], [$AS], [yes])
         AS_IF([test x$yasm_check != xyes], [
             AC_MSG_WARN(yasm was not found; ASM functions are disabled.)
@@ -107,20 +104,12 @@ AC_SUBST([ASFLAGS], ["$ASFLAGS"])
 AC_SUBST([AS], ["$AS"])
 
 AM_CONDITIONAL([ASM], [test x$enable_asm != xno])
-AM_CONDITIONAL([INTEL], [test x$INTEL = xtrue])
 AM_CONDITIONAL([X86], [test x$X86 = xtrue])
-AM_CONDITIONAL([X64], [test x$X64 = xtrue])
+AM_CONDITIONAL([X86_64], [test x$X86_64 = xtrue])
 
 AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
-    )
-
-AM_CONDITIONAL([RASTERIZER], [test x$enable_rasterizer != xno])
-
-AM_COND_IF([RASTERIZER],
-    [AC_DEFINE(CONFIG_RASTERIZER, 1, [rasterizer enabled])],
-    [AC_DEFINE(CONFIG_RASTERIZER, 0, [rasterizer enabled])]
     )
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test x$enable_large_tiles = xyes])

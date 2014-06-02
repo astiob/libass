@@ -112,6 +112,12 @@ typedef struct {
 void prepare_solid_tiles(void);  // XXX: do static filling
 extern const TileEngine ass_engine_tile16_c;
 extern const TileEngine ass_engine_tile32_c;
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+extern const TileEngine ass_engine_tile16_sse2;
+extern const TileEngine ass_engine_tile32_sse2;
+extern const TileEngine ass_engine_tile16_avx2;
+extern const TileEngine ass_engine_tile32_avx2;
+#endif
 
 
 void *alloc_tile(const TileEngine *engine);

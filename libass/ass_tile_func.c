@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "config.h"
+
 #include "ass_utils.h"
 #include "ass_rasterizer.h"
 #include <assert.h>
@@ -43,19 +45,65 @@ void ass_finalize_solid_c(uint8_t *buf, ptrdiff_t stride, int size_order, int se
     }
 }
 
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+void ass_finalize_solid_sse2(uint8_t *buf, ptrdiff_t stride, int size_order, int set);
+void ass_finalize_solid_avx2(uint8_t *buf, ptrdiff_t stride, int size_order, int set);
+#endif
+
 
 #define TILE_ORDER 4
 #define TILE_SIZE 16
+
 #define DECORATE(func) ass_##func##16_c
 #include "ass_tile_func.h"
+#undef DECORATE
+
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#define DECORATE_C(func) ass_##func##16_c
+
+#define DECORATE_F(func) ass_##func##_sse2
+#define DECORATE(func) ass_##func##16_sse2
+#include "x86/tile_func.h"
+#undef DECORATE_F
+#undef DECORATE
+
+#define DECORATE_F(func) ass_##func##_avx2
+#define DECORATE(func) ass_##func##16_avx2
+#include "x86/tile_func.h"
+#undef DECORATE_F
+#undef DECORATE
+
+#undef DECORATE_C
+#endif
+
 #undef TILE_ORDER
 #undef TILE_SIZE
-#undef DECORATE
+
 
 #define TILE_ORDER 5
 #define TILE_SIZE 32
+
 #define DECORATE(func) ass_##func##32_c
 #include "ass_tile_func.h"
+#undef DECORATE
+
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#define DECORATE_C(func) ass_##func##32_c
+
+#define DECORATE_F(func) ass_##func##_sse2
+#define DECORATE(func) ass_##func##32_sse2
+#include "x86/tile_func.h"
+#undef DECORATE_F
+#undef DECORATE
+
+#define DECORATE_F(func) ass_##func##_avx2
+#define DECORATE(func) ass_##func##32_avx2
+#include "x86/tile_func.h"
+#undef DECORATE_F
+#undef DECORATE
+
+#undef DECORATE_C
+#endif
+
 #undef TILE_ORDER
 #undef TILE_SIZE
-#undef DECORATE

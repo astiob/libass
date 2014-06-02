@@ -33,13 +33,6 @@
 #define SUBPIXEL_MASK 63
 #define SUBPIXEL_ACCURACY 7
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-
-#include "x86/blend_bitmaps.h"
-#include "x86/be_blur.h"
-#include "x86/rasterizer.h"
-
-#endif // ASM
 
 const TileEngine *tile_engine;  // XXX: temporary
 
@@ -73,9 +66,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     // images_root and related stuff is zero-filled in calloc
 
     #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-        /*
         int sse2 = has_sse2();
         int avx2 = has_avx2();
+        /*
         priv->add_bitmaps_func = avx2 ? ass_add_bitmaps_avx2 :
             (sse2 ? ass_add_bitmaps_sse2 : ass_add_bitmaps_x86);
         #ifdef __x86_64__
@@ -98,14 +91,14 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
 
     prepare_solid_tiles();
 #if CONFIG_LARGE_TILES
-    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM && 0
+    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
         priv->tile_engine = avx2 ? &ass_engine_tile32_avx2 :
             (sse2 ? &ass_engine_tile32_sse2 : &ass_engine_tile32_c);
     #else
         priv->tile_engine = &ass_engine_tile32_c;
     #endif
 #else
-    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM && 0
+    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
         priv->tile_engine = avx2 ? &ass_engine_tile16_avx2 :
             (sse2 ? &ass_engine_tile16_sse2 : &ass_engine_tile16_c);
     #else
