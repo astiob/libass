@@ -54,8 +54,8 @@ typedef void (*FillGenericTileFunc)(int16_t *buf,
                                     const struct segment *line, size_t n_lines,
                                     int winding);
 // return value:
-// == 0 - trivial tile
-// != 0 - generic tile
+// == 0 - generic tile
+// != 0 - trivial tile
 typedef int (*CombineTileFunc)(int16_t *dst,
                                const int16_t *src1, const int16_t *src2);
 typedef void (*ShrinkTileFunc)(int16_t *dst,
@@ -63,7 +63,8 @@ typedef void (*ShrinkTileFunc)(int16_t *dst,
                                const int16_t *src2, const int16_t *side2);
 typedef int (*ShrinkSolidTileFunc)(int16_t *dst,
                                    const int16_t *side1, int set, const int16_t *side2);
-typedef void (*ExpandTileFunc)(int16_t *dst, const int16_t *side, const int16_t *src);
+typedef int (*ExpandTileFunc)(int16_t *dst1, int16_t *dst2,
+                              const int16_t *side1, const int16_t *src, const int16_t *side2);
 typedef int (*ExpandSolidTileFunc)(int16_t *dst, const int16_t *side, int set);
 typedef void (*FilterTileFunc)(int16_t *dst,
                                const int16_t *side1, const int16_t *src, const int16_t *side2,
@@ -98,9 +99,8 @@ typedef struct {
     CombineTileFunc combine[3];
     ShrinkTileFunc shrink[2];
     ShrinkSolidTileFunc shrink_solid[2];
-    ExpandTileFunc expand[2][2];
-    ExpandSolidTileFunc expand_solid_out[2][2];
-    ExpandSolidTileFunc expand_solid_in[2][2];
+    ExpandTileFunc expand[2];
+    ExpandSolidTileFunc expand_solid[2][2];
     FilterTileFunc pre_blur[3][2];
     FilterSolidTileFunc pre_blur_solid[3][2];
     FilterTileFunc main_blur[3][2];

@@ -755,7 +755,7 @@ static const Quad *combine_quad(const TileEngine *engine,
         int16_t *buf = alloc_tile(engine);
         if (!buf)
             return INVALID_QUAD;
-        if (tile_func(buf, tile, (const int16_t *)src2))
+        if (!tile_func(buf, tile, (const int16_t *)src2))
             return (const Quad *)buf;
         free_tile(engine, buf);
         return trivial_quad(op_flags & 1);
@@ -1051,7 +1051,7 @@ static const Quad *shrink_quad(const TileEngine *engine,
                 int16_t *buf = alloc_tile(engine);
                 if (!buf)
                     return INVALID_QUAD;
-                if (engine->shrink_solid[dir - 1](buf, tile[0], src1 != EMPTY_QUAD, tile[3]))
+                if (!engine->shrink_solid[dir - 1](buf, tile[0], src1 != EMPTY_QUAD, tile[3]))
                     return (const Quad *)buf;
                 free_tile(engine, buf);
                 return src1;
@@ -1200,7 +1200,7 @@ static int expand_quad(const TileEngine *engine,
                 int16_t *buf = alloc_tile(engine);
                 if (!buf)
                     return 0;
-                if (engine->expand_solid_in[0][dir - 1](buf, tile[0], src != EMPTY_QUAD))
+                if (!engine->expand_solid[0][dir - 1](buf, tile[0], src != EMPTY_QUAD))
                     *dst1 = (const Quad *)buf;
                 else {
                     free_tile(engine, buf);
@@ -1213,7 +1213,7 @@ static int expand_quad(const TileEngine *engine,
                 int16_t *buf = alloc_tile(engine);
                 if (!buf)
                     return 0;
-                if (engine->expand_solid_in[1][dir - 1](buf, tile[2], src != EMPTY_QUAD))
+                if (!engine->expand_solid[1][dir - 1](buf, tile[2], src != EMPTY_QUAD))
                     *dst2 = (const Quad *)buf;
                 else {
                     free_tile(engine, buf);
@@ -1223,22 +1223,28 @@ static int expand_quad(const TileEngine *engine,
             return 1;
         }
 
+        int flag = 0;
+        if (!side1 || side1 == SOLID_QUAD) {
+            tile[0] = engine->solid_tile[side1 ? 1 : 0];
+            flag |= 1;
+        }
+        if (!side2 || side2 == SOLID_QUAD) {
+            tile[2] = engine->solid_tile[side2 ? 1 : 0];
+            flag |= 2;
+        }
+
         int16_t *buf1 = alloc_tile(engine);
         *dst1 = (const Quad *)buf1;
         int16_t *buf2 = alloc_tile(engine);
         *dst2 = (const Quad *)buf2;
         if (!buf1 || !buf2)
             return 0;
-
-        if (side1 && side1 != SOLID_QUAD)
-            engine->expand[0][dir - 1](buf1, tile[0], tile[1]);
-        else if (!engine->expand_solid_out[0][dir - 1](buf1, tile[1], side1 != EMPTY_QUAD)) {
+        flag &= engine->expand[dir - 1](buf1, buf2, tile[0], tile[1], tile[2]);
+        if (flag & 1) {
             free_tile(engine, buf1);
             *dst1 = side1;
         }
-        if (side2 && side2 != SOLID_QUAD)
-            engine->expand[1][dir - 1](buf2, tile[2], tile[1]);
-        else if (!engine->expand_solid_out[1][dir - 1](buf2, tile[1], side2 != EMPTY_QUAD)) {
+        if (flag & 2) {
             free_tile(engine, buf2);
             *dst2 = side2;
         }
@@ -1390,7 +1396,7 @@ static const Quad *filter_quad(const TileEngine *engine,
             int16_t *buf = alloc_tile(engine);
             if (!buf)
                 return INVALID_QUAD;
-            if (solid_tile_func[dir - 1](buf, tile[0], src != EMPTY_QUAD, tile[2], param))
+            if (!solid_tile_func[dir - 1](buf, tile[0], src != EMPTY_QUAD, tile[2], param))
                 return (const Quad *)buf;
             free_tile(engine, buf);
             return src;

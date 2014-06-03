@@ -218,16 +218,18 @@ int DECORATE(mul_tile)(int16_t *dst,
     int16_t flag = 0;
     for (int k = 0; k < TILE_SIZE * TILE_SIZE; ++k)
         flag |= dst[k] = src1[k] * src2[k] >> 14;
-    return flag != 0;
+    return !flag;
 }
 
 int DECORATE(add_tile)(int16_t *dst,
                        const int16_t *src1, const int16_t *src2)
 {
     int16_t flag = -1;
-    for (int k = 0; k < TILE_SIZE * TILE_SIZE; ++k)
-        flag &= dst[k] = FFMIN(1 << 14, src1[k] + src2[k]);
-    return flag != -1;
+    for (int k = 0; k < TILE_SIZE * TILE_SIZE; ++k) {
+        dst[k] = FFMIN(1 << 14, src1[k] + src2[k]);
+        flag |= dst[k] ^ (1 << 14);
+    }
+    return !flag;
 }
 
 int DECORATE(sub_tile)(int16_t *dst,
@@ -236,7 +238,7 @@ int DECORATE(sub_tile)(int16_t *dst,
     int16_t flag = 0;
     for (int k = 0; k < TILE_SIZE * TILE_SIZE; ++k)
         flag |= dst[k] = FFMAX(0, src1[k] - src2[k]);
-    return flag != 0;
+    return !flag;
 }
 
 
@@ -285,7 +287,7 @@ int DECORATE(shrink_horz_solid_tile)(int16_t *dst,
         side2 += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     for (int i = 0; i < TILE_SIZE; ++i) {
         ++dst;
@@ -293,7 +295,7 @@ int DECORATE(shrink_horz_solid_tile)(int16_t *dst,
             *dst++ = val;
         ++dst;
     }
-    return 1;
+    return 0;
 }
 
 void DECORATE(shrink_vert_tile)(int16_t *dst,
@@ -349,7 +351,7 @@ int DECORATE(shrink_vert_solid_tile)(int16_t *dst,
         flag |= ptr[j] ^ val;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     dst += TILE_SIZE;
     for (int i = 1; i < TILE_SIZE - 1; ++i) {
@@ -357,89 +359,45 @@ int DECORATE(shrink_vert_solid_tile)(int16_t *dst,
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 
 #undef IDX
 }
 
 
-#define LINE(s0, s1, s2) \
-    *dst++ = (5 * (s0)[-1] + 10 * (s1)[0] + 1 * (s2)[1] + 8) >> 4; \
-    *dst++ = (1 * (s0)[-1] + 10 * (s1)[0] + 5 * (s2)[1] + 8) >> 4;
+#define LINE(n, s0, s1, s2) \
+    dst##n[0] = (5 * (s0)[-1] + 10 * (s1)[0] + 1 * (s2)[1] + 8) >> 4; \
+    dst##n[1] = (1 * (s0)[-1] + 10 * (s1)[0] + 5 * (s2)[1] + 8) >> 4; \
+    flag##n |= (dst##n[0] ^ val) | (dst##n[1] ^ val); \
+    dst##n += 2;
 
-void DECORATE(expand_horz1_tile)(int16_t *dst, const int16_t *side, const int16_t *src)
+int DECORATE(expand_horz_tile)(int16_t *dst1, int16_t *dst2,
+                               const int16_t *side1, const int16_t *src, const int16_t *side2)
 {
+    int16_t val, flag1 = 0, flag2 = 0;
     for (int i = 0; i < TILE_SIZE; ++i) {
-        side += TILE_SIZE;
-        LINE(side, src, src);
+        side1 += TILE_SIZE;
+        val = side1[-1];
+        LINE(1, side1, src, src);
         ++src;
         for (int j = 2; j < TILE_SIZE; j += 2) {
-            LINE(src, src, src);
+            LINE(1, src, src, src);
             ++src;
         }
-        src += TILE_SIZE / 2;
-    }
-}
-
-void DECORATE(expand_horz2_tile)(int16_t *dst, const int16_t *side, const int16_t *src)
-{
-    for (int i = 0; i < TILE_SIZE; ++i) {
-        src += TILE_SIZE / 2;
+        val = side2[0];
         for (int j = 0; j < TILE_SIZE - 2; j += 2) {
-            LINE(src, src, src);
+            LINE(2, src, src, src);
             ++src;
         }
-        LINE(src, src, side - 1);
+        LINE(2, src, src, side2 - 1);
         ++src;
-        side += TILE_SIZE;
+        side2 += TILE_SIZE;
     }
+    return (flag1 ? 0 : 1) | (flag2 ? 0 : 2);
 }
 #undef LINE
 
-#define LINE(s0, s1, s2) \
-    dst[0] = (5 * (s0)[-1] + 10 * (s1)[0] + 1 * (s2)[1] + 8) >> 4; \
-    dst[1] = (1 * (s0)[-1] + 10 * (s1)[0] + 5 * (s2)[1] + 8) >> 4; \
-    flag |= (dst[0] ^ val) | (dst[1] ^ val); \
-    dst += 2;
-
-int DECORATE(expand_horz1_solid1_tile)(int16_t *dst, const int16_t *src, int set)
-{
-    int16_t val = set ? 1 << 14 : 0, flag = 0;
-    for (int i = 0; i < TILE_SIZE; ++i) {
-        dst[0] = (5 * val + 10 * src[0] + 1 * src[1] + 8) >> 4;
-        dst[1] = (1 * val + 10 * src[0] + 5 * src[1] + 8) >> 4;
-        flag |= (dst[0] ^ val) | (dst[1] ^ val);
-        dst += 2;
-        ++src;
-        for (int j = 2; j < TILE_SIZE; j += 2) {
-            LINE(src, src, src);
-            ++src;
-        }
-        src += TILE_SIZE / 2;
-    }
-    return flag != 0;
-}
-
-int DECORATE(expand_horz2_solid1_tile)(int16_t *dst, const int16_t *src, int set)
-{
-    int16_t val = set ? 1 << 14 : 0, flag = 0;
-    for (int i = 0; i < TILE_SIZE; ++i) {
-        src += TILE_SIZE / 2;
-        for (int j = 0; j < TILE_SIZE - 2; j += 2) {
-            LINE(src, src, src);
-            ++src;
-        }
-        dst[0] = (5 * src[-1] + 10 * src[0] + 1 * val + 8) >> 4;
-        dst[1] = (1 * src[-1] + 10 * src[0] + 5 * val + 8) >> 4;
-        flag |= (dst[0] ^ val) | (dst[1] ^ val);
-        dst += 2;
-        ++src;
-    }
-    return flag != 0;
-}
-#undef LINE
-
-int DECORATE(expand_horz1_solid2_tile)(int16_t *dst, const int16_t *side, int set)
+int DECORATE(expand_horz1_solid_tile)(int16_t *dst, const int16_t *side, int set)
 {
     int16_t *ptr = dst;
     int16_t val = set ? 1 << 14 : 0, flag = 0;
@@ -451,16 +409,17 @@ int DECORATE(expand_horz1_solid2_tile)(int16_t *dst, const int16_t *side, int se
         ptr += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
+
     for (int i = 0; i < TILE_SIZE; ++i) {
         dst += 2;
         for (int j = 2; j < TILE_SIZE; ++j)
             *dst++ = val;
     }
-    return 1;
+    return 0;
 }
 
-int DECORATE(expand_horz2_solid2_tile)(int16_t *dst, const int16_t *side, int set)
+int DECORATE(expand_horz2_solid_tile)(int16_t *dst, const int16_t *side, int set)
 {
     int16_t *ptr = dst;
     int16_t val = set ? 1 << 14 : 0, flag = 0;
@@ -472,112 +431,57 @@ int DECORATE(expand_horz2_solid2_tile)(int16_t *dst, const int16_t *side, int se
         side += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
+
     for (int i = 0; i < TILE_SIZE; ++i) {
         for (int j = 0; j < TILE_SIZE - 2; ++j)
             *dst++ = val;
         dst += 2;
     }
-    return 1;
+    return 0;
 }
 
-#define LINE(s0, s1, s2) \
-    for (int j = 0; j < TILE_SIZE; ++j) \
-        dst[j] = ((s0)[j - 1 * TILE_SIZE] *  5 + \
-                  (s1)[j + 0 * TILE_SIZE] * 10 + \
-                  (s2)[j + 1 * TILE_SIZE] *  1 + \
-                  8) >> 4; \
-    dst += TILE_SIZE; \
-    for (int j = 0; j < TILE_SIZE; ++j) \
-        dst[j] = ((s0)[j - 1 * TILE_SIZE] *  1 + \
-                  (s1)[j + 0 * TILE_SIZE] * 10 + \
-                  (s2)[j + 1 * TILE_SIZE] *  5 + \
-                  8) >> 4; \
-    dst += TILE_SIZE;
+#define LINE(n, s0, s1, s2) \
+    for (int j = 0; j < TILE_SIZE; ++j) { \
+        dst##n[j] = ((s0)[j - 1 * TILE_SIZE] *  5 + \
+                     (s1)[j + 0 * TILE_SIZE] * 10 + \
+                     (s2)[j + 1 * TILE_SIZE] *  1 + \
+                     8) >> 4; \
+        flag##n |= dst##n[j] ^ val; \
+    } \
+    dst##n += TILE_SIZE; \
+    for (int j = 0; j < TILE_SIZE; ++j) { \
+        dst##n[j] = ((s0)[j - 1 * TILE_SIZE] *  1 + \
+                     (s1)[j + 0 * TILE_SIZE] * 10 + \
+                     (s2)[j + 1 * TILE_SIZE] *  5 + \
+                     8) >> 4; \
+        flag##n |= dst##n[j] ^ val; \
+    } \
+    dst##n += TILE_SIZE;
 
-void DECORATE(expand_vert1_tile)(int16_t *dst, const int16_t *side, const int16_t *src)
+int DECORATE(expand_vert_tile)(int16_t *dst1, int16_t *dst2,
+                               const int16_t *side1, const int16_t *src, const int16_t *side2)
 {
-    side += TILE_SIZE * TILE_SIZE;
-    LINE(side, src, src);
+    int16_t val, flag1 = 0, flag2 = 0;
+    side1 += TILE_SIZE * TILE_SIZE;
+    val = side1[-TILE_SIZE];
+    LINE(1, side1, src, src);
     src += TILE_SIZE;
     for (int j = 2; j < TILE_SIZE; j += 2) {
-        LINE(src, src, src);
+        LINE(1, src, src, src);
         src += TILE_SIZE;
     }
-}
-
-void DECORATE(expand_vert2_tile)(int16_t *dst, const int16_t *side, const int16_t *src)
-{
-    src += TILE_SIZE * TILE_SIZE / 2;
+    val = side2[0];
     for (int j = 0; j < TILE_SIZE - 2; j += 2) {
-        LINE(src, src, src);
+        LINE(2, src, src, src);
         src += TILE_SIZE;
     }
-    LINE(src, src, side - TILE_SIZE);
+    LINE(2, src, src, side2 - TILE_SIZE);
+    return (flag1 ? 0 : 1) | (flag2 ? 0 : 2);
 }
 #undef LINE
 
-#define LINE(s0, s1, s2) \
-    for (int j = 0; j < TILE_SIZE; ++j) { \
-        dst[j] = ((s0)[j - 1 * TILE_SIZE] *  5 + \
-                  (s1)[j + 0 * TILE_SIZE] * 10 + \
-                  (s2)[j + 1 * TILE_SIZE] *  1 + \
-                  8) >> 4; \
-        flag |= dst[j] ^ val; \
-    } \
-    dst += TILE_SIZE; \
-    for (int j = 0; j < TILE_SIZE; ++j) { \
-        dst[j] = ((s0)[j - 1 * TILE_SIZE] *  1 + \
-                  (s1)[j + 0 * TILE_SIZE] * 10 + \
-                  (s2)[j + 1 * TILE_SIZE] *  5 + \
-                  8) >> 4; \
-        flag |= dst[j] ^ val; \
-    } \
-    dst += TILE_SIZE;
-
-int DECORATE(expand_vert1_solid1_tile)(int16_t *dst, const int16_t *src, int set)
-{
-    int16_t val = set ? 1 << 14 : 0, flag = 0;
-    for (int j = 0; j < TILE_SIZE; ++j) {
-        dst[j] = (5 * val + 10 * src[j] + 1 * src[j + TILE_SIZE] + 8) >> 4;
-        flag |= dst[j] ^ val;
-    }
-    dst += TILE_SIZE;
-    for (int j = 0; j < TILE_SIZE; ++j) {
-        dst[j] = (1 * val + 10 * src[j] + 5 * src[j + TILE_SIZE] + 8) >> 4;
-        flag |= dst[j] ^ val;
-    }
-    dst += TILE_SIZE;
-    src += TILE_SIZE;
-    for (int j = 2; j < TILE_SIZE; j += 2) {
-        LINE(src, src, src);
-        src += TILE_SIZE;
-    }
-    return flag != 0;
-}
-
-int DECORATE(expand_vert2_solid1_tile)(int16_t *dst, const int16_t *src, int set)
-{
-    int16_t val = set ? 1 << 14 : 0, flag = 0;
-    src += TILE_SIZE * TILE_SIZE / 2;
-    for (int j = 0; j < TILE_SIZE - 2; j += 2) {
-        LINE(src, src, src);
-        src += TILE_SIZE;
-    }
-    for (int j = 0; j < TILE_SIZE; ++j) {
-        dst[j] = (5 * src[j - TILE_SIZE] + 10 * src[j] + 1 * val + 8) >> 4;
-        flag |= dst[j] ^ val;
-    }
-    dst += TILE_SIZE;
-    for (int j = 0; j < TILE_SIZE; ++j) {
-        dst[j] = (1 * src[j - TILE_SIZE] + 10 * src[j] + 5 * val + 8) >> 4;
-        flag |= dst[j] ^ val;
-    }
-    return flag != 0;
-}
-#undef LINE
-
-int DECORATE(expand_vert1_solid2_tile)(int16_t *dst, const int16_t *side, int set)
+int DECORATE(expand_vert1_solid_tile)(int16_t *dst, const int16_t *side, int set)
 {
     int16_t *ptr = dst;
     int16_t val = set ? 1 << 14 : 0, flag = 0;
@@ -592,7 +496,7 @@ int DECORATE(expand_vert1_solid2_tile)(int16_t *dst, const int16_t *side, int se
         flag |= ptr[j] ^ val;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     dst += 2 * TILE_SIZE;
     for (int i = 2; i < TILE_SIZE; ++i) {
@@ -600,10 +504,10 @@ int DECORATE(expand_vert1_solid2_tile)(int16_t *dst, const int16_t *side, int se
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 }
 
-int DECORATE(expand_vert2_solid2_tile)(int16_t *dst, const int16_t *side, int set)
+int DECORATE(expand_vert2_solid_tile)(int16_t *dst, const int16_t *side, int set)
 {
     int16_t *ptr = dst;
     int16_t val = set ? 1 << 14 : 0, flag = 0;
@@ -618,14 +522,14 @@ int DECORATE(expand_vert2_solid2_tile)(int16_t *dst, const int16_t *side, int se
         flag |= ptr[j] ^ val;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     for (int i = 0; i < TILE_SIZE - 2; ++i) {
         for (int j = 0; j < TILE_SIZE; ++j)
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 }
 
 
@@ -667,7 +571,7 @@ int DECORATE(pre_blur1_horz_solid_tile)(int16_t *dst,
         side2 += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     for (int i = 0; i < TILE_SIZE; ++i) {
         ++dst;
@@ -675,7 +579,7 @@ int DECORATE(pre_blur1_horz_solid_tile)(int16_t *dst,
             *dst++ = val;
         ++dst;
     }
-    return 1;
+    return 0;
 }
 
 void DECORATE(pre_blur1_vert_tile)(int16_t *dst,
@@ -721,7 +625,7 @@ int DECORATE(pre_blur1_vert_solid_tile)(int16_t *dst,
         flag |= ptr[j] ^ val;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     dst += TILE_SIZE;
     for (int i = 1; i < TILE_SIZE - 1; ++i) {
@@ -729,7 +633,7 @@ int DECORATE(pre_blur1_vert_solid_tile)(int16_t *dst,
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 
 #undef IDX
 }
@@ -779,7 +683,7 @@ int DECORATE(pre_blur2_horz_solid_tile)(int16_t *dst,
         side2 += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     for (int i = 0; i < TILE_SIZE; ++i) {
         dst += 2;
@@ -787,7 +691,7 @@ int DECORATE(pre_blur2_horz_solid_tile)(int16_t *dst,
             *dst++ = val;
         dst += 2;
     }
-    return 1;
+    return 0;
 }
 
 void DECORATE(pre_blur2_vert_tile)(int16_t *dst,
@@ -853,7 +757,7 @@ int DECORATE(pre_blur2_vert_solid_tile)(int16_t *dst,
         flag |= ptr[j] ^ val;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     dst += 2 * TILE_SIZE;
     for (int i = 2; i < TILE_SIZE - 2; ++i) {
@@ -861,7 +765,7 @@ int DECORATE(pre_blur2_vert_solid_tile)(int16_t *dst,
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 
 #undef IDX
 }
@@ -917,7 +821,7 @@ int DECORATE(pre_blur3_horz_solid_tile)(int16_t *dst,
         side2 += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     for (int i = 0; i < TILE_SIZE; ++i) {
         dst += 3;
@@ -925,7 +829,7 @@ int DECORATE(pre_blur3_horz_solid_tile)(int16_t *dst,
             *dst++ = val;
         dst += 3;
     }
-    return 1;
+    return 0;
 }
 
 void DECORATE(pre_blur3_vert_tile)(int16_t *dst,
@@ -1009,7 +913,7 @@ int DECORATE(pre_blur3_vert_solid_tile)(int16_t *dst,
         flag |= ptr[j] ^ val;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     dst += 3 * TILE_SIZE;
     for (int i = 3; i < TILE_SIZE - 3; ++i) {
@@ -1017,7 +921,7 @@ int DECORATE(pre_blur3_vert_solid_tile)(int16_t *dst,
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 
 #undef IDX
 }
@@ -1134,7 +1038,7 @@ int DECORATE(blur1234_horz_solid_tile)(int16_t *dst,
         side2 += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     for (int i = 0; i < TILE_SIZE; ++i) {
         dst += 4;
@@ -1142,7 +1046,7 @@ int DECORATE(blur1234_horz_solid_tile)(int16_t *dst,
             *dst++ = val;
         dst += 4;
     }
-    return 1;
+    return 0;
 
 #undef LINE
 #undef BEG_LINE
@@ -1256,7 +1160,7 @@ int DECORATE(blur1234_vert_solid_tile)(int16_t *dst,
     END_LINE(1);
     END_LINE(0);
     if (!flag)
-        return 0;
+        return 1;
 
     dst += 4 * TILE_SIZE;
     for (int i = 4; i < TILE_SIZE - 4; ++i) {
@@ -1264,7 +1168,7 @@ int DECORATE(blur1234_vert_solid_tile)(int16_t *dst,
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 
 #undef LINE
 #undef BEG_LINE
@@ -1387,7 +1291,7 @@ int DECORATE(blur1235_horz_solid_tile)(int16_t *dst,
         side2 += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     for (int i = 0; i < TILE_SIZE; ++i) {
         dst += 5;
@@ -1395,7 +1299,7 @@ int DECORATE(blur1235_horz_solid_tile)(int16_t *dst,
             *dst++ = val;
         dst += 5;
     }
-    return 1;
+    return 0;
 
 #undef LINE
 #undef BEG_LINE
@@ -1513,7 +1417,7 @@ int DECORATE(blur1235_vert_solid_tile)(int16_t *dst,
     END_LINE(1);
     END_LINE(0);
     if (!flag)
-        return 0;
+        return 1;
 
     dst += 5 * TILE_SIZE;
     for (int i = 5; i < TILE_SIZE - 5; ++i) {
@@ -1521,7 +1425,7 @@ int DECORATE(blur1235_vert_solid_tile)(int16_t *dst,
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 
 #undef LINE
 #undef BEG_LINE
@@ -1648,7 +1552,7 @@ int DECORATE(blur1246_horz_solid_tile)(int16_t *dst,
         side2 += TILE_SIZE;
     }
     if (!flag)
-        return 0;
+        return 1;
 
     for (int i = 0; i < TILE_SIZE; ++i) {
         dst += 6;
@@ -1656,7 +1560,7 @@ int DECORATE(blur1246_horz_solid_tile)(int16_t *dst,
             *dst++ = val;
         dst += 6;
     }
-    return 1;
+    return 0;
 
 #undef LINE
 #undef BEG_LINE
@@ -1778,7 +1682,7 @@ int DECORATE(blur1246_vert_solid_tile)(int16_t *dst,
     END_LINE(1);
     END_LINE(0);
     if (!flag)
-        return 0;
+        return 1;
 
     dst += 6 * TILE_SIZE;
     for (int i = 6; i < TILE_SIZE - 6; ++i) {
@@ -1786,7 +1690,7 @@ int DECORATE(blur1246_vert_solid_tile)(int16_t *dst,
             dst[j] = val;
         dst += TILE_SIZE;
     }
-    return 1;
+    return 0;
 
 #undef LINE
 #undef BEG_LINE
@@ -1866,17 +1770,10 @@ const TileEngine DECORATE(engine_tile) =
     .combine = { DECORATE(mul_tile), DECORATE(add_tile), DECORATE(sub_tile) },
     .shrink = { DECORATE(shrink_horz_tile), DECORATE(shrink_vert_tile) },
     .shrink_solid = { DECORATE(shrink_horz_solid_tile), DECORATE(shrink_vert_solid_tile) },
-    .expand = {
-        { DECORATE(expand_horz1_tile), DECORATE(expand_vert1_tile) },
-        { DECORATE(expand_horz2_tile), DECORATE(expand_vert2_tile) },
-    },
-    .expand_solid_out = {
-        { DECORATE(expand_horz1_solid1_tile), DECORATE(expand_vert1_solid1_tile) },
-        { DECORATE(expand_horz2_solid1_tile), DECORATE(expand_vert2_solid1_tile) },
-    },
-    .expand_solid_in = {
-        { DECORATE(expand_horz1_solid2_tile), DECORATE(expand_vert1_solid2_tile) },
-        { DECORATE(expand_horz2_solid2_tile), DECORATE(expand_vert2_solid2_tile) },
+    .expand = { DECORATE(expand_horz_tile), DECORATE(expand_vert_tile) },
+    .expand_solid = {
+        { DECORATE(expand_horz1_solid_tile), DECORATE(expand_vert1_solid_tile) },
+        { DECORATE(expand_horz2_solid_tile), DECORATE(expand_vert2_solid_tile) },
     },
     .pre_blur = {
         { DECORATE(pre_blur1_horz_tile), DECORATE(pre_blur1_vert_tile) },

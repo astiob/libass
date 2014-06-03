@@ -26,6 +26,11 @@ void DECORATE(fill_generic_tile)(int16_t *buf,
                                  const struct segment *line, size_t n_lines,
                                  int winding);
 
+int DECORATE(expand_horz_tile)(int16_t *dst1, int16_t *dst2,
+                               const int16_t *side1, const int16_t *src, const int16_t *side2);
+int DECORATE(expand_vert_tile)(int16_t *dst1, int16_t *dst2,
+                               const int16_t *side1, const int16_t *src, const int16_t *side2);
+
 
 const TileEngine DECORATE(engine_tile) =
 {
@@ -39,17 +44,10 @@ const TileEngine DECORATE(engine_tile) =
     .combine = { DECORATE_C(mul_tile), DECORATE_C(add_tile), DECORATE_C(sub_tile) },
     .shrink = { DECORATE_C(shrink_horz_tile), DECORATE_C(shrink_vert_tile) },
     .shrink_solid = { DECORATE_C(shrink_horz_solid_tile), DECORATE_C(shrink_vert_solid_tile) },
-    .expand = {
-        { DECORATE_C(expand_horz1_tile), DECORATE_C(expand_vert1_tile) },
-        { DECORATE_C(expand_horz2_tile), DECORATE_C(expand_vert2_tile) },
-    },
-    .expand_solid_out = {
-        { DECORATE_C(expand_horz1_solid1_tile), DECORATE_C(expand_vert1_solid1_tile) },
-        { DECORATE_C(expand_horz2_solid1_tile), DECORATE_C(expand_vert2_solid1_tile) },
-    },
-    .expand_solid_in = {
-        { DECORATE_C(expand_horz1_solid2_tile), DECORATE_C(expand_vert1_solid2_tile) },
-        { DECORATE_C(expand_horz2_solid2_tile), DECORATE_C(expand_vert2_solid2_tile) },
+    .expand = { DECORATE(expand_horz_tile), DECORATE(expand_vert_tile) },
+    .expand_solid = {
+        { DECORATE_C(expand_horz1_solid_tile), DECORATE_C(expand_vert1_solid_tile) },
+        { DECORATE_C(expand_horz2_solid_tile), DECORATE_C(expand_vert2_solid_tile) },
     },
     .pre_blur = {
         { DECORATE_C(pre_blur1_horz_tile), DECORATE_C(pre_blur1_vert_tile) },

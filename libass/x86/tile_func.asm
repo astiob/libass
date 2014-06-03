@@ -30,6 +30,7 @@ words_index: dw 0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C
 words_tile16: dw 1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024,1024
 words_tile32: dw 512,512,512,512,512,512,512,512,512,512,512,512,512,512,512,512
 words_max: dw 256,256,256,256,256,256,256,256,256,256,256,256,256,256,256,256
+words_one: dw 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 
 SECTION .text
 
@@ -170,7 +171,7 @@ FINALIZE_SOLID
 ;------------------------------------------------------------------------------
 ; FINALIZE_GENERIC_TILE tile_order, suffix
 ; void finalize_generic_tile%2(uint8_t *buf, ptrdiff_t stride,
-;                              const int16_t *src)
+;                              const int16_t *src);
 ;------------------------------------------------------------------------------
 
 %macro FINALIZE_GENERIC_TILE 2
@@ -940,3 +941,291 @@ FILL_GENERIC_TILE 5,32
 INIT_YMM avx2
 FILL_GENERIC_TILE 4,16
 FILL_GENERIC_TILE 5,32
+
+;------------------------------------------------------------------------------
+; EXPAND_LINE_HORZ m_dst1, m_dst2, m_prev3, m_src4, m_next5, m_one6
+; Expand line by factor of 2 with kernel [1, 5, 10, 10, 5, 1]
+;------------------------------------------------------------------------------
+
+%macro EXPAND_LINE_HORZ 6
+    pslldq m%2, m%4, 2
+%if mmsize == 32
+    vperm2i128 m%3, m%3, m%4, 0x21
+%endif
+    psrldq m%3, 14
+    por m%2, m%3  ; prev
+    psrldq m%1, m%4, 2
+%if mmsize == 32
+    vperm2i128 m%3, m%4, m%5, 0x21
+    pslldq m%3, 14
+%else
+    pslldq m%3, m%5, 14
+%endif
+    por m%3, m%1  ; next
+    paddw m%1, m%2, m%3
+    psrlw m%1, 1
+    paddw m%1, m%4
+    psrlw m%1, 1
+    paddw m%2, m%1
+    psrlw m%2, 1
+    paddw m%3, m%1
+    psrlw m%3, 1
+    paddw m%2, m%4
+    psrlw m%2, 1
+    paddw m%3, m%4
+    psrlw m%3, 1
+    punpcklwd m%1, m%2, m%3
+    punpckhwd m%2, m%3,
+%if mmsize == 32
+    mova m%3, m%1  ; XXX: swizzle
+    vperm2i128 m%1, m%3, m%2, 0x20
+    vperm2i128 m%2, m%3, m%2, 0x31
+%endif
+%endmacro
+
+;------------------------------------------------------------------------------
+; UPDATE_FLAG m_flag1, m_flag2[64],
+;             m_src_a3, m_src_b4, m_cmp_a5, m_cmp_b6,
+;             m_tmp7, i_a8, i_b9
+; Compare two vectors with their corresponding templates and update flag
+;------------------------------------------------------------------------------
+
+%macro UPDATE_FLAG 9
+    pxor m%3, m%5
+    pxor m%4, m%6
+
+%if ARCH_X86_64
+
+%if %8 == 1
+    por m%1, m%3
+%else
+    por m%2, m%3
+%endif
+%if %9 == 1
+    por m%1, m%4
+%else
+    por m%2, m%4
+%endif
+
+%else
+
+%if %8 == %9
+    por m%3, m%4
+    pxor m%4, m%4
+%endif
+%if %8 == 1
+    punpcklwd m%7, m%3, m%4
+    punpckhwd m%3, m%4,
+    por m%1, m%7
+    por m%1, m%3
+%else
+    punpcklwd m%7, m%4, m%3
+    punpckhwd m%4, m%3,
+    por m%1, m%7
+    por m%1, m%4
+%endif
+
+%endif
+%endmacro
+
+;------------------------------------------------------------------------------
+; EXPAND_HORZ_TILE tile_order, suffix
+; int expand_horz_tile%2(int16_t *dst1, int16_t *dst2,
+;                        const int16_t *side1, const int16_t *src, const int16_t *side2);
+;------------------------------------------------------------------------------
+
+%macro EXPAND_HORZ_TILE 2
+%if ARCH_X86_64
+cglobal expand_horz_tile%2, 5,6,9
+    pxor m8, m8
+%else
+cglobal expand_horz_tile%2, 5,6,8
+%endif
+    mova m6, [words_one]
+    pxor m7, m7
+
+    xor r5d, r5d
+.main_loop
+
+%if (2 << %1) == mmsize
+    mova m5, [r2 + r5]
+    mova m0, m5  ; XXX: swizzle
+    mova m1, [r3 + r5]
+    mova m2, [r4 + r5]
+    EXPAND_LINE_HORZ 3,4, 0,1,2, 6
+    mova [r0 + r5], m3
+    mova [r1 + r5], m4
+    UPDATE_FLAG 7,8, 3,4,5,2, 2, 1,2
+%else
+    mova m5, [r2 + r5 + (2 << %1) - mmsize]
+    mova m0, m5
+    mova m1, [r3 + r5]
+%assign %%i 0
+%rep (1 << %1) / mmsize
+    mova m2, [r3 + r5 + %%i + mmsize]
+    EXPAND_LINE_HORZ 3,4, 0,1,2, 6
+    SWAP 0, 1, 2
+    mova [r0 + r5 + 2 * %%i], m3
+    mova [r0 + r5 + 2 * %%i + mmsize], m4
+    UPDATE_FLAG 7,8, 3,4,5,5, 2, 1,1
+%assign %%i %%i + mmsize
+%endrep
+    mova m5, [r4 + r5]
+%rep (1 << %1) / mmsize
+%if %%i + mmsize == (2 << %1)
+    EXPAND_LINE_HORZ 3,4, 0,1,5, 6
+%else
+    mova m2, [r3 + r5 + %%i + mmsize]
+    EXPAND_LINE_HORZ 3,4, 0,1,2, 6
+%endif
+    SWAP 0, 1, 2
+    mova [r1 + r5 + 2 * %%i - (2 << %1)], m3
+    mova [r1 + r5 + 2 * %%i - (2 << %1) + mmsize], m4
+    UPDATE_FLAG 7,8, 3,4,5,5, 2, 2,2
+%assign %%i %%i + mmsize
+%endrep
+%endif
+
+    add r5d, 2 << %1
+    cmp r5d, 2 << (2 * %1)
+    jnz .main_loop
+
+    xor eax, eax
+    pxor m6, m6
+    pcmpeqw m7, m6
+    pmovmskb r0d, m7
+%if ARCH_X86_64
+    cmp r0d, 0xFFFFFFFF >> (32 - mmsize)
+%else
+    cmp r0d, (0xFFFFFFFF >> (32 - mmsize)) & 0x33333333
+%endif
+    sete al
+%if ARCH_X86_64
+    pcmpeqw m8, m6
+    pmovmskb r0d, m8
+    cmp r0d, 0xFFFFFFFF >> (32 - mmsize)
+%else
+    cmp r0d, (0xFFFFFFFF >> (32 - mmsize)) & 0xCCCCCCCC
+%endif
+    sete r0b
+    add r0d, r0d
+    or al, r0b
+    RET
+%endmacro
+
+INIT_XMM sse2
+EXPAND_HORZ_TILE 4,16
+EXPAND_HORZ_TILE 5,32
+INIT_YMM avx2
+EXPAND_HORZ_TILE 4,16
+EXPAND_HORZ_TILE 5,32
+
+;------------------------------------------------------------------------------
+; EXPAND_LINE_VERT m_dst1, m_dst2, m_prev3, m_src4, m_next5, m_one6
+; Expand line by factor of 2 with kernel [1, 5, 10, 10, 5, 1]
+;------------------------------------------------------------------------------
+
+%macro EXPAND_LINE_VERT 6
+    mova m%1, m%3
+    mova m%2, m%5
+    paddw m%3, m%5
+    psrlw m%3, 1
+    paddw m%3, m%4
+    psrlw m%3, 1
+    paddw m%1, m%3
+    paddw m%2, m%3
+    psrlw m%1, 1
+    psrlw m%2, 1
+    paddw m%3, m%4, m%6
+    paddw m%1, m%3
+    paddw m%2, m%3
+    psrlw m%1, 1
+    psrlw m%2, 1
+%endmacro
+
+;------------------------------------------------------------------------------
+; EXPAND_VERT_TILE tile_order, suffix
+; int expand_vert_tile%2(int16_t *dst1, int16_t *dst2,
+;                        const int16_t *side1, const int16_t *src, const int16_t *side2);
+;------------------------------------------------------------------------------
+
+%macro EXPAND_VERT_TILE 2
+%if ARCH_X86_64
+cglobal expand_vert_tile%2, 5,6,9
+    pxor m8, m8
+%else
+cglobal expand_vert_tile%2, 5,6,8
+%endif
+    add r2, (2 << (2 * %1)) - (2 << %1)
+    mova m6, [words_one]
+    pxor m7, m7
+
+%assign %%i 0
+%rep (2 << %1) / mmsize
+
+    mova m5, [r2 + %%i]
+    mova m0, m5  ; XXX: swizzle
+    mova m1, [r3 + %%i]
+    xor r5d, r5d
+.row_loop1_ %+ %%i
+    mova m2, [r3 + %%i + r5 + (2 << %1)]
+    EXPAND_LINE_VERT 3,4, 0,1,2, 6
+    mova m0, m1
+    mova m1, m2
+    mova [r0 + 2 * r5 + %%i], m3
+    mova [r0 + 2 * r5 + %%i + (2 << %1)], m4
+    UPDATE_FLAG 7,8, 3,4,5,5, 2, 1,1
+    add r5d, 2 << %1
+    cmp r5d, 1 << (2 * %1)
+    jl .row_loop1_ %+ %%i
+
+    mova m5, [r4 + %%i]
+    xor r5d, r5d
+.row_loop2_ %+ %%i
+    mova m2, [r3 + r5 + %%i + (1 << (2 * %1)) + (2 << %1)]
+    EXPAND_LINE_VERT 3,4, 0,1,2, 6
+    mova m0, m1
+    mova m1, m2
+    mova [r1 + 2 * r5 + %%i], m3
+    mova [r1 + 2 * r5 + %%i + (2 << %1)], m4
+    UPDATE_FLAG 7,8, 3,4,5,5, 2, 2,2
+    add r5d, 2 << %1
+    cmp r5d, (1 << (2 * %1)) - (2 << %1)
+    jl .row_loop2_ %+ %%i
+    EXPAND_LINE_VERT 3,4, 0,1,5, 6
+    mova [r1 + 2 * r5 + %%i], m3
+    mova [r1 + 2 * r5 + %%i + (2 << %1)], m4
+    UPDATE_FLAG 7,8, 3,4,5,5, 2, 2,2
+
+%assign %%i %%i + mmsize
+%endrep
+
+    xor eax, eax
+    pxor m6, m6
+    pcmpeqw m7, m6
+    pmovmskb r0d, m7
+%if ARCH_X86_64
+    cmp r0d, 0xFFFFFFFF >> (32 - mmsize)
+%else
+    cmp r0d, (0xFFFFFFFF >> (32 - mmsize)) & 0x33333333
+%endif
+    sete al
+%if ARCH_X86_64
+    pcmpeqw m8, m6
+    pmovmskb r0d, m8
+    cmp r0d, 0xFFFFFFFF >> (32 - mmsize)
+%else
+    cmp r0d, (0xFFFFFFFF >> (32 - mmsize)) & 0xCCCCCCCC
+%endif
+    sete r0b
+    add r0d, r0d
+    or al, r0b
+    RET
+%endmacro
+
+INIT_XMM sse2
+EXPAND_VERT_TILE 4,16
+EXPAND_VERT_TILE 5,32
+INIT_YMM avx2
+EXPAND_VERT_TILE 4,16
+EXPAND_VERT_TILE 5,32
