@@ -35,7 +35,7 @@ words_one: dw 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 SECTION .text
 
 ;------------------------------------------------------------------------------
-; MUL reg, num
+; MUL 1:reg, 2:num
 ; Multiply by constant
 ;------------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ SECTION .text
 %endmacro
 
 ;------------------------------------------------------------------------------
-; BCASTW m_dst, r_src
+; BCASTW 1:m_dst, 2:r_src
 ;------------------------------------------------------------------------------
 
 %macro BCASTW 2
@@ -85,7 +85,7 @@ SECTION .text
 %endmacro
 
 ;------------------------------------------------------------------------------
-; PABSW m_reg, m_tmp
+; PABSW 1:m_reg, 2:m_tmp
 ;------------------------------------------------------------------------------
 
 %macro PABSW 2
@@ -169,7 +169,7 @@ INIT_YMM avx2
 FINALIZE_SOLID
 
 ;------------------------------------------------------------------------------
-; FINALIZE_GENERIC_TILE tile_order, suffix
+; FINALIZE_GENERIC_TILE 1:tile_order, 2:suffix
 ; void finalize_generic_tile%2(uint8_t *buf, ptrdiff_t stride,
 ;                              const int16_t *src);
 ;------------------------------------------------------------------------------
@@ -178,7 +178,7 @@ FINALIZE_SOLID
 cglobal finalize_generic_tile%2, 3,4,2
     mov r3, 1 << %1
 .main_loop
-%assign %%i 0
+    %assign %%i 0
 %rep (1 << %1) / mmsize
     mova m0, [r2 + 2 * %%i]
     psrlw m0, 6
@@ -189,7 +189,7 @@ cglobal finalize_generic_tile%2, 3,4,2
     vpermq m0, m0, q3120
 %endif
     mova [r0 + %%i], m0
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
 %if (1 << %1) < mmsize
     mova m0, [r2 + 2 * %%i]
@@ -213,7 +213,7 @@ FINALIZE_GENERIC_TILE 4,16
 FINALIZE_GENERIC_TILE 5,32
 
 ;------------------------------------------------------------------------------
-; CALC_LINE m_dst, m_src, m_delta, m_zero, m_full, m_tmp, shift
+; CALC_LINE 1:m_dst, 2:m_src, 3:m_delta, 4:m_zero, 5:m_full, 6:m_tmp, 7:shift
 ; Calculate line using antialiased halfplane algorithm
 ;------------------------------------------------------------------------------
 
@@ -232,7 +232,7 @@ FINALIZE_GENERIC_TILE 5,32
 %endmacro
 
 ;------------------------------------------------------------------------------
-; DEF_A_SHIFT tile_order
+; DEF_A_SHIFT 1:tile_order
 ; If single mm-register is enough to store the whole line
 ; then sets a_shift = 0,
 ; else sets a_shift = log2(mmsize / sizeof(int16_t)).
@@ -251,17 +251,17 @@ FINALIZE_GENERIC_TILE 5,32
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_HALFPLANE_TILE tile_order, suffix
+; FILL_HALFPLANE_TILE 1:tile_order, 2:suffix
 ; void fill_halfplane_tile%2(uint16_t *buf,
 ;                            int32_t a, int32_t b, int64_t c, int32_t scale);
 ;------------------------------------------------------------------------------
 
 %macro FILL_HALFPLANE_TILE 2
     DEF_A_SHIFT %1
-%assign %%n 8
+    %assign %%n 8
 %if a_shift == 0
     SWAP 3, 7
-%assign %%n 7
+    %assign %%n 7
 %endif
 
 %if ARCH_X86_64
@@ -361,14 +361,14 @@ cglobal fill_halfplane_tile%2, 0,6,%%n
     add r0, 2 << %1
     psubw m1, m7
 .loop_entry
-%assign %%i 0
+    %assign %%i 0
 %rep (2 << %1) / mmsize
 %if %%i
     psubw m1, m3
 %endif
     CALC_LINE 5, 1,2, 0,4, 6, 1 - %1
     mova [r0 + %%i], m5
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
     sub t0d,1
     jnz .loop_start
@@ -403,30 +403,30 @@ struc line
 endstruc
 
 ;------------------------------------------------------------------------------
-; ZEROFILL dst, size, tmp1
+; ZEROFILL 1:dst, 2:size, 3:tmp
 ;------------------------------------------------------------------------------
 
 %macro ZEROFILL 3
-%assign %%n 128 / mmsize
+    %assign %%n 128 / mmsize
     mov %3, (%2) / 128
 %%zerofill_loop:
-%assign %%i 0
+    %assign %%i 0
 %rep %%n
     mova [%1 + %%i], mm_zero
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
     add %1, 128
     sub %3, 1
     jnz %%zerofill_loop
-%assign %%i 0
+    %assign %%i 0
 %rep ((%2) / mmsize) & (%%n - 1)
     mova [%1 + %%i], mm_zero
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
 %endmacro
 
 ;------------------------------------------------------------------------------
-; CALC_DELTA_FLAG res, line, tmp1, tmp2
+; CALC_DELTA_FLAG 1:res, 2:line, 3-4:tmp
 ; Set bits of result register (res):
 ; bit 3 - for nonzero up_delta,
 ; bit 2 - for nonzero dn_delta.
@@ -449,7 +449,7 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; UPDATE_DELTA dn/up, dst, flag, pos, tmp
+; UPDATE_DELTA 1:dn/up, 2:dst, 3:flag, 4:pos, 5:tmp
 ; Update delta array
 ;------------------------------------------------------------------------------
 
@@ -476,7 +476,7 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; CALC_VBA tile_order, b
+; CALC_VBA 1:tile_order, 2:b
 ; Calculate b - (tile_size - (mmsize / sizeof(int16_t))) * a
 ;------------------------------------------------------------------------------
 
@@ -488,8 +488,8 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_BORDER_LINE tile_order, res, abs_a(abs_ab), b, [abs_b], size, sum,
-;                  tmp8, tmp9, mt10, mt11, mt12, mt13, mt14, [mt15]
+; FILL_BORDER_LINE 1:tile_order, 2:res, 3:abs_a[abs_ab], 4:b, 5:[abs_b],
+;                  6:size, 7:sum, 8-9:tmp, 10-14:m_tmp, 15:[m_tmp]
 ; Render top/bottom line of the trapezium with antialiasing
 ;------------------------------------------------------------------------------
 
@@ -540,7 +540,7 @@ endstruc
     add %6d, %6d
     BCASTW %12, %6d
 
-%assign %%i 0
+    %assign %%i 0
 %rep (2 << %1) / mmsize
 %if %%i
     psubw mm_c, mm_van
@@ -560,13 +560,12 @@ endstruc
     paddw m%13, m%14
     paddw m%13, [%2 + %%i]
     mova [%2 + %%i], m%13
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
 %endmacro
 
 ;------------------------------------------------------------------------------
-; SAVE_RESULT tile_order, buf, delta, m_max,
-;             tmp5, tmp6, mt7, mt8, mt9
+; SAVE_RESULT 1:tile_order, 2:buf, 3:delta, 4:m_max, 5-6:tmp, 7-9:m_tmp
 ; Apply delta and rescale rusult
 ;------------------------------------------------------------------------------
 
@@ -577,14 +576,14 @@ endstruc
     add %6w, [%3]
     BCASTW %8, %6d
     add %3, 2
-%assign %%i 0
+    %assign %%i 0
 %rep (2 << %1) / mmsize
     paddw m%7, m%8, [%2 + %%i]
     PABSW %7, %9
     pminsw m%7, m%4
     psllw m%7, 6
     mova [%2 + %%i], m%7
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
     add %2, 2 << %1
     sub %5d, 1
@@ -592,7 +591,7 @@ endstruc
 %endmacro
 
 ;------------------------------------------------------------------------------
-; FILL_GENERIC_TILE tile_order, suffix
+; FILL_GENERIC_TILE 1:tile_order, 2:suffix
 ; void fill_generic_tile%2(uint16_t *buf,
 ;                          const struct segment *line, size_t n_lines,
 ;                          int winding);
@@ -657,10 +656,10 @@ cglobal fill_generic_tile%2, 0,7,8
 %endif
     pxor mm_zero, mm_zero
     ZEROFILL t0, 2 * tile_size * tile_size, t1
-%assign %%i 0
+    %assign %%i 0
 %rep 2 * tile_size / mmsize
     movu [rstk + %%i], mm_zero
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
 
 %if ARCH_X86_64 == 0
@@ -872,7 +871,7 @@ cglobal fill_generic_tile%2, 0,7,8
     mova mm_full, [words_tile%2]
 %endif
 .internal_loop
-%assign i 0
+    %assign i 0
 %rep (2 << %1) / mmsize
 %if i
     psubw mm_c, mm_van
@@ -880,7 +879,7 @@ cglobal fill_generic_tile%2, 0,7,8
     CALC_LINE 0, m_c,2, m_zero,m_full, 1, 7 - %1
     paddw m0, [t4 + i]
     mova [t4 + i], m0
-%assign i i + mmsize
+    %assign i i + mmsize
 %endrep
     psubw mm_c, mm_vba
     add t4, 2 << %1
@@ -943,7 +942,7 @@ FILL_GENERIC_TILE 4,16
 FILL_GENERIC_TILE 5,32
 
 ;------------------------------------------------------------------------------
-; EXPAND_LINE_HORZ m_dst1, m_dst2, m_prev3, m_src4, m_next5, m_one6
+; EXPAND_LINE_HORZ 1:m_dst1, 2:m_dst2, 3:m_prev, 4:m_src, 5:m_next, 6:m_one
 ; Expand line by factor of 2 with kernel [1, 5, 10, 10, 5, 1]
 ;------------------------------------------------------------------------------
 
@@ -984,9 +983,9 @@ FILL_GENERIC_TILE 5,32
 %endmacro
 
 ;------------------------------------------------------------------------------
-; UPDATE_FLAG m_flag1, m_flag2[64],
-;             m_src_a3, m_src_b4, m_cmp_a5, m_cmp_b6,
-;             m_tmp7, i_a8, i_b9
+; UPDATE_FLAG 1:m_flag1, 2:[m_flag2],
+;             3:m_src1, 4:m_src2, 5:m_cmp1, 6:m_cmp2,
+;             7:m_tmp, 8:index1, 9:index2
 ; Compare two vectors with their corresponding templates and update flag
 ;------------------------------------------------------------------------------
 
@@ -1029,7 +1028,7 @@ FILL_GENERIC_TILE 5,32
 %endmacro
 
 ;------------------------------------------------------------------------------
-; EXPAND_HORZ_TILE tile_order, suffix
+; EXPAND_HORZ_TILE 1:tile_order, 2:suffix
 ; int expand_horz_tile%2(int16_t *dst1, int16_t *dst2,
 ;                        const int16_t *side1, const int16_t *src, const int16_t *side2);
 ;------------------------------------------------------------------------------
@@ -1060,7 +1059,7 @@ cglobal expand_horz_tile%2, 5,6,8
     mova m5, [r2 + r5 + (2 << %1) - mmsize]
     mova m0, m5
     mova m1, [r3 + r5]
-%assign %%i 0
+    %assign %%i 0
 %rep (1 << %1) / mmsize
     mova m2, [r3 + r5 + %%i + mmsize]
     EXPAND_LINE_HORZ 3,4, 0,1,2, 6
@@ -1068,7 +1067,7 @@ cglobal expand_horz_tile%2, 5,6,8
     mova [r0 + r5 + 2 * %%i], m3
     mova [r0 + r5 + 2 * %%i + mmsize], m4
     UPDATE_FLAG 7,8, 3,4,5,5, 2, 1,1
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
     mova m5, [r4 + r5]
 %rep (1 << %1) / mmsize
@@ -1082,7 +1081,7 @@ cglobal expand_horz_tile%2, 5,6,8
     mova [r1 + r5 + 2 * %%i - (2 << %1)], m3
     mova [r1 + r5 + 2 * %%i - (2 << %1) + mmsize], m4
     UPDATE_FLAG 7,8, 3,4,5,5, 2, 2,2
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
 %endif
 
@@ -1121,7 +1120,7 @@ EXPAND_HORZ_TILE 4,16
 EXPAND_HORZ_TILE 5,32
 
 ;------------------------------------------------------------------------------
-; EXPAND_LINE_VERT m_dst1, m_dst2, m_prev3, m_src4, m_next5, m_one6
+; EXPAND_LINE_VERT 1:m_dst1, 2:m_dst1, 3:m_prev, 4:m_src, 5:m_next, 6:m_one
 ; Expand line by factor of 2 with kernel [1, 5, 10, 10, 5, 1]
 ;------------------------------------------------------------------------------
 
@@ -1144,7 +1143,7 @@ EXPAND_HORZ_TILE 5,32
 %endmacro
 
 ;------------------------------------------------------------------------------
-; EXPAND_VERT_TILE tile_order, suffix
+; EXPAND_VERT_TILE 1:tile_order, 2:suffix
 ; int expand_vert_tile%2(int16_t *dst1, int16_t *dst2,
 ;                        const int16_t *side1, const int16_t *src, const int16_t *side2);
 ;------------------------------------------------------------------------------
@@ -1160,7 +1159,7 @@ cglobal expand_vert_tile%2, 5,6,8
     mova m6, [words_one]
     pxor m7, m7
 
-%assign %%i 0
+    %assign %%i 0
 %rep (2 << %1) / mmsize
 
     mova m5, [r2 + %%i]
@@ -1197,7 +1196,7 @@ cglobal expand_vert_tile%2, 5,6,8
     mova [r1 + 2 * r5 + %%i + (2 << %1)], m4
     UPDATE_FLAG 7,8, 3,4,5,5, 2, 2,2
 
-%assign %%i %%i + mmsize
+    %assign %%i %%i + mmsize
 %endrep
 
     xor eax, eax
