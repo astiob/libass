@@ -13,7 +13,7 @@ yasm_verbose_0 = @echo "  YASM    " $@;
 .asm.lo:
 	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
-SRC_X86 = x86/cpuid.asm x86/cpuid.h x86/tile_func.asm x86/tile_func.h
+SRC_X86 = x86/cpuid.asm x86/cpuid.h x86/rasterizer.asm x86/blur.asm x86/shift.asm x86/tile_func.h
 
 lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontconfig.c ass_render.c \
@@ -37,4 +37,4 @@ endif
 assheadersdir = $(includedir)/ass
 dist_assheaders_HEADERS = ass.h ass_types.h
 
-EXTRA_DIST = libass.sym x86/x86inc.asm
+EXTRA_DIST = libass.sym x86/x86inc.asm x86/utils.asm
