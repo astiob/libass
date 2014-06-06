@@ -31,6 +31,11 @@ int DECORATE(expand_horz_tile)(int16_t *dst1, int16_t *dst2,
 int DECORATE(expand_vert_tile)(int16_t *dst1, int16_t *dst2,
                                const int16_t *side1, const int16_t *src, const int16_t *side2);
 
+int DECORATE(shift_tile)(int16_t *dst,
+                         const int16_t *src0, const int16_t *src1,
+                         const int16_t *src2, const int16_t *src3,
+                         int dx, int dy);
+
 
 const TileEngine DECORATE(engine_tile) =
 {
@@ -69,5 +74,5 @@ const TileEngine DECORATE(engine_tile) =
         { DECORATE_C(blur1235_horz_solid_tile), DECORATE_C(blur1235_vert_solid_tile) },
         { DECORATE_C(blur1246_horz_solid_tile), DECORATE_C(blur1246_vert_solid_tile) },
     },
-    .shift = DECORATE_C(shift_tile),
+    .shift = DECORATE(shift_tile),
 };
