@@ -217,12 +217,15 @@ static void outline_destruct(void *key, void *value)
 typedef struct cache_item {
     void *key;
     void *value;
-    struct cache_item *next;
+    struct cache_item *next, **prev;
+    struct cache_item *queue_next, **queue_prev;
+    size_t size;
 } CacheItem;
 
 struct cache {
     unsigned buckets;
     CacheItem **map;
+    CacheItem *queue_first, **queue_last;
 
     HashFunction hash_func;
     ItemSize size_func;
@@ -277,6 +280,7 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
     cache->key_size = key_size;
     cache->value_size = value_size;
     cache->map = calloc(cache->buckets, sizeof(CacheItem *));
+    cache->queue_last = &cache->queue_first;
 
     return cache;
 }
@@ -292,14 +296,22 @@ void *ass_cache_put(Cache *cache, void *key, void *value)
     memcpy(item->key, key, cache->key_size);
     memcpy(item->value, value, cache->value_size);
 
+    if (*bucketptr)
+        (*bucketptr)->prev = &item->next;
+    item->prev = bucketptr;
     item->next = *bucketptr;
     *bucketptr = item;
 
-    cache->items++;
+    *cache->queue_last = item;
+    item->queue_prev = cache->queue_last;
+    cache->queue_last = &item->queue_next;
+
+    ++cache->items;
     if (cache->size_func)
-        cache->cache_size += cache->size_func(value, cache->value_size);
+        item->size += cache->size_func(value, cache->value_size);
     else
-        cache->cache_size++;
+        item->size = 1;
+    cache->cache_size += item->size;
 
     return item->value;
 }
@@ -310,6 +322,15 @@ void *ass_cache_get(Cache *cache, void *key)
     CacheItem *item = cache->map[bucket];
     while (item) {
         if (cache->compare_func(key, item->key, cache->key_size)) {
+            if (item->queue_next) {
+                item->queue_next->queue_prev = item->queue_prev;
+                *item->queue_prev = item->queue_next;
+
+                *cache->queue_last = item;
+                item->queue_prev = cache->queue_last;
+                cache->queue_last = &item->queue_next;
+                item->queue_next = NULL;
+            }
             cache->hits++;
             return item->value;
         }
@@ -321,24 +342,26 @@ void *ass_cache_get(Cache *cache, void *key)
 
 int ass_cache_empty(Cache *cache, size_t max_size)
 {
-    int i;
-
-    if (cache->cache_size < max_size)
+    if (cache->cache_size <= max_size)
         return 0;
 
-    for (i = 0; i < cache->buckets; i++) {
-        CacheItem *item = cache->map[i];
-        while (item) {
-            CacheItem *next = item->next;
-            cache->destruct_func(item->key, item->value);
-            free(item);
-            item = next;
-        }
-        cache->map[i] = NULL;
-    }
+    do {
+        CacheItem *item = cache->queue_first;
+        cache->queue_first = item->queue_next;
 
-    cache->items = cache->hits = cache->misses = cache->cache_size = 0;
+        if (item->next)
+            item->next->prev = item->prev;
+        *item->prev = item->next;
 
+        --cache->items;
+        cache->cache_size -= item->size;
+        cache->destruct_func(item->key, item->value);
+        free(item);
+    } while (cache->cache_size > max_size);
+    if (cache->queue_first)
+        cache->queue_first->queue_prev = &cache->queue_first;
+    else
+        cache->queue_last = &cache->queue_first;
     return 1;
 }
 
