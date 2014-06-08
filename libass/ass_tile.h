@@ -129,6 +129,7 @@ void free_quad(const TileEngine *engine, const Quad *quad, int size_order);
 TileTree *alloc_tile_tree(const TileEngine *engine, const Quad *fill);
 TileTree *copy_tile_tree(const TileEngine *engine, const TileTree *src);
 void free_tile_tree(const TileEngine *engine, TileTree *tree);
+size_t calc_tree_size(const TileEngine *engine, const TileTree *tree);
 
 
 void finalize_quad(const TileEngine *engine, uint8_t *buf, ptrdiff_t stride,

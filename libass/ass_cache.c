@@ -89,16 +89,28 @@ static void bitmap_destruct(void *key, void *value)
     free(value);
 }
 
+const TileEngine *tile_engine;  // XXX: temporary
+
 static size_t bitmap_size(void *value, size_t value_size)
 {
+    size_t res = 0;
+    BitmapHashValue *val = value;
+    if (val->bm)
+        res += calc_tree_size(tile_engine, val->bm);
+    if (val->bm_o)
+        res += calc_tree_size(tile_engine, val->bm_o);
+    if (val->bm_s)
+        res += calc_tree_size(tile_engine, val->bm_s);
+    return res;
+
+    /*
     BitmapHashValue *val = value;
     if (val->bm_o)
-        return 6 << (2 * val->bm_o->size_order);
-        //return val->bm_o->w * val->bm_o->h * 3;
+        return val->bm_o->w * val->bm_o->h * 3;
     else if (val->bm)
-        return 6 << (2 * val->bm->size_order);
-        //return val->bm->w * val->bm->h * 3;
+        return val->bm->w * val->bm->h * 3;
     return 0;
+    */
 }
 
 static unsigned bitmap_hash(void *key, size_t key_size)
@@ -141,14 +153,24 @@ static void composite_destruct(void *key, void *value)
 
 static size_t composite_size(void *value, size_t value_size)
 {
+    size_t res = 0;
+    CompositeHashValue *val = value;
+    if (val->bm)
+        res += calc_tree_size(tile_engine, val->bm);
+    if (val->bm_o)
+        res += calc_tree_size(tile_engine, val->bm_o);
+    if (val->bm_s)
+        res += calc_tree_size(tile_engine, val->bm_s);
+    return res;
+
+    /*
     CompositeHashValue *val = value;
     if (val->bm_o)
-        return 6 << (2 * val->bm_o->size_order);
-        //return val->bm_o->w * val->bm_o->h * 3;
+        return val->bm_o->w * val->bm_o->h * 3;
     else if (val->bm)
-        return 6 << (2 * val->bm->size_order);
-        //return val->bm->w * val->bm->h * 3;
+        return val->bm->w * val->bm->h * 3;
     return 0;
+    */
 }
 
 // outline cache

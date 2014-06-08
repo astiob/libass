@@ -225,6 +225,32 @@ void free_tile_tree(const TileEngine *engine, TileTree *tree)
     free(tree);
 }
 
+static size_t calc_quad_size(const TileEngine *engine, const Quad *quad, int size_order)
+{
+    assert(size_order >= engine->tile_order);
+
+    if (is_trivial_quad(quad))
+        return 0;
+
+    if (size_order == engine->tile_order)
+        return 2 << (2 * engine->tile_order);
+
+    size_t res = sizeof(Quad);
+    for (int i = 0; i < 4; ++i)
+        res += calc_quad_size(engine, quad->child[i], size_order - 1);
+    return res;
+}
+
+size_t calc_tree_size(const TileEngine *engine, const TileTree *tree)
+{
+    size_t res = sizeof(TileTree);
+    if (tree->size_order < 0)
+        return res;
+    for (int i = 0; i < 4; ++i)
+        res += calc_quad_size(engine, tree->quad.child[i], tree->size_order - 1);
+    return res;
+}
+
 static inline int is_valid_tree(const TileEngine *engine, const TileTree *tree)
 {
     if (!is_trivial_quad(tree->outside))
