@@ -934,16 +934,11 @@ void DECORATE(blur1234_horz_tile)(int16_t *dst,
     const int16_t *c = (const int16_t *)param;
 
 #define LINE(n4, n3, n2, n1, z0, p1, p2, p3, p4) \
-    *dst++ = (c[4] * (n4)[-4] + \
-              c[3] * (n3)[-3] + \
-              c[2] * (n2)[-2] + \
-              c[1] * (n1)[-1] + \
-              c[0] * (z0)[+0] + \
-              c[1] * (p1)[+1] + \
-              c[2] * (p2)[+2] + \
-              c[3] * (p3)[+3] + \
-              c[4] * (p4)[+4] + \
-              0x8000) >> 16;
+    *dst++ = ((c[3] * ((n4)[-4] + (p4)[4] - 2 * (z0)[0]) + \
+               c[2] * ((n3)[-3] + (p3)[3] - 2 * (z0)[0]) + \
+               c[1] * ((n2)[-2] + (p2)[2] - 2 * (z0)[0]) + \
+               c[0] * ((n1)[-1] + (p1)[1] - 2 * (z0)[0]) + \
+               0x8000) >> 16) + (z0)[0];
 
 #define BEG_LINE(n) \
         LINE(n < 4 ? side1 : src, \
@@ -994,16 +989,11 @@ int DECORATE(blur1234_horz_solid_tile)(int16_t *dst,
     const int16_t *c = (const int16_t *)param;
 
 #define LINE(res, n4, n3, n2, n1, z0, p1, p2, p3, p4) \
-        ptr[res] = (c[4] * (n4) + \
-                    c[3] * (n3) + \
-                    c[2] * (n2) + \
-                    c[1] * (n1) + \
-                    c[0] * (z0) + \
-                    c[1] * (p1) + \
-                    c[2] * (p2) + \
-                    c[3] * (p3) + \
-                    c[4] * (p4) + \
-                    0x8000) >> 16; \
+        ptr[res] = ((c[3] * ((n4) + (p4) - 2 * (z0)) + \
+                     c[2] * ((n3) + (p3) - 2 * (z0)) + \
+                     c[1] * ((n2) + (p2) - 2 * (z0)) + \
+                     c[0] * ((n1) + (p1) - 2 * (z0)) + \
+                     0x8000) >> 16) + (z0); \
         flag |= ptr[res] ^ val;
 
 #define BEG_LINE(n) \
@@ -1061,16 +1051,11 @@ void DECORATE(blur1234_vert_tile)(int16_t *dst,
 
 #define LINE(n4, n3, n2, n1, z0, p1, p2, p3, p4) \
     for (int j = 0; j < TILE_SIZE; ++j) \
-        dst[j] = (c[4] * (n4)[j - 4 * TILE_SIZE] + \
-                  c[3] * (n3)[j - 3 * TILE_SIZE] + \
-                  c[2] * (n2)[j - 2 * TILE_SIZE] + \
-                  c[1] * (n1)[j - 1 * TILE_SIZE] + \
-                  c[0] * (z0)[j + 0 * TILE_SIZE] + \
-                  c[1] * (p1)[j + 1 * TILE_SIZE] + \
-                  c[2] * (p2)[j + 2 * TILE_SIZE] + \
-                  c[3] * (p3)[j + 3 * TILE_SIZE] + \
-                  c[4] * (p4)[j + 4 * TILE_SIZE] + \
-                  0x8000) >> 16; \
+        dst[j] = ((c[3] * ((n4)[j - 4 * TILE_SIZE] + (p4)[j + 4 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[2] * ((n3)[j - 3 * TILE_SIZE] + (p3)[j + 3 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[1] * ((n2)[j - 2 * TILE_SIZE] + (p2)[j + 2 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[0] * ((n1)[j - 1 * TILE_SIZE] + (p1)[j + 1 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   0x8000) >> 16) + (z0)[j]; \
     dst += TILE_SIZE;
 
 #define BEG_LINE(n) \
@@ -1119,16 +1104,11 @@ int DECORATE(blur1234_vert_solid_tile)(int16_t *dst,
 
 #define LINE(n4, n3, n2, n1, z0, p1, p2, p3, p4) \
     for (int j = 0; j < TILE_SIZE; ++j) { \
-        ptr[j] = (c[4] * (n4) + \
-                  c[3] * (n3) + \
-                  c[2] * (n2) + \
-                  c[1] * (n1) + \
-                  c[0] * (z0) + \
-                  c[1] * (p1) + \
-                  c[2] * (p2) + \
-                  c[3] * (p3) + \
-                  c[4] * (p4) + \
-                  0x8000) >> 16; \
+        ptr[j] = ((c[3] * ((n4) + (p4) - 2 * (z0)) + \
+                   c[2] * ((n3) + (p3) - 2 * (z0)) + \
+                   c[1] * ((n2) + (p2) - 2 * (z0)) + \
+                   c[0] * ((n1) + (p1) - 2 * (z0)) + \
+                   0x8000) >> 16) + (z0); \
         flag |= ptr[j] ^ val; \
     } \
     ptr += TILE_SIZE;
@@ -1183,16 +1163,11 @@ void DECORATE(blur1235_horz_tile)(int16_t *dst,
     const int16_t *c = (const int16_t *)param;
 
 #define LINE(n5, n3, n2, n1, z0, p1, p2, p3, p5) \
-    *dst++ = (c[4] * (n5)[-5] + \
-              c[3] * (n3)[-3] + \
-              c[2] * (n2)[-2] + \
-              c[1] * (n1)[-1] + \
-              c[0] * (z0)[+0] + \
-              c[1] * (p1)[+1] + \
-              c[2] * (p2)[+2] + \
-              c[3] * (p3)[+3] + \
-              c[4] * (p5)[+5] + \
-              0x8000) >> 16;
+    *dst++ = ((c[3] * ((n5)[-5] + (p5)[5] - 2 * (z0)[0]) + \
+               c[2] * ((n3)[-3] + (p3)[3] - 2 * (z0)[0]) + \
+               c[1] * ((n2)[-2] + (p2)[2] - 2 * (z0)[0]) + \
+               c[0] * ((n1)[-1] + (p1)[1] - 2 * (z0)[0]) + \
+               0x8000) >> 16) + (z0)[0];
 
 #define BEG_LINE(n) \
         LINE(n < 5 ? side1 : src, \
@@ -1245,16 +1220,11 @@ int DECORATE(blur1235_horz_solid_tile)(int16_t *dst,
     const int16_t *c = (const int16_t *)param;
 
 #define LINE(res, n5, n3, n2, n1, z0, p1, p2, p3, p5) \
-        ptr[res] = (c[4] * (n5) + \
-                    c[3] * (n3) + \
-                    c[2] * (n2) + \
-                    c[1] * (n1) + \
-                    c[0] * (z0) + \
-                    c[1] * (p1) + \
-                    c[2] * (p2) + \
-                    c[3] * (p3) + \
-                    c[4] * (p5) + \
-                    0x8000) >> 16; \
+        ptr[res] = ((c[3] * ((n5) + (p5) - 2 * (z0)) + \
+                     c[2] * ((n3) + (p3) - 2 * (z0)) + \
+                     c[1] * ((n2) + (p2) - 2 * (z0)) + \
+                     c[0] * ((n1) + (p1) - 2 * (z0)) + \
+                     0x8000) >> 16) + (z0); \
         flag |= ptr[res] ^ val;
 
 #define BEG_LINE(n) \
@@ -1314,16 +1284,11 @@ void DECORATE(blur1235_vert_tile)(int16_t *dst,
 
 #define LINE(n5, n3, n2, n1, z0, p1, p2, p3, p5) \
     for (int j = 0; j < TILE_SIZE; ++j) \
-        dst[j] = (c[4] * (n5)[j - 5 * TILE_SIZE] + \
-                  c[3] * (n3)[j - 3 * TILE_SIZE] + \
-                  c[2] * (n2)[j - 2 * TILE_SIZE] + \
-                  c[1] * (n1)[j - 1 * TILE_SIZE] + \
-                  c[0] * (z0)[j + 0 * TILE_SIZE] + \
-                  c[1] * (p1)[j + 1 * TILE_SIZE] + \
-                  c[2] * (p2)[j + 2 * TILE_SIZE] + \
-                  c[3] * (p3)[j + 3 * TILE_SIZE] + \
-                  c[4] * (p5)[j + 5 * TILE_SIZE] + \
-                  0x8000) >> 16; \
+        dst[j] = ((c[3] * ((n5)[j - 5 * TILE_SIZE] + (p5)[j + 5 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[2] * ((n3)[j - 3 * TILE_SIZE] + (p3)[j + 3 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[1] * ((n2)[j - 2 * TILE_SIZE] + (p2)[j + 2 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[0] * ((n1)[j - 1 * TILE_SIZE] + (p1)[j + 1 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   0x8000) >> 16) + (z0)[j]; \
     dst += TILE_SIZE;
 
 #define BEG_LINE(n) \
@@ -1374,16 +1339,11 @@ int DECORATE(blur1235_vert_solid_tile)(int16_t *dst,
 
 #define LINE(n5, n3, n2, n1, z0, p1, p2, p3, p5) \
     for (int j = 0; j < TILE_SIZE; ++j) { \
-        ptr[j] = (c[4] * (n5) + \
-                  c[3] * (n3) + \
-                  c[2] * (n2) + \
-                  c[1] * (n1) + \
-                  c[0] * (z0) + \
-                  c[1] * (p1) + \
-                  c[2] * (p2) + \
-                  c[3] * (p3) + \
-                  c[4] * (p5) + \
-                  0x8000) >> 16; \
+        ptr[j] = ((c[3] * ((n5) + (p5) - 2 * (z0)) + \
+                   c[2] * ((n3) + (p3) - 2 * (z0)) + \
+                   c[1] * ((n2) + (p2) - 2 * (z0)) + \
+                   c[0] * ((n1) + (p1) - 2 * (z0)) + \
+                   0x8000) >> 16) + (z0); \
         flag |= ptr[j] ^ val; \
     } \
     ptr += TILE_SIZE;
@@ -1440,16 +1400,11 @@ void DECORATE(blur1246_horz_tile)(int16_t *dst,
     const int16_t *c = (const int16_t *)param;
 
 #define LINE(n6, n4, n2, n1, z0, p1, p2, p4, p6) \
-    *dst++ = (c[4] * (n6)[-6] + \
-              c[3] * (n4)[-4] + \
-              c[2] * (n2)[-2] + \
-              c[1] * (n1)[-1] + \
-              c[0] * (z0)[+0] + \
-              c[1] * (p1)[+1] + \
-              c[2] * (p2)[+2] + \
-              c[3] * (p4)[+4] + \
-              c[4] * (p6)[+6] + \
-              0x8000) >> 16;
+    *dst++ = ((c[3] * ((n6)[-6] + (p6)[6] - 2 * (z0)[0]) + \
+               c[2] * ((n4)[-4] + (p4)[4] - 2 * (z0)[0]) + \
+               c[1] * ((n2)[-2] + (p2)[2] - 2 * (z0)[0]) + \
+               c[0] * ((n1)[-1] + (p1)[1] - 2 * (z0)[0]) + \
+               0x8000) >> 16) + (z0)[0];
 
 #define BEG_LINE(n) \
         LINE(n < 6 ? side1 : src, \
@@ -1504,16 +1459,11 @@ int DECORATE(blur1246_horz_solid_tile)(int16_t *dst,
     const int16_t *c = (const int16_t *)param;
 
 #define LINE(res, n6, n4, n2, n1, z0, p1, p2, p4, p6) \
-        ptr[res] = (c[4] * (n6) + \
-                    c[3] * (n4) + \
-                    c[2] * (n2) + \
-                    c[1] * (n1) + \
-                    c[0] * (z0) + \
-                    c[1] * (p1) + \
-                    c[2] * (p2) + \
-                    c[3] * (p4) + \
-                    c[4] * (p6) + \
-                    0x8000) >> 16; \
+        ptr[res] = ((c[3] * ((n6) + (p6) - 2 * (z0)) + \
+                     c[2] * ((n4) + (p4) - 2 * (z0)) + \
+                     c[1] * ((n2) + (p2) - 2 * (z0)) + \
+                     c[0] * ((n1) + (p1) - 2 * (z0)) + \
+                     0x8000) >> 16) + (z0); \
         flag |= ptr[res] ^ val;
 
 #define BEG_LINE(n) \
@@ -1575,16 +1525,11 @@ void DECORATE(blur1246_vert_tile)(int16_t *dst,
 
 #define LINE(n6, n4, n2, n1, z0, p1, p2, p4, p6) \
     for (int j = 0; j < TILE_SIZE; ++j) \
-        dst[j] = (c[4] * (n6)[j - 6 * TILE_SIZE] + \
-                  c[3] * (n4)[j - 4 * TILE_SIZE] + \
-                  c[2] * (n2)[j - 2 * TILE_SIZE] + \
-                  c[1] * (n1)[j - 1 * TILE_SIZE] + \
-                  c[0] * (z0)[j + 0 * TILE_SIZE] + \
-                  c[1] * (p1)[j + 1 * TILE_SIZE] + \
-                  c[2] * (p2)[j + 2 * TILE_SIZE] + \
-                  c[3] * (p4)[j + 4 * TILE_SIZE] + \
-                  c[4] * (p6)[j + 6 * TILE_SIZE] + \
-                  0x8000) >> 16; \
+        dst[j] = ((c[3] * ((n6)[j - 6 * TILE_SIZE] + (p6)[j + 6 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[2] * ((n4)[j - 4 * TILE_SIZE] + (p4)[j + 4 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[1] * ((n2)[j - 2 * TILE_SIZE] + (p2)[j + 2 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   c[0] * ((n1)[j - 1 * TILE_SIZE] + (p1)[j + 1 * TILE_SIZE] - 2 * (z0)[j]) + \
+                   0x8000) >> 16) + (z0)[j]; \
     dst += TILE_SIZE;
 
 #define BEG_LINE(n) \
@@ -1637,16 +1582,11 @@ int DECORATE(blur1246_vert_solid_tile)(int16_t *dst,
 
 #define LINE(n6, n4, n2, n1, z0, p1, p2, p4, p6) \
     for (int j = 0; j < TILE_SIZE; ++j) { \
-        ptr[j] = (c[4] * (n6) + \
-                  c[3] * (n4) + \
-                  c[2] * (n2) + \
-                  c[1] * (n1) + \
-                  c[0] * (z0) + \
-                  c[1] * (p1) + \
-                  c[2] * (p2) + \
-                  c[3] * (p4) + \
-                  c[4] * (p6) + \
-                  0x8000) >> 16; \
+        ptr[j] = ((c[3] * ((n6) + (p6) - 2 * (z0)) + \
+                   c[2] * ((n4) + (p4) - 2 * (z0)) + \
+                   c[1] * ((n2) + (p2) - 2 * (z0)) + \
+                   c[0] * ((n1) + (p1) - 2 * (z0)) + \
+                   0x8000) >> 16) + (z0); \
         flag |= ptr[j] ^ val; \
     } \
     ptr += TILE_SIZE;

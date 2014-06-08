@@ -1626,13 +1626,9 @@ int blur_tile_tree(const TileEngine *engine, TileTree *tree, double r2)
         calc_coeff(mu, index[filter], prefilter, level, r2);
     }
 
-    int16_t coeff[5];
-    int rest = 0x10000;
-    for (int i = 1; i <= 4; ++i) {
-        coeff[i] = (int)(0x8000 * mu[i - 1] + 0.5);
-        rest -= 2 * coeff[i];
-    }
-    coeff[0] = rest;
+    int16_t coeff[4];
+    for (int i = 0; i < 4; ++i)
+        coeff[i] = (int)(0x8000 * mu[i] + 0.5);
 
     for (int i = 0; i < level; ++i)
         if (!shrink_tile_tree(engine, tree, 2))

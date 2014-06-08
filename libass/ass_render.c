@@ -1845,8 +1845,7 @@ static void apply_blur(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 {
     double blur_radius = info->blur * render_priv->blur_scale * 2;
     double r2 = blur_radius * blur_radius / log(256) + 0.5 * info->be;
-    //if (r2 > 0.001) {
-    if (r2 > 1) {
+    if (r2 > 0.001) {
         if (info->bm_o)
             blur_tile_tree(render_priv->tile_engine, info->bm_o, r2);
         if (!info->bm_o || info->border_style == 3)

@@ -31,6 +31,25 @@ int DECORATE(expand_horz_tile)(int16_t *dst1, int16_t *dst2,
 int DECORATE(expand_vert_tile)(int16_t *dst1, int16_t *dst2,
                                const int16_t *side1, const int16_t *src, const int16_t *side2);
 
+void DECORATE(blur1234_horz_tile)(int16_t *dst,
+                                  const int16_t *side1, const int16_t *src, const int16_t *side2,
+                                  void *param);
+void DECORATE(blur1235_horz_tile)(int16_t *dst,
+                                  const int16_t *side1, const int16_t *src, const int16_t *side2,
+                                  void *param);
+void DECORATE(blur1246_horz_tile)(int16_t *dst,
+                                  const int16_t *side1, const int16_t *src, const int16_t *side2,
+                                  void *param);
+void DECORATE(blur1234_vert_tile)(int16_t *dst,
+                                  const int16_t *side1, const int16_t *src, const int16_t *side2,
+                                  void *param);
+void DECORATE(blur1235_vert_tile)(int16_t *dst,
+                                  const int16_t *side1, const int16_t *src, const int16_t *side2,
+                                  void *param);
+void DECORATE(blur1246_vert_tile)(int16_t *dst,
+                                  const int16_t *side1, const int16_t *src, const int16_t *side2,
+                                  void *param);
+
 int DECORATE(shift_tile)(int16_t *dst,
                          const int16_t *src0, const int16_t *src1,
                          const int16_t *src2, const int16_t *src3,
@@ -65,9 +84,9 @@ const TileEngine DECORATE(engine_tile) =
         { DECORATE_C(pre_blur3_horz_solid_tile), DECORATE_C(pre_blur3_vert_solid_tile) },
     },
     .main_blur = {
-        { DECORATE_C(blur1234_horz_tile), DECORATE_C(blur1234_vert_tile) },
-        { DECORATE_C(blur1235_horz_tile), DECORATE_C(blur1235_vert_tile) },
-        { DECORATE_C(blur1246_horz_tile), DECORATE_C(blur1246_vert_tile) },
+        { DECORATE(blur1234_horz_tile), DECORATE(blur1234_vert_tile) },
+        { DECORATE(blur1235_horz_tile), DECORATE(blur1235_vert_tile) },
+        { DECORATE(blur1246_horz_tile), DECORATE(blur1246_vert_tile) },
     },
     .main_blur_solid = {
         { DECORATE_C(blur1234_horz_solid_tile), DECORATE_C(blur1234_vert_solid_tile) },
