@@ -32,7 +32,6 @@ typedef struct tree_level {
 
 #define EMPTY_QUAD   ((const Quad *)0)
 #define SOLID_QUAD   ((const Quad *)1)
-#define INVALID_QUAD ((const Quad *)-1)
 
 typedef struct {
     int x, y;  // aligned to 2^(size_order - 1)
@@ -40,6 +39,16 @@ typedef struct {
     const Quad *outside;  // NULL or SOLID_QUAD
     Quad quad;
 } TileTree;
+
+enum {
+    FLAG_EMPTY = 1 << 0,
+    FLAG_SOLID = 1 << 1,
+    FLAG_SRC1  = 1 << 2,
+    FLAG_SRC2  = 1 << 3,
+    FLAG_VALID = 1 << 4,
+    FLAG_ALL = FLAG_EMPTY | FLAG_SOLID | FLAG_VALID,
+    FLAG_ALL_COMBINE = FLAG_ALL | FLAG_SRC1 | FLAG_SRC2
+};
 
 
 struct segment;
@@ -120,16 +129,39 @@ extern const TileEngine ass_engine_tile32_avx2;
 #endif
 
 
+static inline const Quad *trivial_quad(int solid)
+{
+    return solid ? SOLID_QUAD : EMPTY_QUAD;
+}
+
+static inline int trivial_quad_flag(int solid)
+{
+    return solid ? FLAG_SOLID | FLAG_VALID : FLAG_EMPTY | FLAG_VALID;
+}
+
+static inline int set_trivial_quad(const Quad **dst, int solid)
+{
+    *dst = trivial_quad(solid);
+    return trivial_quad_flag(solid);
+}
+
+static inline int is_trivial_quad(const Quad *quad)
+{
+    return !quad || quad == SOLID_QUAD;
+}
+
+
 void *alloc_tile(const TileEngine *engine);
 const void *copy_tile(const TileEngine *engine, const void *tile);
 void free_tile(const TileEngine *engine, const void *tile);
 Quad *alloc_quad(const TileEngine *engine, const Quad *fill);
-const Quad *copy_quad(const TileEngine *engine, const Quad *quad, int size_order);
+int copy_quad(const TileEngine *engine, const Quad **dst, const Quad *quad, int size_order);
 void free_quad(const TileEngine *engine, const Quad *quad, int size_order);
 TileTree *alloc_tile_tree(const TileEngine *engine, const Quad *fill);
 TileTree *copy_tile_tree(const TileEngine *engine, const TileTree *src);
 void free_tile_tree(const TileEngine *engine, TileTree *tree);
 size_t calc_tree_size(const TileEngine *engine, const TileTree *tree);
+int is_valid_tree(const TileEngine *engine, const TileTree *tree);
 
 
 void finalize_quad(const TileEngine *engine, uint8_t *buf, ptrdiff_t stride,

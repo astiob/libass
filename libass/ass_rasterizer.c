@@ -602,7 +602,7 @@ static inline int rasterizer_fill_halfplane(const TileEngine *engine,
         if (!*quad)
             return 0;
         engine->fill_halfplane((int16_t *)*quad, a, b, c, scale);
-        return 1;
+        return FLAG_VALID;
     }
 
     if (x_order > y_order) {
@@ -648,7 +648,7 @@ static inline int rasterizer_fill_halfplane(const TileEngine *engine,
                                             a, b, c1, scale))
             return 0;
     }
-    return 1;
+    return FLAG_VALID;
 }
 
 
@@ -676,10 +676,10 @@ static int rasterizer_fill_level(const TileEngine *engine, RasterizerData *rst,
     size_t n = rst->size[index] - offs;
     struct segment *line = rst->linebuf[index] + offs;
     if (!n) {
-        quad[0] = winding ? SOLID_QUAD : EMPTY_QUAD;
+        int res = set_trivial_quad(quad, winding);
         if (x_order > y_order)
             quad[1] = quad[0];
-        return 1;
+        return res;
     }
     if (n == 1) {
         rst->size[index] = offs;
@@ -695,10 +695,10 @@ static int rasterizer_fill_level(const TileEngine *engine, RasterizerData *rst,
             return rasterizer_fill_halfplane(engine, quad, x_order, y_order,
                                              line->a, line->b, line->c,
                                              flag & 2 ? -line->scale : line->scale);
-        quad[0] = flag & 2 ? SOLID_QUAD : EMPTY_QUAD;
+        int res = set_trivial_quad(quad, flag & 2);
         if (x_order > y_order)
             quad[1] = quad[0];
-        return 1;
+        return res;
     }
     if (x_order == engine->tile_order && y_order == engine->tile_order) {
         *quad = alloc_tile(engine);
@@ -707,20 +707,27 @@ static int rasterizer_fill_level(const TileEngine *engine, RasterizerData *rst,
 
         engine->fill_generic((int16_t *)*quad, line, rst->size[index] - offs, winding);
         rst->size[index] = offs;
-        return 1;
+        return FLAG_VALID;
     }
 
-    int horz = 1;
-    if (x_order <= y_order) {
-        horz = 0;
-        Quad *next = alloc_quad(engine, EMPTY_QUAD);
-        if (!next)
-            return 0;
-        *quad = next;
-        quad = next->child;
-    }
-    return rasterizer_split(engine, rst, quad, x_order, y_order,
-                            index, offs, winding, horz);
+    if (x_order > y_order)
+        return rasterizer_split(engine, rst, quad, x_order, y_order,
+                                index, offs, winding, 1);
+
+    assert(x_order == y_order);
+    Quad *next = alloc_quad(engine, EMPTY_QUAD);
+    *quad = next;
+    if (!next)
+        return 0;
+
+    int flags = rasterizer_split(engine, rst, next->child, x_order, y_order,
+                                 index, offs, winding, 0);
+    if (!(flags & FLAG_VALID))
+        return 0;
+    if (flags == FLAG_VALID)
+        return FLAG_VALID;
+    free_quad(engine, next, x_order);
+    return set_trivial_quad(quad, flags & FLAG_SOLID);
 }
 
 static int rasterizer_split(const TileEngine *engine, RasterizerData *rst,
@@ -749,13 +756,16 @@ static int rasterizer_split(const TileEngine *engine, RasterizerData *rst,
     rst->size[index ^ 0] = dst0 - rst->linebuf[index ^ 0];
     rst->size[index ^ 1] = dst1 - rst->linebuf[index ^ 1];
 
-    if (!rasterizer_fill_level(engine, rst, quad,  x_order, y_order, index ^ 0, offs,  winding))
-        return 0;
+    int flags = FLAG_ALL;
+    flags &= rasterizer_fill_level(engine, rst, quad,  x_order, y_order, index ^ 0, offs,  winding);
     assert(rst->size[index ^ 0] == offs);
-    if (!rasterizer_fill_level(engine, rst, quad1, x_order, y_order, index ^ 1, offs1, winding1))
+    if (!(flags & FLAG_VALID))
         return 0;
+    flags &= rasterizer_fill_level(engine, rst, quad1, x_order, y_order, index ^ 1, offs1, winding1);
     assert(rst->size[index ^ 1] == offs1);
-    return 1;
+    if (!(flags & FLAG_VALID))
+        return 0;
+    return flags;
 }
 
 TileTree *rasterizer_fill(const TileEngine *engine, RasterizerData *rst)
@@ -797,14 +807,14 @@ TileTree *rasterizer_fill(const TileEngine *engine, RasterizerData *rst)
     if (rst->x_max < size)
         --x_order;
 
-    int res;
+    int flags;
     if (rst->y_max >= size)
-        res = rasterizer_split(engine, rst, tree->quad.child,
-                               x_order, tree->size_order, 0, 0, 0, 0);
+        flags = rasterizer_split(engine, rst, tree->quad.child,
+                                 x_order, tree->size_order, 0, 0, 0, 0);
     else
-        res = rasterizer_fill_level(engine, rst, tree->quad.child,
-                                    x_order, tree->size_order - 1, 0, 0, 0);
-    if (res)
+        flags = rasterizer_fill_level(engine, rst, tree->quad.child,
+                                      x_order, tree->size_order - 1, 0, 0, 0);
+    if (flags & FLAG_VALID)
         return tree;
     free_tile_tree(engine, tree);
     return 0;

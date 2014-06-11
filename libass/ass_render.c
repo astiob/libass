@@ -392,8 +392,6 @@ static ASS_Image **convert_to_images(ASS_Renderer *render_priv,
                                      uint32_t color, uint32_t color2, int brk,
                                      ASS_Image **tail, unsigned int type)
 {
-    assert(quad != INVALID_QUAD);
-
     if (!quad)
         return tail;
 
