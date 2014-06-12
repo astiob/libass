@@ -159,10 +159,11 @@ static void free_list_clear(ASS_Renderer *render_priv)
 
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
-    ass_cache_done(render_priv->cache.font_cache);
     ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.composite_cache);
     ass_cache_done(render_priv->cache.outline_cache);
+    ass_shaper_free(render_priv->shaper);
+    ass_cache_done(render_priv->cache.font_cache);
 
     ass_free_images(render_priv->images_root);
     ass_free_images(render_priv->prev_images_root);
@@ -179,7 +180,6 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         fontconfig_done(render_priv->fontconfig_priv);
     //if (render_priv->synth_priv)
         //ass_synth_done(render_priv->synth_priv);
-    ass_shaper_free(render_priv->shaper);
     free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
     free(render_priv->text_info.lines);
@@ -578,20 +578,19 @@ TileTree *create_clip_shape(ASS_Renderer *render_priv)
     memset(&key, 0, sizeof(key));
     key.type = BITMAP_CLIP;
     key.u.clip.text = drawing->text;
-    BitmapHashValue *val = ass_cache_get(render_priv->cache.bitmap_cache, &key);
 
+    BitmapHashValue *val;
     Bitmap *clip_bm = NULL;
-    if (val) {
+    if (ass_cache_get(render_priv->cache.bitmap_cache, &key, &val)) {
         clip_bm = val->bm;
     } else {
-        BitmapHashValue v;
-
         // Not found in cache, parse and rasterize it
         FT_Outline *outline = ass_drawing_parse(drawing, 1);
         if (!outline) {
             ass_msg(render_priv->library, MSGL_WARN,
                     "Clip vector parsing failed. Skipping.");
             free_tile_tree(engine, clip);
+            ass_cache_cancel(val);
             return NULL;
         }
 
@@ -608,10 +607,11 @@ TileTree *create_clip_shape(ASS_Renderer *render_priv)
         clip_bm = outline_to_bitmap(render_priv, outline, 0);
 
         // Add to cache
-        memset(&v, 0, sizeof(v));
-        key.u.clip.text = strdup(drawing->text);
-        v.bm = clip_bm;
-        ass_cache_put(render_priv->cache.bitmap_cache, &key, &v);
+        memset(val, 0, sizeof(BitmapHashValue));
+        BitmapHashKey *new_key = ass_cache_get_key(val);
+        new_key->u.clip.text = strdup(drawing->text);
+        val->bm = clip_bm;
+        ass_cache_commit(val);
     }
 
     if (!clip_bm)
@@ -1191,24 +1191,24 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
     memset(&info->hash_key, 0, sizeof(key));
 
     fill_glyph_hash(priv, &key, info);
-    val = ass_cache_get(priv->cache.outline_cache, &key);
-
-    if (!val) {
-        OutlineHashValue v;
-        memset(&v, 0, sizeof(v));
+    if (!ass_cache_get(priv->cache.outline_cache, &key, &val)) {
+        memset(val, 0, sizeof(OutlineHashValue));
 
         if (info->drawing) {
             ASS_Drawing *drawing = info->drawing;
             ass_drawing_hash(drawing);
-            if(!ass_drawing_parse(drawing, 0))
+            if(!ass_drawing_parse(drawing, 0)) {
+                ass_cache_cancel(val);
                 return;
+            }
             outline_copy(priv->ftlibrary, &drawing->outline,
-                    &v.outline);
-            v.advance.x = drawing->advance.x;
-            v.advance.y = drawing->advance.y;
-            v.asc = drawing->asc;
-            v.desc = drawing->desc;
-            key.u.drawing.text = strdup(drawing->text);
+                    &val->outline);
+            val->advance.x = drawing->advance.x;
+            val->advance.y = drawing->advance.y;
+            val->asc = drawing->asc;
+            val->desc = drawing->desc;
+            OutlineHashKey *new_key = ass_cache_get_key(val);
+            new_key->u.drawing.text = strdup(drawing->text);
         } else {
             ass_face_set_size(info->font->faces[info->face_index],
                               info->font_size);
@@ -1220,35 +1220,37 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
                 outline_copy(priv->ftlibrary,
-                        &((FT_OutlineGlyph)glyph)->outline, &v.outline);
+                        &((FT_OutlineGlyph)glyph)->outline, &val->outline);
                 if (priv->settings.shaper == ASS_SHAPING_SIMPLE) {
-                    v.advance.x = d16_to_d6(glyph->advance.x);
-                    v.advance.y = d16_to_d6(glyph->advance.y);
+                    val->advance.x = d16_to_d6(glyph->advance.x);
+                    val->advance.y = d16_to_d6(glyph->advance.y);
                 }
                 FT_Done_Glyph(glyph);
                 ass_font_get_asc_desc(info->font, info->symbol,
-                        &v.asc, &v.desc);
-                v.asc  *= info->scale_y;
-                v.desc *= info->scale_y;
+                        &val->asc, &val->desc);
+                val->asc  *= info->scale_y;
+                val->desc *= info->scale_y;
             }
         }
 
-        if (!v.outline)
+        if (!val->outline) {
+            ass_cache_cancel(val);
             return;
+        }
 
-        FT_Outline_Get_CBox(v.outline, &v.bbox_scaled);
+        FT_Outline_Get_CBox(val->outline, &val->bbox_scaled);
 
         if (info->border_style == 3) {
             FT_Vector advance;
 
-            v.border = calloc(1, sizeof(FT_Outline));
+            val->border = calloc(1, sizeof(FT_Outline));
 
             if (priv->settings.shaper == ASS_SHAPING_SIMPLE || info->drawing)
-                advance = v.advance;
+                advance = val->advance;
             else
                 advance = info->advance;
 
-            draw_opaque_box(priv, info, v.asc, v.desc, v.border, advance,
+            draw_opaque_box(priv, info, val->asc, val->desc, val->border, advance,
                     double_to_d6(info->border_x * priv->border_scale),
                     double_to_d6(info->border_y * priv->border_scale));
 
@@ -1256,14 +1258,17 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
 
             change_border(priv, info->border_x, info->border_y);
-            outline_copy(priv->ftlibrary, v.outline, &v.border);
-            stroke_outline(priv, v.border,
+            outline_copy(priv->ftlibrary, val->outline, &val->border);
+            stroke_outline(priv, val->border,
                     double_to_d6(info->border_x * priv->border_scale),
                     double_to_d6(info->border_y * priv->border_scale));
         }
 
-        v.lib = priv->ftlibrary;
-        val = ass_cache_put(priv->cache.outline_cache, &key, &v);
+        val->lib = priv->ftlibrary;
+
+        if (!info->drawing)
+            ass_cache_inc_ref(info->font);
+        ass_cache_commit(val);
     }
 
     info->hash_key.u.outline.outline = val;
@@ -1370,17 +1375,14 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     if (!info->outline || info->symbol == '\n' || info->symbol == 0 || info->skip)
         return;
 
-    val = ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key);
-
-    if (!val) {
+    if (!ass_cache_get(render_priv->cache.bitmap_cache, &info->hash_key, &val)) {
         FT_Vector shift;
-        BitmapHashValue hash_val;
         int error;
         double fax_scaled, fay_scaled;
         FT_Outline *outline, *border;
         double scale_x = render_priv->font_scale_x;
 
-        hash_val.bm = hash_val.bm_o = hash_val.bm_s = 0;
+        val->bm = val->bm_o = val->bm_s = 0;
 
         outline_copy(render_priv->ftlibrary, info->outline, &outline);
         outline_copy(render_priv->ftlibrary, info->border, &border);
@@ -1416,8 +1418,8 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         // render glyph
         error = outline_to_bitmap3(render_priv,
                 outline, border,
-                &hash_val.bm, &hash_val.bm_o,
-                &hash_val.bm_s, info->be,
+                &val->bm, &val->bm_o,
+                &val->bm_s, info->be,
                 info->blur * render_priv->blur_scale,
                 key->shadow_offset,
                 info->border_style,
@@ -1425,8 +1427,9 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         if (error)
             info->symbol = 0;
 
-        val = ass_cache_put(render_priv->cache.bitmap_cache, &info->hash_key,
-                &hash_val);
+        assert(info->hash_key.type == BITMAP_OUTLINE);
+        ass_cache_inc_ref(info->hash_key.u.outline.outline);
+        ass_cache_commit(val);
 
         outline_free(render_priv->ftlibrary, outline);
         outline_free(render_priv->ftlibrary, border);
@@ -2505,7 +2508,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 current_info->has_border = !!info->border;
 
                 current_info->has_outline = 0;
-                current_info->cached = 0;
+                current_info->fill_cache = NULL;
                 current_info->is_drawing = 0;
 
                 current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
@@ -2581,15 +2584,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
         fill_composite_hash(&hk, info);
 
-        hv = ass_cache_get(render_priv->cache.composite_cache, &hk);
-
-        if(hv){
+        if (ass_cache_get(render_priv->cache.composite_cache, &hk, &hv)) {
             info->bm = hv->bm;
             info->bm_o = hv->bm_o;
             info->bm_s = hv->bm_s;
-            info->cached = 1;
             free(info->str);
-        }else{
+        } else {
             if(info->chars != 1 && !info->is_drawing){
                 info->bm = alloc_tile_tree(render_priv->tile_engine, EMPTY_QUAD);
                 /*
@@ -2606,6 +2606,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     */
                 }
             }
+            info->fill_cache = hv;
+            hv->bm = hv->bm_o = hv->bm_s = NULL;
         }
     }
 
@@ -2614,7 +2616,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (info->skip) continue;
         while (info) {
             current_info = &combined_info[info->bm_run_id];
-            if(!current_info->cached && !is_skip_symbol(info->symbol)){
+            if(current_info->fill_cache && !is_skip_symbol(info->symbol)){
                 if(current_info->chars == 1 || current_info->is_drawing){
                     if (info->bm)
                         current_info->bm = copy_tile_tree(render_priv->tile_engine, info->bm);
@@ -2659,8 +2661,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     }
 
     for (i = 0; i < nb_bitmaps; ++i) {
-        if(!combined_info[i].cached){
-            CompositeHashValue chv;
+        if (combined_info[i].fill_cache) {
+            CompositeHashValue *hv = combined_info[i].fill_cache;
             CombinedBitmapInfo *info = &combined_info[i];
             if(info->bm || info->bm_o){
                 apply_blur(info, render_priv);
@@ -2669,11 +2671,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
             fill_composite_hash(&hk, info);
 
-            chv.bm = info->bm;
-            chv.bm_o = info->bm_o;
-            chv.bm_s = info->bm_s;
+            hv->bm = info->bm;
+            hv->bm_o = info->bm_o;
+            hv->bm_s = info->bm_s;
 
-            ass_cache_put(render_priv->cache.composite_cache, &hk, &chv);
+            ass_cache_commit(hv);
         }
     }
 
@@ -2715,22 +2717,12 @@ void ass_free_images(ASS_Image *img)
  */
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
 {
-    if (ass_cache_empty(cache->bitmap_cache, cache->bitmap_max_size)) {
-        ass_free_images(priv->prev_images_root);
-        priv->prev_images_root = 0;
-        priv->cache_cleared = 1;
-    }
-    if (ass_cache_empty(cache->outline_cache, cache->glyph_max)) {
-        ass_cache_empty(cache->bitmap_cache, 0);
-        ass_free_images(priv->prev_images_root);
-        priv->prev_images_root = 0;
-        priv->cache_cleared = 1;
-    }
-    if (ass_cache_empty(cache->composite_cache, cache->composite_max_size)) {
-        ass_free_images(priv->prev_images_root);
-        priv->prev_images_root = 0;
-        priv->cache_cleared = 1;
-    }
+    ass_cache_cut(cache->composite_cache, cache->composite_max_size);
+    ass_cache_cut(cache->bitmap_cache, cache->bitmap_max_size);
+    ass_cache_cut(cache->outline_cache, cache->glyph_max);
+    ass_free_images(priv->prev_images_root);
+    priv->prev_images_root = 0;
+    priv->cache_cleared = 1;
 }
 
 /**

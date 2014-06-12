@@ -73,7 +73,7 @@ FT_Glyph ass_font_get_glyph(void *fontconfig_priv, ASS_Font *font,
                             uint32_t ch, int face_index, int index,
                             ASS_Hinting hinting, int deco);
 FT_Vector ass_font_get_kerning(ASS_Font *font, uint32_t c1, uint32_t c2);
-void ass_font_free(ASS_Font *font);
+void ass_font_clear(ASS_Font *font);
 void fix_freetype_stroker(FT_Outline *outline, int border_x, int border_y);
 void outline_copy(FT_Library lib, FT_Outline *source, FT_Outline **dest);
 void outline_free(FT_Library lib, FT_Outline *outline);

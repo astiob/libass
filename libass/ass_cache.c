@@ -68,8 +68,7 @@ static unsigned font_compare(void *key1, void *key2, size_t key_size)
 
 static void font_destruct(void *key, void *value)
 {
-    ass_font_free(value);
-    free(key);
+    ass_font_clear(value);
 }
 
 // bitmap cache
@@ -85,8 +84,8 @@ static void bitmap_destruct(void *key, void *value)
         ass_free_bitmap(v->bm_s);
     if (k->type == BITMAP_CLIP)
         free(k->u.clip.text);
-    free(key);
-    free(value);
+    else
+        ass_cache_dec_ref(k->u.outline.outline);
 }
 
 const TileEngine *tile_engine;  // XXX: temporary
@@ -123,7 +122,7 @@ static unsigned bitmap_hash(void *key, size_t key_size)
     }
 }
 
-static unsigned bitmap_compare (void *a, void *b, size_t key_size)
+static unsigned bitmap_compare(void *a, void *b, size_t key_size)
 {
     BitmapHashKey *ak = a;
     BitmapHashKey *bk = b;
@@ -147,8 +146,6 @@ static void composite_destruct(void *key, void *value)
     if (v->bm_s)
         ass_free_bitmap(v->bm_s);
     free(k->str);
-    free(key);
-    free(value);
 }
 
 static size_t composite_size(void *value, size_t value_size)
@@ -207,19 +204,30 @@ static void outline_destruct(void *key, void *value)
         outline_free(v->lib, v->border);
     if (k->type == OUTLINE_DRAWING)
         free(k->u.drawing.text);
-    free(key);
-    free(value);
+    else
+        ass_cache_dec_ref(k->u.glyph.font);
+}
+
+
+// glyph metric cache
+
+static void glyph_metric_destruct(void *key, void *value)
+{
+    GlyphMetricsHashKey *k = key;
+    ass_cache_dec_ref(k->font);
 }
 
 
 
 // Cache data
 typedef struct cache_item {
-    void *key;
-    void *value;
+#ifndef NDEBUG
+    size_t check_flag;
+#endif
+    struct cache *cache;
     struct cache_item *next, **prev;
     struct cache_item *queue_next, **queue_prev;
-    size_t size;
+    size_t size, ref_count;
 } CacheItem;
 
 struct cache {
@@ -255,8 +263,6 @@ static unsigned compare_simple(void *a, void *b, size_t key_size)
 // Default destructor
 static void destruct_simple(void *key, void *value)
 {
-    free(key);
-    free(value);
 }
 
 
@@ -285,17 +291,48 @@ Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
     return cache;
 }
 
-void *ass_cache_put(Cache *cache, void *key, void *value)
+int ass_cache_get(Cache *cache, void *key, void *value_ptr)
 {
+    char **value = (char **)value_ptr;
+    ptrdiff_t key_offs = sizeof(CacheItem) + cache->value_size;
     unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
+    CacheItem *item = cache->map[bucket];
+    while (item) {
+        if (cache->compare_func(key, (char *)item + key_offs, cache->key_size)) {
+#ifndef NDEBUG
+            assert(item->check_flag == 22222222);
+#endif
+            if (!item->queue_prev || item->queue_next) {
+                if (item->queue_prev) {
+                    item->queue_next->queue_prev = item->queue_prev;
+                    *item->queue_prev = item->queue_next;
+                }
+                *cache->queue_last = item;
+                item->queue_prev = cache->queue_last;
+                cache->queue_last = &item->queue_next;
+                item->queue_next = NULL;
+            }
+            cache->hits++;
+            *value = (char *)item + sizeof(CacheItem);
+            return 1;
+        }
+        item = item->next;
+    }
+    cache->misses++;
+
+    item = malloc(sizeof(CacheItem) + cache->value_size + cache->key_size);
+    if (!item) {
+        *value = NULL;
+        return 0;
+    }
+#ifndef NDEBUG
+    item->check_flag = 11111111;
+#endif
+    item->cache = cache;
+    *value = (char *)item + sizeof(CacheItem);
+    memcpy((char *)item + key_offs, key, cache->key_size);
+
     CacheItem **bucketptr = &cache->map[bucket];
-
-    CacheItem *item = calloc(1, sizeof(CacheItem));
-    item->key = malloc(cache->key_size);
-    item->value = malloc(cache->value_size);
-    memcpy(item->key, key, cache->key_size);
-    memcpy(item->value, value, cache->value_size);
-
     if (*bucketptr)
         (*bucketptr)->prev = &item->next;
     item->prev = bucketptr;
@@ -305,49 +342,105 @@ void *ass_cache_put(Cache *cache, void *key, void *value)
     *cache->queue_last = item;
     item->queue_prev = cache->queue_last;
     cache->queue_last = &item->queue_next;
+    item->queue_next = NULL;
+
+    item->ref_count = 0;
+    return 0;
+}
+
+void *ass_cache_get_key(void *value)
+{
+    CacheItem *item = (CacheItem *)((char *)value - sizeof(CacheItem));
+#ifndef NDEBUG
+    assert(item->check_flag == 11111111);
+#endif
+    return (char *)value + item->cache->value_size;
+}
+
+void ass_cache_commit(void *value)
+{
+    CacheItem *item = (CacheItem *)((char *)value - sizeof(CacheItem));
+#ifndef NDEBUG
+    assert(item->check_flag == 11111111);
+    item->check_flag = 22222222;
+#endif
+    Cache *cache = item->cache;
 
     ++cache->items;
     if (cache->size_func)
-        item->size += cache->size_func(value, cache->value_size);
+        item->size = cache->size_func(value, cache->value_size);
     else
         item->size = 1;
     cache->cache_size += item->size;
-
-    return item->value;
 }
 
-void *ass_cache_get(Cache *cache, void *key)
+void ass_cache_cancel(void *value)
 {
-    unsigned bucket = cache->hash_func(key, cache->key_size) % cache->buckets;
-    CacheItem *item = cache->map[bucket];
-    while (item) {
-        if (cache->compare_func(key, item->key, cache->key_size)) {
-            if (item->queue_next) {
-                item->queue_next->queue_prev = item->queue_prev;
-                *item->queue_prev = item->queue_next;
+    CacheItem *item = (CacheItem *)((char *)value - sizeof(CacheItem));
+#ifndef NDEBUG
+    assert(item->check_flag == 11111111);
+#endif
 
-                *cache->queue_last = item;
-                item->queue_prev = cache->queue_last;
-                cache->queue_last = &item->queue_next;
-                item->queue_next = NULL;
-            }
-            cache->hits++;
-            return item->value;
-        }
-        item = item->next;
-    }
-    cache->misses++;
-    return NULL;
+    if (item->queue_next)
+        item->queue_next->queue_prev = item->queue_prev;
+    *item->queue_prev = item->queue_next;
+
+    if (item->next)
+        item->next->prev = item->prev;
+    *item->prev = item->next;
+    free(item);
 }
 
-int ass_cache_empty(Cache *cache, size_t max_size)
+void ass_cache_inc_ref(void *value)
+{
+    CacheItem *item = (CacheItem *)((char *)value - sizeof(CacheItem));
+#ifndef NDEBUG
+    assert(item->check_flag == 22222222);
+#endif
+    ++item->ref_count;
+}
+
+void ass_cache_dec_ref(void *value)
+{
+    CacheItem *item = (CacheItem *)((char *)value - sizeof(CacheItem));
+#ifndef NDEBUG
+    assert(item->check_flag == 22222222);
+#endif
+    assert(item->ref_count);
+
+    --item->ref_count;
+    if (item->ref_count || item->queue_prev)
+        return;
+
+    if (item->next)
+        item->next->prev = item->prev;
+    *item->prev = item->next;
+
+    --item->cache->items;
+    item->cache->cache_size -= item->size;
+    item->cache->destruct_func((char *)value + item->cache->value_size, value);
+    free(item);
+}
+
+void ass_cache_cut(Cache *cache, size_t max_size)
 {
     if (cache->cache_size <= max_size)
-        return 0;
+        return;
 
     do {
         CacheItem *item = cache->queue_first;
+        if (!item)
+            break;
+#ifndef NDEBUG
+        assert(item->check_flag == 22222222);
+#endif
+        assert(item->cache == cache);
+
         cache->queue_first = item->queue_next;
+        if (item->ref_count) {
+            item->queue_prev = NULL;
+            continue;
+        }
 
         if (item->next)
             item->next->prev = item->prev;
@@ -355,14 +448,14 @@ int ass_cache_empty(Cache *cache, size_t max_size)
 
         --cache->items;
         cache->cache_size -= item->size;
-        cache->destruct_func(item->key, item->value);
+        char *value = (char *)item + sizeof(CacheItem);
+        cache->destruct_func(value + cache->value_size, value);
         free(item);
     } while (cache->cache_size > max_size);
     if (cache->queue_first)
         cache->queue_first->queue_prev = &cache->queue_first;
     else
         cache->queue_last = &cache->queue_first;
-    return 1;
 }
 
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
@@ -378,9 +471,31 @@ void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
         *count = cache->items;
 }
 
+void ass_cache_empty(Cache *cache)
+{
+    for (int i = 0; i < cache->buckets; ++i) {
+        CacheItem *item = cache->map[i];
+        while (item) {
+#ifndef NDEBUG
+            assert(item->check_flag == 22222222);
+#endif
+            CacheItem *next = item->next;
+            char *value = (char *)item + sizeof(CacheItem);
+            cache->destruct_func(value + cache->value_size, value);
+            free(item);
+            item = next;
+        }
+        cache->map[i] = NULL;
+    }
+
+    cache->queue_first = NULL;
+    cache->queue_last = &cache->queue_first;
+    cache->items = cache->hits = cache->misses = cache->cache_size = 0;
+}
+
 void ass_cache_done(Cache *cache)
 {
-    ass_cache_empty(cache, 0);
+    ass_cache_empty(cache);
     free(cache->map);
     free(cache);
 }
@@ -400,7 +515,7 @@ Cache *ass_outline_cache_create(void)
 
 Cache *ass_glyph_metrics_cache_create(void)
 {
-    return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare, NULL,
+    return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare, glyph_metric_destruct,
             (ItemSize) NULL, sizeof(GlyphMetricsHashKey),
             sizeof(GlyphMetricsHashValue));
 }

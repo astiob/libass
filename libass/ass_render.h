@@ -145,7 +145,7 @@ typedef struct {
     int str_length;
     unsigned chars;
     char *str;
-    int cached;
+    CompositeHashValue *fill_cache;
     FT_Vector pos_orig;
     int first_pos_x;
 } CombinedBitmapInfo;
