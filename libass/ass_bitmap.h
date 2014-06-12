@@ -71,8 +71,8 @@ int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outlin
                        int be, double blur_radius, FT_Vector shadow_offset,
                        int border_style, int border_visible);
 
-void ass_free_bitmap(Bitmap *bm);
 /*
+void ass_free_bitmap(Bitmap *bm);
 void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
                     int width, int height, int stride,
                     unsigned *m2, int r, int mwidth);

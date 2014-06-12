@@ -29,17 +29,13 @@ typedef struct cache Cache;
 // cache values
 
 typedef struct {
-    Bitmap *bm;               // the actual bitmaps
-    Bitmap *bm_o;
-    Bitmap *bm_s;
+    const TileEngine *engine;
+    TileTree *bm;
+    TileTree *bm_o;
+    TileTree *bm_s;
 } BitmapHashValue;
 
-typedef struct {
-    Bitmap *bm;
-    Bitmap *bm_o;
-    Bitmap *bm_s;
-    FT_Vector pos;
-} CompositeHashValue;
+typedef BitmapHashValue CompositeHashValue;
 
 typedef struct {
     FT_Library lib;

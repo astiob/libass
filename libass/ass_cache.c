@@ -77,39 +77,28 @@ static void bitmap_destruct(void *key, void *value)
     BitmapHashValue *v = value;
     BitmapHashKey *k = key;
     if (v->bm)
-        ass_free_bitmap(v->bm);
+        free_tile_tree(v->engine, v->bm);
     if (v->bm_o)
-        ass_free_bitmap(v->bm_o);
+        free_tile_tree(v->engine, v->bm_o);
     if (v->bm_s)
-        ass_free_bitmap(v->bm_s);
+        free_tile_tree(v->engine, v->bm_s);
     if (k->type == BITMAP_CLIP)
         free(k->u.clip.text);
     else
         ass_cache_dec_ref(k->u.outline.outline);
 }
 
-const TileEngine *tile_engine;  // XXX: temporary
-
 static size_t bitmap_size(void *value, size_t value_size)
 {
     size_t res = 0;
-    BitmapHashValue *val = value;
-    if (val->bm)
-        res += calc_tree_size(tile_engine, val->bm);
-    if (val->bm_o)
-        res += calc_tree_size(tile_engine, val->bm_o);
-    if (val->bm_s)
-        res += calc_tree_size(tile_engine, val->bm_s);
+    BitmapHashValue *v = value;
+    if (v->bm)
+        res += calc_tree_size(v->engine, v->bm);
+    if (v->bm_o)
+        res += calc_tree_size(v->engine, v->bm_o);
+    if (v->bm_s)
+        res += calc_tree_size(v->engine, v->bm_s);
     return res;
-
-    /*
-    BitmapHashValue *val = value;
-    if (val->bm_o)
-        return val->bm_o->w * val->bm_o->h * 3;
-    else if (val->bm)
-        return val->bm->w * val->bm->h * 3;
-    return 0;
-    */
 }
 
 static unsigned bitmap_hash(void *key, size_t key_size)
@@ -135,39 +124,18 @@ static unsigned bitmap_compare(void *a, void *b, size_t key_size)
 }
 
 // composite cache
+
 static void composite_destruct(void *key, void *value)
 {
     CompositeHashValue *v = value;
     CompositeHashKey *k = key;
     if (v->bm)
-        ass_free_bitmap(v->bm);
+        free_tile_tree(v->engine, v->bm);
     if (v->bm_o)
-        ass_free_bitmap(v->bm_o);
+        free_tile_tree(v->engine, v->bm_o);
     if (v->bm_s)
-        ass_free_bitmap(v->bm_s);
+        free_tile_tree(v->engine, v->bm_s);
     free(k->str);
-}
-
-static size_t composite_size(void *value, size_t value_size)
-{
-    size_t res = 0;
-    CompositeHashValue *val = value;
-    if (val->bm)
-        res += calc_tree_size(tile_engine, val->bm);
-    if (val->bm_o)
-        res += calc_tree_size(tile_engine, val->bm_o);
-    if (val->bm_s)
-        res += calc_tree_size(tile_engine, val->bm_s);
-    return res;
-
-    /*
-    CompositeHashValue *val = value;
-    if (val->bm_o)
-        return val->bm_o->w * val->bm_o->h * 3;
-    else if (val->bm)
-        return val->bm->w * val->bm->h * 3;
-    return 0;
-    */
 }
 
 // outline cache
@@ -510,13 +478,13 @@ Cache *ass_font_cache_create(void)
 Cache *ass_outline_cache_create(void)
 {
     return ass_cache_create(outline_hash, outline_compare, outline_destruct,
-            NULL, sizeof(OutlineHashKey), sizeof(OutlineHashValue));
+            (ItemSize)NULL, sizeof(OutlineHashKey), sizeof(OutlineHashValue));
 }
 
 Cache *ass_glyph_metrics_cache_create(void)
 {
     return ass_cache_create(glyph_metrics_hash, glyph_metrics_compare, glyph_metric_destruct,
-            (ItemSize) NULL, sizeof(GlyphMetricsHashKey),
+            (ItemSize)NULL, sizeof(GlyphMetricsHashKey),
             sizeof(GlyphMetricsHashValue));
 }
 
@@ -529,6 +497,6 @@ Cache *ass_bitmap_cache_create(void)
 Cache *ass_composite_cache_create(void)
 {
     return ass_cache_create(composite_hash, composite_compare,
-            composite_destruct, composite_size, sizeof(CompositeHashKey),
+            composite_destruct, bitmap_size, sizeof(CompositeHashKey),
             sizeof(CompositeHashValue));
 }

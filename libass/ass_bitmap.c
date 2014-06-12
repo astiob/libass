@@ -142,19 +142,14 @@ Bitmap *alloc_bitmap(int w, int h)
     bm->left = bm->top = 0;
     return bm;
 }
-*/
 
 void ass_free_bitmap(Bitmap *bm)
 {
-    free_tile_tree(tile_engine, bm);
-    /*
     if (bm)
         ass_aligned_free(bm->buffer);
     free(bm);
-    */
 }
 
-/*
 Bitmap *copy_bitmap(const Bitmap *src)
 {
     Bitmap *dst = alloc_bitmap(src->w, src->h);

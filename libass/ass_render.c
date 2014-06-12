@@ -34,8 +34,6 @@
 #define SUBPIXEL_ACCURACY 7
 
 
-const TileEngine *tile_engine;  // XXX: temporary
-
 ASS_Renderer *ass_renderer_init(ASS_Library *library)
 {
     int error;
@@ -105,7 +103,6 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->tile_engine = &ass_engine_tile16_c;
     #endif
 #endif
-    tile_engine = priv->tile_engine;  // XXX; remove
     rasterizer_init(&priv->rasterizer, 16);
 
     priv->cache.font_cache = ass_font_cache_create();
@@ -610,6 +607,7 @@ TileTree *create_clip_shape(ASS_Renderer *render_priv)
         memset(val, 0, sizeof(BitmapHashValue));
         BitmapHashKey *new_key = ass_cache_get_key(val);
         new_key->u.clip.text = strdup(drawing->text);
+        val->engine = render_priv->tile_engine;
         val->bm = clip_bm;
         ass_cache_commit(val);
     }
@@ -1382,6 +1380,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         FT_Outline *outline, *border;
         double scale_x = render_priv->font_scale_x;
 
+        val->engine = render_priv->tile_engine;
         val->bm = val->bm_o = val->bm_s = 0;
 
         outline_copy(render_priv->ftlibrary, info->outline, &outline);
@@ -2607,6 +2606,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 }
             }
             info->fill_cache = hv;
+            hv->engine = render_priv->tile_engine;
             hv->bm = hv->bm_o = hv->bm_s = NULL;
         }
     }

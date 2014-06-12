@@ -369,8 +369,6 @@ struct ass_renderer {
     FreeList *free_tail;
 };
 
-extern const TileEngine *tile_engine;  // XXX: temporary
-
 typedef struct render_priv {
     int top, height, left, width;
     int render_id;
