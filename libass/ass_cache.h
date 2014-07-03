@@ -35,7 +35,11 @@ typedef struct {
     TileTree *bm_s;
 } BitmapHashValue;
 
-typedef BitmapHashValue CompositeHashValue;
+typedef struct {
+    FinalBitmap *bm;
+    FinalBitmap *bm_o;
+    FinalBitmap *bm_s;
+} CompositeHashValue;
 
 typedef struct {
     FT_Library lib;

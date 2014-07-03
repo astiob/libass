@@ -109,13 +109,11 @@ typedef enum {
 // describes a combined bitmap
 typedef struct {
     Bitmap *bm;                 // glyphs bitmap
-    //unsigned w;
-    //unsigned h;
     Bitmap *bm_o;               // outline bitmap
-    //unsigned o_w;
-    //unsigned o_h;
     Bitmap *bm_s;               // shadow bitmap
-    //FT_Vector pos;
+    FinalBitmap *fbm;
+    FinalBitmap *fbm_o;
+    FinalBitmap *fbm_s;
     uint32_t c[4];              // colors
     FT_Vector advance;          // 26.6
     Effect effect_type;

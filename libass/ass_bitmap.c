@@ -528,6 +528,72 @@ int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outlin
     return 0;
 }
 
+static FinalBitmap **build_quad_list(const TileEngine *tile_engine, FinalBitmap **tail,
+                                     const Quad *quad, int size_order, int x, int y)
+{
+    if (!quad)
+        return tail;
+
+    if (size_order > 6 && quad != SOLID_QUAD) {
+        --size_order;
+        for (int i = 0; i < 4; ++i)
+            tail = build_quad_list(tile_engine, tail, quad->child[i], size_order,
+                                   x + (((i >> 0) & 1) << size_order),
+                                   y + (((i >> 1) & 1) << size_order));
+        return tail;
+    }
+
+    if (size_order < 0)
+        return tail;
+
+    FinalBitmap *img = malloc(sizeof(FinalBitmap));
+    if (!img)
+        return tail;
+
+    img->x = x;
+    img->y = y;
+    img->size_order = size_order;
+
+    img->buffer = ass_aligned_alloc(32, 1 << (2 * size_order));
+    if (!img->buffer) {
+        free(img);
+        return tail;
+    }
+
+    finalize_quad(tile_engine, img->buffer, 1 << size_order, quad, size_order);
+
+    *tail = img;
+    return &img->next;
+}
+
+FinalBitmap *build_image_list(const TileEngine *tile_engine, const TileTree *tree)
+{
+    FinalBitmap *res;
+    *build_quad_list(tile_engine, &res,
+                     &tree->quad, tree->size_order, tree->x, tree->y) = NULL;
+    return res;
+}
+
+size_t image_list_size(const FinalBitmap *img)
+{
+    size_t res = 0;
+    while (img) {
+        res += sizeof(FinalBitmap) + (1 << (2 * img->size_order));
+        img = img->next;
+    }
+    return res;
+}
+
+void free_image_list(FinalBitmap *img)
+{
+    while (img) {
+        FinalBitmap *del = img;
+        img = img->next;
+        ass_aligned_free(del->buffer);
+        free(del);
+    }
+}
+
 /**
  * \brief Add two bitmaps together at a given position
  * Uses additive blending, clipped to [0,255]. Pure C implementation.

@@ -129,13 +129,21 @@ static void composite_destruct(void *key, void *value)
 {
     CompositeHashValue *v = value;
     CompositeHashKey *k = key;
-    if (v->bm)
-        free_tile_tree(v->engine, v->bm);
-    if (v->bm_o)
-        free_tile_tree(v->engine, v->bm_o);
-    if (v->bm_s)
-        free_tile_tree(v->engine, v->bm_s);
+    free_image_list(v->bm);
+    free_image_list(v->bm_o);
+    free_image_list(v->bm_s);
+    free(k->clip_drawing_text);
     free(k->str);
+}
+
+static size_t composite_size(void *value, size_t value_size)
+{
+    size_t res = 0;
+    CompositeHashValue *v = value;
+    res += image_list_size(v->bm);
+    res += image_list_size(v->bm_o);
+    res += image_list_size(v->bm_s);
+    return res;
 }
 
 // outline cache
@@ -497,6 +505,6 @@ Cache *ass_bitmap_cache_create(void)
 Cache *ass_composite_cache_create(void)
 {
     return ass_cache_create(composite_hash, composite_compare,
-            composite_destruct, bitmap_size, sizeof(CompositeHashKey),
+            composite_destruct, composite_size, sizeof(CompositeHashKey),
             sizeof(CompositeHashValue));
 }

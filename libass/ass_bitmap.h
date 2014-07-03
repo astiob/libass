@@ -52,6 +52,13 @@ typedef struct {
 */
 typedef TileTree Bitmap;
 
+typedef struct final_bitmap {
+    int x, y;
+    int size_order;
+    uint8_t *buffer;
+    struct final_bitmap *next;
+} FinalBitmap;
+
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           FT_Outline *outline, int bord);
 
@@ -70,6 +77,11 @@ int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outlin
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
                        int be, double blur_radius, FT_Vector shadow_offset,
                        int border_style, int border_visible);
+
+FinalBitmap *build_image_list(const TileEngine *tile_engine, const TileTree *tree);
+size_t image_list_size(const FinalBitmap *img);
+void free_image_list(FinalBitmap *img);
+
 
 /*
 void ass_free_bitmap(Bitmap *bm);
