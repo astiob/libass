@@ -45,8 +45,9 @@ typedef struct ass_shaper ASS_Shaper;
 #include "ass_rasterizer.h"
 
 #define GLYPH_CACHE_MAX 10000
-#define BITMAP_CACHE_MAX_SIZE 500 * 1048576
-#define COMPOSITE_CACHE_MAX_SIZE 500 * 1048576
+#define BITMAP_CACHE_MAX_SIZE 64 * 1048576
+#define COMPOSITE_CACHE_MAX_SIZE 64 * 1048576
+#define FINAL_CACHE_MAX_SIZE 64 * 1048576
 
 #define PARSED_FADE (1<<0)
 #define PARSED_A    (1<<1)
@@ -143,7 +144,8 @@ typedef struct {
     int str_length;
     unsigned chars;
     char *str;
-    CompositeHashValue *fill_cache;
+    int cached;
+    CompositeHashValue *cache_value;
     FT_Vector pos_orig;
     int first_pos_x;
 } CombinedBitmapInfo;
@@ -299,9 +301,11 @@ typedef struct {
     Cache *outline_cache;
     Cache *bitmap_cache;
     Cache *composite_cache;
+    Cache *final_cache;
     size_t glyph_max;
     size_t bitmap_max_size;
     size_t composite_max_size;
+    size_t final_max_size;
 } CacheStore;
 
 /*

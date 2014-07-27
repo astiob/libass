@@ -123,13 +123,6 @@ END(DrawingHashKey)
 
 // Cache for composited bitmaps
 START(composite, composite_hash_key)
-    GENERIC(int, clip_x0)
-    GENERIC(int, clip_y0)
-    GENERIC(int, clip_x1)
-    GENERIC(int, clip_y1)
-    GENERIC(char, clip_mode)
-    STRING(clip_drawing_text)
-    GENERIC(char, clip_drawing_mode)
     GENERIC(int, is_drawing)
     GENERIC(unsigned, chars)
     GENERIC(int, be)
@@ -157,6 +150,18 @@ START(composite, composite_hash_key)
     FTVECTOR(advance)
     STRING(str)
 END(CompositeHashKey)
+
+// Cache for final bitmaps
+START(final, final_hash_key)
+    GENERIC(CompositeHashValue *, composite)
+    GENERIC(int, clip_x0)
+    GENERIC(int, clip_y0)
+    GENERIC(int, clip_x1)
+    GENERIC(int, clip_y1)
+    GENERIC(char, clip_mode)
+    STRING(clip_drawing_text)
+    GENERIC(char, clip_drawing_mode)
+END(FinalHashKey)
 
 #undef START
 #undef GENERIC

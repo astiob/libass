@@ -35,11 +35,13 @@ typedef struct {
     TileTree *bm_s;
 } BitmapHashValue;
 
+typedef BitmapHashValue CompositeHashValue;
+
 typedef struct {
     FinalBitmap *bm;
     FinalBitmap *bm_o;
     FinalBitmap *bm_s;
-} CompositeHashValue;
+} FinalHashValue;
 
 typedef struct {
     FT_Library lib;
@@ -107,5 +109,6 @@ Cache *ass_outline_cache_create(void);
 Cache *ass_glyph_metrics_cache_create(void);
 Cache *ass_bitmap_cache_create(void);
 Cache *ass_composite_cache_create(void);
+Cache *ass_final_cache_create(void);
 
 #endif                          /* LIBASS_CACHE_H */

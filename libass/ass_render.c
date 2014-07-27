@@ -108,10 +108,12 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
     priv->cache.composite_cache = ass_composite_cache_create();
+    priv->cache.final_cache = ass_final_cache_create();
     priv->cache.outline_cache = ass_outline_cache_create();
     priv->cache.glyph_max = GLYPH_CACHE_MAX;
     priv->cache.bitmap_max_size = BITMAP_CACHE_MAX_SIZE;
     priv->cache.composite_max_size = COMPOSITE_CACHE_MAX_SIZE;
+    priv->cache.final_max_size = FINAL_CACHE_MAX_SIZE;
 
     priv->text_info.max_bitmaps = MAX_BITMAPS_INITIAL;
     priv->text_info.max_glyphs = MAX_GLYPHS_INITIAL;
@@ -156,8 +158,9 @@ static void free_list_clear(ASS_Renderer *render_priv)
 
 void ass_renderer_done(ASS_Renderer *render_priv)
 {
-    ass_cache_done(render_priv->cache.bitmap_cache);
+    ass_cache_done(render_priv->cache.final_cache);
     ass_cache_done(render_priv->cache.composite_cache);
+    ass_cache_done(render_priv->cache.bitmap_cache);
     ass_cache_done(render_priv->cache.outline_cache);
     ass_shaper_free(render_priv->shaper);
     ass_cache_done(render_priv->cache.font_cache);
@@ -582,6 +585,24 @@ TileTree *create_clip_shape(ASS_Renderer *render_priv)
         return clip;
     free_tile_tree(engine, clip);
     return NULL;
+}
+
+FinalBitmap *do_final_clip(const TileEngine *engine, const TileTree *src, const TileTree *clip)
+{
+    if (!src)
+        return NULL;
+    if (clip) {
+        TileTree *bm = copy_tile_tree(engine, src);
+        if (bm) {
+            if (combine_tile_tree(engine, bm, clip, COMBINE_MUL)) {
+                FinalBitmap *res = build_image_list(engine, bm);
+                free_tile_tree(engine, bm);
+                return res;
+            }
+            free_tile_tree(engine, bm);
+        }
+    }
+    return build_image_list(engine, src);
 }
 
 /**
@@ -1089,15 +1110,6 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
 static void fill_composite_hash(ASS_Renderer *render_priv,
                                 CompositeHashKey *hk, CombinedBitmapInfo *info)
 {
-    hk->clip_x0 = render_priv->state.clip_x0;
-    hk->clip_y0 = render_priv->state.clip_y0;
-    hk->clip_x1 = render_priv->state.clip_x1;
-    hk->clip_y1 = render_priv->state.clip_y1;
-    hk->clip_mode = render_priv->state.clip_mode;
-    hk->clip_drawing_text = render_priv->state.clip_drawing ?
-                            render_priv->state.clip_drawing->text : "";
-    hk->clip_drawing_mode = render_priv->state.clip_drawing_mode;
-
     hk->be = info->be;
     hk->blur = info->blur;
     hk->border_style = info->border_style;
@@ -1124,6 +1136,23 @@ static void fill_composite_hash(ASS_Renderer *render_priv,
     hk->shift_x = info->shift_x;
     hk->shift_y = info->shift_y;
     hk->advance = info->advance;
+}
+
+/**
+ * \brief Prepare final bitmap hash
+ */
+static void fill_final_hash(ASS_Renderer *render_priv,
+                            FinalHashKey *hk, CompositeHashValue *composite)
+{
+    hk->composite = composite;
+    hk->clip_x0 = render_priv->state.clip_x0;
+    hk->clip_y0 = render_priv->state.clip_y0;
+    hk->clip_x1 = render_priv->state.clip_x1;
+    hk->clip_y1 = render_priv->state.clip_y1;
+    hk->clip_mode = render_priv->state.clip_mode;
+    hk->clip_drawing_text = render_priv->state.clip_drawing ?
+                            render_priv->state.clip_drawing->text : "";
+    hk->clip_drawing_mode = render_priv->state.clip_drawing_mode;
 }
 
 /**
@@ -2461,10 +2490,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                 current_info->has_border = !!info->border;
 
                 current_info->has_outline = 0;
-                current_info->fill_cache = NULL;
+                current_info->cached = 0;
                 current_info->is_drawing = 0;
 
                 current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
+                current_info->fbm = current_info->fbm_o = current_info->fbm_s = NULL;
 
                 current_info->max_str_length = MAX_STR_LENGTH_INITIAL;
                 current_info->str_length = 0;
@@ -2530,18 +2560,18 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
     }
 
-    CompositeHashKey hk;
-    CompositeHashValue *hv;
     for (i = 0; i < nb_bitmaps; ++i) {
         CombinedBitmapInfo *info = &combined_info[i];
 
+        CompositeHashKey hk;
+        CompositeHashValue *hv;
         fill_composite_hash(render_priv, &hk, info);
-
         if (ass_cache_get(render_priv->cache.composite_cache, &hk, &hv)) {
-            info->fbm = hv->bm;
-            info->fbm_o = hv->bm_o;
-            info->fbm_s = hv->bm_s;
+            info->bm = hv->bm;
+            info->bm_o = hv->bm_o;
+            info->bm_s = hv->bm_s;
             free(info->str);
+            info->cached = 1;
         } else {
             if(info->chars != 1 && !info->is_drawing){
                 info->bm = alloc_tile_tree(render_priv->tile_engine, EMPTY_QUAD);
@@ -2559,9 +2589,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                     */
                 }
             }
-            info->fill_cache = hv;
-            info->fbm = info->fbm_o = info->fbm_s = NULL;
         }
+        info->cache_value = hv;
     }
 
     for (i = 0; i < text_info->length; ++i) {
@@ -2569,7 +2598,7 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         if (info->skip) continue;
         while (info) {
             current_info = &combined_info[info->bm_run_id];
-            if(current_info->fill_cache && !is_skip_symbol(info->symbol)){
+            if(!current_info->cached && !is_skip_symbol(info->symbol)){
                 if(current_info->chars == 1 || current_info->is_drawing){
                     if (info->bm)
                         current_info->bm = copy_tile_tree(render_priv->tile_engine, info->bm);
@@ -2615,39 +2644,38 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     TileTree *clip = create_clip_shape(render_priv);
     for (i = 0; i < nb_bitmaps; ++i) {
-        if (combined_info[i].fill_cache) {
-            CompositeHashValue *hv = combined_info[i].fill_cache;
-            CombinedBitmapInfo *info = &combined_info[i];
+        CombinedBitmapInfo *info = &combined_info[i];
+        CompositeHashValue *hv = combined_info[i].cache_value;
+        if (!info->cached) {
             if (info->bm || info->bm_o) {
                 apply_blur(info, render_priv);
                 make_shadow_bitmap(info, render_priv);
             }
 
-            if (info->bm) {
-                if (!clip || combine_tile_tree(render_priv->tile_engine, info->bm, clip, COMBINE_MUL))
-                    info->fbm = build_image_list(render_priv->tile_engine, info->bm);
-                free_tile_tree(render_priv->tile_engine, info->bm);
-            }
-            if (info->bm_o) {
-                if (!clip || combine_tile_tree(render_priv->tile_engine, info->bm_o, clip, COMBINE_MUL))
-                    info->fbm_o = build_image_list(render_priv->tile_engine, info->bm_o);
-                free_tile_tree(render_priv->tile_engine, info->bm_o);
-            }
-            if (info->bm_s) {
-                if (!clip || combine_tile_tree(render_priv->tile_engine, info->bm_s, clip, COMBINE_MUL))
-                    info->fbm_s = build_image_list(render_priv->tile_engine, info->bm_s);
-                free_tile_tree(render_priv->tile_engine, info->bm_s);
-            }
-
-            hv->bm = info->fbm;
-            hv->bm_o = info->fbm_o;
-            hv->bm_s = info->fbm_s;
-
-            CompositeHashKey *new_key = ass_cache_get_key(hv);
-            new_key->clip_drawing_text = strdup(render_priv->state.clip_drawing ?
-                                                render_priv->state.clip_drawing->text : "");
+            hv->engine = render_priv->tile_engine;
+            hv->bm = info->bm;
+            hv->bm_o = info->bm_o;
+            hv->bm_s = info->bm_s;
             ass_cache_commit(hv);
         }
+
+        FinalHashKey fhk;
+        FinalHashValue *fhv;
+        fill_final_hash(render_priv, &fhk, hv);
+        if (!ass_cache_get(render_priv->cache.final_cache, &fhk, &fhv)) {
+            fhv->bm   = do_final_clip(render_priv->tile_engine, hv->bm,   clip);
+            fhv->bm_o = do_final_clip(render_priv->tile_engine, hv->bm_o, clip);
+            fhv->bm_s = do_final_clip(render_priv->tile_engine, hv->bm_s, clip);
+
+            ass_cache_inc_ref(hv);
+            FinalHashKey *new_key = ass_cache_get_key(fhv);
+            new_key->clip_drawing_text = strdup(render_priv->state.clip_drawing ?
+                                                render_priv->state.clip_drawing->text : "");
+            ass_cache_commit(fhv);
+        }
+        info->fbm = fhv->bm;
+        info->fbm_o = fhv->bm_o;
+        info->fbm_s = fhv->bm_s;
     }
     if (clip)
         free_tile_tree(render_priv->tile_engine, clip);
@@ -2690,6 +2718,7 @@ void ass_free_images(ASS_Image *img)
  */
 static void check_cache_limits(ASS_Renderer *priv, CacheStore *cache)
 {
+    ass_cache_cut(cache->final_cache, cache->final_max_size);
     ass_cache_cut(cache->composite_cache, cache->composite_max_size);
     ass_cache_cut(cache->bitmap_cache, cache->bitmap_max_size);
     ass_cache_cut(cache->outline_cache, cache->glyph_max);

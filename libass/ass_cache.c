@@ -129,17 +129,37 @@ static void composite_destruct(void *key, void *value)
 {
     CompositeHashValue *v = value;
     CompositeHashKey *k = key;
-    free_image_list(v->bm);
-    free_image_list(v->bm_o);
-    free_image_list(v->bm_s);
-    free(k->clip_drawing_text);
+    if (v->bm)
+        free_tile_tree(v->engine, v->bm);
+    if (v->bm_o)
+        free_tile_tree(v->engine, v->bm_o);
+    if (v->bm_s)
+        free_tile_tree(v->engine, v->bm_s);
     free(k->str);
 }
 
 static size_t composite_size(void *value, size_t value_size)
 {
+    return bitmap_size(value, value_size);
+}
+
+// final cache
+
+static void final_destruct(void *key, void *value)
+{
+    FinalHashValue *v = value;
+    FinalHashKey *k = key;
+    free_image_list(v->bm);
+    free_image_list(v->bm_o);
+    free_image_list(v->bm_s);
+    ass_cache_dec_ref(k->composite);
+    free(k->clip_drawing_text);
+}
+
+static size_t final_size(void *value, size_t value_size)
+{
     size_t res = 0;
-    CompositeHashValue *v = value;
+    FinalHashValue *v = value;
     res += image_list_size(v->bm);
     res += image_list_size(v->bm_o);
     res += image_list_size(v->bm_s);
@@ -507,4 +527,11 @@ Cache *ass_composite_cache_create(void)
     return ass_cache_create(composite_hash, composite_compare,
             composite_destruct, composite_size, sizeof(CompositeHashKey),
             sizeof(CompositeHashValue));
+}
+
+Cache *ass_final_cache_create(void)
+{
+    return ass_cache_create(final_hash, final_compare,
+            final_destruct, final_size, sizeof(FinalHashKey),
+            sizeof(FinalHashValue));
 }
