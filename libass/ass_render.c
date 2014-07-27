@@ -515,19 +515,31 @@ static void free_list_add(ASS_Renderer *render_priv, void *object)
 
 TileTree *create_clip_shape(ASS_Renderer *render_priv)
 {
+    const TileEngine *engine = render_priv->tile_engine;
     int clip_x0 = FFMINMAX(render_priv->state.clip_x0, 0, render_priv->width)  << 6;
     int clip_y0 = FFMINMAX(render_priv->state.clip_y0, 0, render_priv->height) << 6;
     int clip_x1 = FFMINMAX(render_priv->state.clip_x1, 0, render_priv->width)  << 6;
     int clip_y1 = FFMINMAX(render_priv->state.clip_y1, 0, render_priv->height) << 6;
 
+    TileTree *screen = NULL;
+    if (render_priv->state.clip_mode)
+        screen = create_rectangle(engine, 0, 0,
+                                  render_priv->width  << 6,
+                                  render_priv->height << 6,
+                                  0);
     TileTree *clip;
-    const TileEngine *engine = render_priv->tile_engine;
     if (clip_x0 < clip_x1 && clip_y0 < clip_y1)
         clip = create_rectangle(engine,
                                 clip_x0, clip_y0, clip_x1, clip_y1,
                                 render_priv->state.clip_mode);
     else
         clip = alloc_tile_tree(engine, render_priv->state.clip_mode ? SOLID_QUAD : EMPTY_QUAD);
+    if (clip && screen && !combine_tile_tree(engine, clip, screen, COMBINE_MUL)) {
+        free_tile_tree(engine, clip);
+        clip = NULL;
+    }
+    if (screen)
+        free_tile_tree(engine, screen);
     if (!clip)
         return NULL;
 
@@ -581,7 +593,7 @@ TileTree *create_clip_shape(ASS_Renderer *render_priv)
         return clip;
 
     if (combine_tile_tree(engine, clip, clip_bm,
-                          render_priv->state.clip_drawing_mode ? COMBINE_SUB : COMBINE_ADD))
+                          render_priv->state.clip_drawing_mode ? COMBINE_SUB : COMBINE_MUL))
         return clip;
     free_tile_tree(engine, clip);
     return NULL;
