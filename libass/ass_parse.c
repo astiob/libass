@@ -1010,8 +1010,14 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                     else
                         x = x_start;
                 } else if (effect_type == EF_KARAOKE_KF) {
-                    dt /= (tm_end - tm_start);
-                    x = x_start + (x_end - x_start) * dt;
+                    if (tm_current < tm_start)
+                        x = x_start;
+                    else if (tm_current >= tm_end)
+                        x = x_end + 1;
+                    else {
+                        dt /= (tm_end - tm_start);
+                        x = x_start + (x_end - x_start) * dt;
+                    }
                 } else {
                     ass_msg(render_priv->library, MSGL_ERR,
                             "Unknown effect type");
