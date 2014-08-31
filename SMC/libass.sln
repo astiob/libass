@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30501.0
+VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libass", "libass.vcxproj", "{19677DFD-C020-434D-9CB1-D0F105E72770}"
 EndProject
@@ -11,14 +11,14 @@ Global
 		Debug|x64 = Debug|x64
 		DebugDLL|Win32 = DebugDLL|Win32
 		DebugDLL|x64 = DebugDLL|x64
-		DebugDLLSharedDeps|Win32 = DebugDLLSharedDeps|Win32
-		DebugDLLSharedDeps|x64 = DebugDLLSharedDeps|x64
+		DebugDLLStaticDeps|Win32 = DebugDLLStaticDeps|Win32
+		DebugDLLStaticDeps|x64 = DebugDLLStaticDeps|x64
 		Release|Win32 = Release|Win32
 		Release|x64 = Release|x64
 		ReleaseDLL|Win32 = ReleaseDLL|Win32
 		ReleaseDLL|x64 = ReleaseDLL|x64
-		ReleaseDLLSharedDeps|Win32 = ReleaseDLLSharedDeps|Win32
-		ReleaseDLLSharedDeps|x64 = ReleaseDLLSharedDeps|x64
+		ReleaseDLLStaticDeps|Win32 = ReleaseDLLStaticDeps|Win32
+		ReleaseDLLStaticDeps|x64 = ReleaseDLLStaticDeps|x64
 		ReleaseLTO|Win32 = ReleaseLTO|Win32
 		ReleaseLTO|x64 = ReleaseLTO|x64
 	EndGlobalSection
@@ -31,10 +31,10 @@ Global
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLL|Win32.Build.0 = DebugDLL|Win32
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLL|x64.ActiveCfg = DebugDLL|x64
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLL|x64.Build.0 = DebugDLL|x64
-		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLLSharedDeps|Win32.ActiveCfg = DebugDLLSharedDeps|Win32
-		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLLSharedDeps|Win32.Build.0 = DebugDLLSharedDeps|Win32
-		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLLSharedDeps|x64.ActiveCfg = DebugDLLSharedDeps|x64
-		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLLSharedDeps|x64.Build.0 = DebugDLLSharedDeps|x64
+		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLLStaticDeps|Win32.ActiveCfg = DebugDLLStaticDeps|Win32
+		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLLStaticDeps|Win32.Build.0 = DebugDLLStaticDeps|Win32
+		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLLStaticDeps|x64.ActiveCfg = DebugDLLStaticDeps|x64
+		{19677DFD-C020-434D-9CB1-D0F105E72770}.DebugDLLStaticDeps|x64.Build.0 = DebugDLLStaticDeps|x64
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.Release|Win32.ActiveCfg = Release|Win32
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.Release|Win32.Build.0 = Release|Win32
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.Release|x64.ActiveCfg = Release|x64
@@ -43,10 +43,10 @@ Global
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLL|Win32.Build.0 = ReleaseDLL|Win32
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLL|x64.ActiveCfg = ReleaseDLL|x64
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLL|x64.Build.0 = ReleaseDLL|x64
-		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLLSharedDeps|Win32.ActiveCfg = ReleaseDLLSharedDeps|Win32
-		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLLSharedDeps|Win32.Build.0 = ReleaseDLLSharedDeps|Win32
-		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLLSharedDeps|x64.ActiveCfg = ReleaseDLLSharedDeps|x64
-		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLLSharedDeps|x64.Build.0 = ReleaseDLLSharedDeps|x64
+		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLLStaticDeps|Win32.ActiveCfg = ReleaseDLLStaticDeps|Win32
+		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLLStaticDeps|Win32.Build.0 = ReleaseDLLStaticDeps|Win32
+		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLLStaticDeps|x64.ActiveCfg = ReleaseDLLStaticDeps|x64
+		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseDLLStaticDeps|x64.Build.0 = ReleaseDLLStaticDeps|x64
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseLTO|Win32.ActiveCfg = ReleaseLTO|Win32
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseLTO|Win32.Build.0 = ReleaseLTO|Win32
 		{19677DFD-C020-434D-9CB1-D0F105E72770}.ReleaseLTO|x64.ActiveCfg = ReleaseLTO|x64

@@ -335,7 +335,7 @@
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -381,7 +381,7 @@ cd $(ProjectDir)
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -427,7 +427,7 @@ cd $(ProjectDir)
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -473,7 +473,7 @@ cd $(ProjectDir)
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -519,7 +519,7 @@ cd $(ProjectDir)
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -565,7 +565,7 @@ cd $(ProjectDir)
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -621,7 +621,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
     </ClCompile>
@@ -682,7 +682,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
     </ClCompile>
@@ -743,7 +743,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
     </ClCompile>
@@ -804,7 +804,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
     </ClCompile>
@@ -865,7 +865,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -923,7 +923,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -981,7 +981,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
@@ -1039,7 +1039,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4018;4244</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
     </ClCompile>
     <Link>
