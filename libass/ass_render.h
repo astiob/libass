@@ -117,7 +117,7 @@ typedef struct {
     FilterDesc filter;
     uint32_t c[4];              // colors
     Effect effect_type;
-    int effect_timing;          // time duration of current karaoke word
+    int effect_timing;          // karaoke split coordinate
     // after process_karaoke_effects: distance in pixels from the glyph origin.
     // part of the glyph to the left of it is displayed in a different color.
 
