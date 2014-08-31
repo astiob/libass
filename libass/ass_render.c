@@ -683,7 +683,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
             continue;
 
         if ((info->effect_type == EF_KARAOKE_KO)
-                && (info->effect_timing <= info->first_pos_x)) {
+                && (info->effect_timing <= info->x)) {
             // do nothing
         } else {
             tail =
@@ -699,7 +699,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
 
         if ((info->effect_type == EF_KARAOKE)
                 || (info->effect_type == EF_KARAOKE_KO)) {
-            if (info->effect_timing > info->first_pos_x)
+            if (info->effect_timing > info->x)
                 tail =
                     render_glyph(render_priv, info->bm, info->x, info->y,
                                  info->c[0], 0, 1000000, tail, IMAGE_TYPE_CHARACTER);
@@ -710,7 +710,7 @@ static ASS_Image *render_text(ASS_Renderer *render_priv)
         } else if (info->effect_type == EF_KARAOKE_KF) {
             tail =
                 render_glyph(render_priv, info->bm, info->x, info->y, info->c[0],
-                             info->c[1], info->effect_timing, tail, IMAGE_TYPE_CHARACTER);
+                             info->c[1], info->effect_timing - info->x, tail, IMAGE_TYPE_CHARACTER);
         } else
             tail =
                 render_glyph(render_priv, info->bm, info->x, info->y, info->c[0],
@@ -2174,8 +2174,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
                 current_info->effect_type = info->effect_type;
-                current_info->effect_timing = info->effect_timing;
-                current_info->first_pos_x = info->bbox.xMax >> 6;
+                current_info->effect_timing = info->effect_timing + x;
 
                 current_info->filter.flags = 0;
                 if (info->border_style == 3)
