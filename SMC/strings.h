@@ -1,10 +1,8 @@
-#ifndef STRING_H_WIN32
-#define STRING_H_WIN32
+#ifndef _STRINGS_H_
+#define _STRINGS_H_
 
-#if defined(_MSC_VER)
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
-#define strtoll _strtoi64
+#ifndef _MSC_VER
+#error "Use this header only with Microsoft Visual C++ compilers!"
 #endif
 
 #endif
