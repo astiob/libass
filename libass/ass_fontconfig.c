@@ -51,64 +51,6 @@ struct fc_instance {
 #ifdef CONFIG_FONTCONFIG
 
 /**
- * \brief Case-insensitive match ASS/SSA font family against full name. (also
- * known as "name for humans")
- *
- * \param lib library instance
- * \param priv fontconfig instance
- * \param family font fullname
- * \param bold weight attribute
- * \param italic italic attribute
- * \return font set
- */
-static FcFontSet *
-match_fullname(ASS_Library *lib, FCInstance *priv, const char *family,
-               unsigned bold, unsigned italic)
-{
-    FcFontSet *sets[2];
-    FcFontSet *result = FcFontSetCreate();
-    int nsets = 0;
-    int i, fi;
-
-    if (!result)
-        return NULL;
-
-    if ((sets[nsets] = FcConfigGetFonts(priv->config, FcSetSystem)))
-        nsets++;
-    if ((sets[nsets] = FcConfigGetFonts(priv->config, FcSetApplication)))
-        nsets++;
-
-    // Run over font sets and patterns and try to match against full name
-    for (i = 0; i < nsets; i++) {
-        FcFontSet *set = sets[i];
-        for (fi = 0; fi < set->nfont; fi++) {
-            FcPattern *pat = set->fonts[fi];
-            char *fullname;
-            int pi = 0, at;
-            FcBool ol;
-            while (FcPatternGetString(pat, FC_FULLNAME, pi++,
-                   (FcChar8 **) &fullname) == FcResultMatch) {
-                if (FcPatternGetBool(pat, FC_OUTLINE, 0, &ol) != FcResultMatch
-                    || ol != FcTrue)
-                    continue;
-                if (FcPatternGetInteger(pat, FC_SLANT, 0, &at) != FcResultMatch
-                    || at < italic)
-                    continue;
-                if (FcPatternGetInteger(pat, FC_WEIGHT, 0, &at) != FcResultMatch
-                    || at < bold)
-                    continue;
-                if (strcasecmp(fullname, family) == 0) {
-                    FcFontSetAdd(result, FcPatternDuplicate(pat));
-                    break;
-                }
-            }
-        }
-    }
-
-    return result;
-}
-
-/**
  * \brief Low-level font selection.
  * \param priv private data
  * \param family font family
@@ -131,10 +73,9 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
     FcChar8 *r_family, *r_style, *r_file, *r_fullname;
     FcBool r_outline, r_embolden;
     FcCharSet *r_charset;
-    FcFontSet *ffullname = NULL, *fsorted = NULL, *fset = NULL;
+    FcFontSet *fset = NULL;
     int curf, curv, found;
     char *retval = NULL;
-    int family_cnt = 0;
 
     *index = 0;
 
@@ -148,32 +89,7 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
 
     if (!treat_family_as_pattern) {
         FcPatternAddString(pat, FC_FAMILY, (const FcChar8 *) family);
-
-        // In SSA/ASS fonts are sometimes referenced by their "full name",
-        // which is usually a concatenation of family name and font
-        // style (ex. Ottawa Bold). Full name is available from
-        // FontConfig pattern element FC_FULLNAME, but it is never
-        // used for font matching.
-        // Therefore, I'm removing words from the end of the name one
-        // by one, and adding shortened names to the pattern. It seems
-        // that the first value (full name in this case) has
-        // precedence in matching.
-        // An alternative approach could be to reimplement FcFontSort
-        // using FC_FULLNAME instead of FC_FAMILY.
-        family_cnt = 1;
-        {
-            char *s = strdup(family);
-            if (!s)
-                goto error;
-            char *p = s + strlen(s);
-            while (--p > s)
-                if (*p == ' ' || *p == '-') {
-                    *p = '\0';
-                    FcPatternAddString(pat, FC_FAMILY, (const FcChar8 *) s);
-                    ++family_cnt;
-                }
-            free(s);
-        }
+        FcPatternAddString(pat, FC_FULLNAME, (const FcChar8 *) family);
     }
     FcPatternAddBool(pat, FC_OUTLINE, FcTrue);
     FcPatternAddInteger(pat, FC_SLANT, italic);
@@ -193,22 +109,9 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
      */
     FcPatternDel(pat, "lang");
 
-    fsorted = FcFontSort(priv->config, pat, FcFalse, NULL, &result);
-    ffullname = match_fullname(library, priv, family, bold, italic);
-    if (!fsorted || !ffullname)
+    fset = FcFontSort(priv->config, pat, FcFalse, NULL, &result);
+    if (!fset)
         goto error;
-
-    fset = FcFontSetCreate();
-    for (curf = 0; curf < ffullname->nfont; ++curf) {
-        FcPattern *curp = ffullname->fonts[curf];
-        FcPatternReference(curp);
-        FcFontSetAdd(fset, curp);
-    }
-    for (curf = 0; curf < fsorted->nfont; ++curf) {
-        FcPattern *curp = fsorted->fonts[curf];
-        FcPatternReference(curp);
-        FcFontSetAdd(fset, curp);
-    }
 
     for (curf = 0; curf < fset->nfont; ++curf) {
         FcPattern *curp = fset->fonts[curf];
@@ -230,13 +133,10 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
     if (curf >= fset->nfont)
         goto error;
 
-    if (!treat_family_as_pattern) {
-        // Remove all extra family names from original pattern.
-        // After this, FcFontRenderPrepare will select the most relevant family
-        // name in case there are more than one of them.
-        for (; family_cnt > 1; --family_cnt)
-            FcPatternRemove(pat, FC_FAMILY, family_cnt - 1);
-    }
+    // Remove full names from original pattern.
+    // After this, FcFontRenderPrepare will select the most relevant full
+    // name in case there are more than one of them.
+    FcPatternDel(pat, FC_FULLNAME);
 
     rpat = FcFontRenderPrepare(priv->config, pat, fset->fonts[curf]);
     if (!rpat)
@@ -328,10 +228,6 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
         FcPatternDestroy(pat);
     if (rpat)
         FcPatternDestroy(rpat);
-    if (fsorted)
-        FcFontSetDestroy(fsorted);
-    if (ffullname)
-        FcFontSetDestroy(ffullname);
     if (fset)
         FcFontSetDestroy(fset);
     return retval;
