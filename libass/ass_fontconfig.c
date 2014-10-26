@@ -132,7 +132,7 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
     FcBool r_outline, r_embolden;
     FcCharSet *r_charset;
     FcFontSet *ffullname = NULL, *fsorted = NULL, *fset = NULL;
-    int curf;
+    int curf, curv, found;
     char *retval = NULL;
     int family_cnt = 0;
 
@@ -254,6 +254,32 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
     if (!retval)
         goto error;
 
+    found = 0;
+
+    if (!treat_family_as_pattern) {
+        for (curv = 0; ; ++curv) {
+            result = FcPatternGetString(rpat, FC_FAMILY, curv, &r_family);
+            if (result != FcResultMatch)
+                break;
+            if (strcasecmp((const char *) r_family, family) == 0) {
+                found = 1;
+                break;
+            }
+        }
+    }
+
+    if (!treat_family_as_pattern && !found) {
+        for (curv = 0; ; ++curv) {
+            result = FcPatternGetString(rpat, FC_FULLNAME, curv, &r_fullname);
+            if (result != FcResultMatch)
+                break;
+            if (strcasecmp((const char *) r_fullname, family) == 0) {
+                found = 1;
+                break;
+            }
+        }
+    }
+
     result = FcPatternGetString(rpat, FC_FAMILY, 0, &r_family);
     if (result != FcResultMatch)
         r_family = NULL;
@@ -262,9 +288,7 @@ static char *select_font(ASS_Library *library, FCInstance *priv,
     if (result != FcResultMatch)
         r_fullname = NULL;
 
-    if (!treat_family_as_pattern &&
-        !(r_family && strcasecmp((const char *) r_family, family) == 0) &&
-        !(r_fullname && strcasecmp((const char *) r_fullname, family) == 0)) {
+    if (!treat_family_as_pattern && !found) {
         char *fallback = (char *) (r_fullname ? r_fullname : r_family);
         if (code) {
             ass_msg(library, MSGL_WARN,
