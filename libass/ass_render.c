@@ -37,6 +37,7 @@
 
 #include "x86/blend_bitmaps.h"
 #include "x86/be_blur.h"
+#include "x86/rasterizer.h"
 
 #endif // ASM
 
@@ -89,7 +90,40 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         priv->mul_bitmaps_func = mul_bitmaps_c;
         priv->be_blur_func = be_blur_c;
     #endif
-    priv->restride_bitmap_func = restride_bitmap_c;
+
+#if CONFIG_RASTERIZER
+#if CONFIG_LARGE_TILES
+    priv->rasterizer.tile_order = 5;
+    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+        priv->rasterizer.fill_solid = avx2 ? ass_fill_solid_tile32_avx2 :
+            (sse2 ? ass_fill_solid_tile32_sse2 : ass_fill_solid_tile32_c);
+        priv->rasterizer.fill_halfplane = avx2 ? ass_fill_halfplane_tile32_avx2 :
+            (sse2 ? ass_fill_halfplane_tile32_sse2 : ass_fill_halfplane_tile32_c);
+        priv->rasterizer.fill_generic = avx2 ? ass_fill_generic_tile32_avx2 :
+            (sse2 ? ass_fill_generic_tile32_sse2 : ass_fill_generic_tile32_c);
+    #else
+        priv->rasterizer.fill_solid = ass_fill_solid_tile32_c;
+        priv->rasterizer.fill_halfplane = ass_fill_halfplane_tile32_c;
+        priv->rasterizer.fill_generic = ass_fill_generic_tile32_c;
+    #endif
+#else
+    priv->rasterizer.tile_order = 4;
+    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+        priv->rasterizer.fill_solid = avx2 ? ass_fill_solid_tile16_avx2 :
+            (sse2 ? ass_fill_solid_tile16_sse2 : ass_fill_solid_tile16_c);
+        priv->rasterizer.fill_halfplane = avx2 ? ass_fill_halfplane_tile16_avx2 :
+            (sse2 ? ass_fill_halfplane_tile16_sse2 : ass_fill_halfplane_tile16_c);
+        priv->rasterizer.fill_generic = avx2 ? ass_fill_generic_tile16_avx2 :
+            (sse2 ? ass_fill_generic_tile16_sse2 : ass_fill_generic_tile16_c);
+    #else
+        priv->rasterizer.fill_solid = ass_fill_solid_tile16_c;
+        priv->rasterizer.fill_halfplane = ass_fill_halfplane_tile16_c;
+        priv->rasterizer.fill_generic = ass_fill_generic_tile16_c;
+    #endif
+#endif
+    priv->rasterizer.outline_error = 16;
+    rasterizer_init(&priv->rasterizer);
+#endif
 
     priv->cache.font_cache = ass_font_cache_create();
     priv->cache.bitmap_cache = ass_bitmap_cache_create();
@@ -150,6 +184,10 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     ass_free_images(render_priv->images_root);
     ass_free_images(render_priv->prev_images_root);
 
+#if CONFIG_RASTERIZER
+    rasterizer_done(&render_priv->rasterizer);
+#endif
+
     if (render_priv->state.stroker) {
         FT_Stroker_Done(render_priv->state.stroker);
         render_priv->state.stroker = 0;
@@ -169,6 +207,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
 
     free(render_priv->settings.default_font);
     free(render_priv->settings.default_family);
+
+    free(render_priv->user_override_style.FontName);
 
     free_list_clear(render_priv);
     free(render_priv);
@@ -411,18 +451,22 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
     tmp = dst_x - clip_x0;
     if (tmp < 0) {
         b_x0 = -tmp;
+        render_priv->state.has_clips = 1;
     }
     tmp = dst_y - clip_y0;
     if (tmp < 0) {
         b_y0 = -tmp;
+        render_priv->state.has_clips = 1;
     }
     tmp = clip_x1 - dst_x - bm->w;
     if (tmp < 0) {
         b_x1 = bm->w + tmp;
+        render_priv->state.has_clips = 1;
     }
     tmp = clip_y1 - dst_y - bm->h;
     if (tmp < 0) {
         b_y1 = bm->h + tmp;
+        render_priv->state.has_clips = 1;
     }
 
     if ((b_y0 >= b_y1) || (b_x0 >= b_x1))
@@ -514,8 +558,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
             FT_Outline_Translate(outline, trans.x, trans.y);
         }
 
-        clip_bm = outline_to_bitmap(render_priv->library,
-                render_priv->ftlibrary, outline, 0);
+        clip_bm = outline_to_bitmap(render_priv, outline, 0);
 
         // Add to cache
         memset(&v, 0, sizeof(v));
@@ -534,7 +577,7 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         int aleft, atop, bleft, btop;
         unsigned char *abuffer, *bbuffer, *nbuffer;
 
-        render_priv->state.has_vector_clip = 1;
+        render_priv->state.has_clips = 1;
 
         abuffer = cur->bitmap;
         bbuffer = clip_bm->buffer;
@@ -629,6 +672,8 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
         CombinedBitmapInfo *info = &text_info->combined_bitmaps[i];
         if (!info->bm_s || (info->shadow_x == 0 && info->shadow_y == 0))
             continue;
+        if (render_priv->state.border_style == 4)
+            continue;
 
         pen_x =
             dst_x + info->pos.x +
@@ -694,29 +739,6 @@ static ASS_Image *render_text(ASS_Renderer *render_priv, int dst_x, int dst_y)
     *tail = 0;
     blend_vector_clip(render_priv, head);
 
-    for (ASS_Image* cur = head; cur; cur = cur->next) {
-        unsigned w = cur->w,
-                 h = cur->h,
-                 s = cur->stride;
-        if(w + 31 < (unsigned)cur->stride){ // Larger value? Play with this.
-            // Allocate new buffer and add to free list
-            unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
-            unsigned ns = ass_align(align, w);
-            uint8_t* nbuffer = ass_aligned_alloc(align, ns * cur->h);
-            if (!nbuffer) continue;
-            free_list_add(render_priv, nbuffer);
-
-            // Copy
-            render_priv->restride_bitmap_func(nbuffer, ns,
-                                              cur->bitmap, s,
-                                              w, h);
-            cur->w = w;
-            cur->h = h;
-            cur->stride = ns;
-            cur->bitmap = nbuffer;
-        }
-    }
-
     return head;
 }
 
@@ -743,14 +765,99 @@ static void compute_string_bbox(TextInfo *text, DBBox *bbox)
         bbox->xMin = bbox->xMax = bbox->yMin = bbox->yMax = 0.;
 }
 
+static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
+                                                   ASS_Style *rstyle)
+{
+    // The script style is the one the event was declared with.
+    // The rstyle is either NULL, or the style used with a \r tag.
+    ASS_Style *script = render_priv->track->styles +
+                        render_priv->state.event->Style;
+    ASS_Style *new = &render_priv->state.override_style_temp_storage;
+    int explicit = event_is_positioned(render_priv->state.event->Text);
+    int requested = render_priv->settings.selective_style_overrides;
+    double scale;
+
+    if (!rstyle)
+        rstyle = script;
+
+    render_priv->state.style = script;
+    render_priv->state.overrides = ASS_OVERRIDE_BIT_FONT_SIZE; // odd default
+
+    if (explicit && (requested & ASS_OVERRIDE_BIT_FONT_SIZE))
+        render_priv->state.overrides &= ~(unsigned)ASS_OVERRIDE_BIT_FONT_SIZE;
+
+    if (!explicit && (requested & ASS_OVERRIDE_BIT_STYLE))
+        render_priv->state.overrides |= ASS_OVERRIDE_BIT_STYLE;
+
+    if (!(render_priv->state.overrides & ASS_OVERRIDE_BIT_STYLE))
+        return rstyle;
+
+    // Create a new style that contains a mix of the original style and
+    // user_style (the user's override style). Copy only fields from the
+    // script's style that are deemed necessary.
+    *new = render_priv->user_override_style;
+
+    new->StrikeOut = rstyle->StrikeOut;
+    new->Underline = rstyle->Underline;
+    new->Angle = rstyle->Angle;
+
+    new->MarginL = script->MarginL;
+    new->MarginR = script->MarginR;
+    new->MarginV = script->MarginV;
+    new->Alignment = script->Alignment;
+    new->Encoding = script->Encoding;
+    new->treat_fontname_as_pattern = script->treat_fontname_as_pattern;
+
+    // The user style is supposed to be independent of the script resolution.
+    // Treat the user style's values as if they were specified for a script with
+    // PlayResY=288, and rescale the values to the current script.
+    scale = render_priv->track->PlayResY / 288.0;
+    new->FontSize *= scale;
+    new->Spacing *= scale;
+    new->Outline *= scale;
+    new->Shadow *= scale;
+
+    render_priv->state.style = new;
+
+    return new;
+}
+
+static void init_font_scale(ASS_Renderer *render_priv)
+{
+    ASS_Settings *settings_priv = &render_priv->settings;
+
+    render_priv->font_scale = ((double) render_priv->orig_height) /
+                              render_priv->track->PlayResY;
+    if (settings_priv->storage_height)
+        render_priv->blur_scale = ((double) render_priv->orig_height) /
+            settings_priv->storage_height;
+    else
+        render_priv->blur_scale = 1.;
+    if (render_priv->track->ScaledBorderAndShadow)
+        render_priv->border_scale =
+            ((double) render_priv->orig_height) /
+            render_priv->track->PlayResY;
+    else
+        render_priv->border_scale = render_priv->blur_scale;
+    if (!settings_priv->storage_height)
+        render_priv->blur_scale = render_priv->border_scale;
+
+    if (render_priv->state.overrides & ASS_OVERRIDE_BIT_FONT_SIZE) {
+        render_priv->font_scale *= settings_priv->font_size_coeff;
+        render_priv->border_scale *= settings_priv->font_size_coeff;
+        render_priv->blur_scale *= settings_priv->font_size_coeff;
+    }
+}
+
 /**
  * \brief partially reset render_context to style values
  * Works like {\r}: resets some style overrides
  */
 void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
 {
-    if (!style)
-        style = render_priv->state.style;
+    style = handle_selective_style_overrides(render_priv, style);
+
+    init_font_scale(render_priv);
 
     render_priv->state.c[0] = style->PrimaryColour;
     render_priv->state.c[1] = style->SecondaryColour;
@@ -794,11 +901,10 @@ static void
 init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 {
     render_priv->state.event = event;
-    render_priv->state.style = render_priv->track->styles + event->Style;
     render_priv->state.parsed_tags = 0;
-    render_priv->state.has_vector_clip = 0;
+    render_priv->state.has_clips = 0;
 
-    reset_render_context(render_priv, render_priv->state.style);
+    reset_render_context(render_priv, NULL);
     render_priv->state.wrap_style = render_priv->track->WrapStyle;
 
     render_priv->state.evt_type = EVENT_NORMAL;
@@ -912,13 +1018,24 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
                     "FT_Stroker_GetBorderCounts failed, error: %d", error);
         }
         FT_Outline_Done(render_priv->ftlibrary, outline);
-        FT_Outline_New(render_priv->ftlibrary, n_points, n_contours, outline);
+        error = FT_Outline_New(render_priv->ftlibrary, n_points, n_contours, outline);
         outline->n_points = outline->n_contours = 0;
+        if (error) {
+            ass_msg(render_priv->library, MSGL_WARN,
+                    "FT_Outline_New failed, error: %d", error);
+            return;
+        }
         FT_Stroker_ExportBorder(render_priv->state.stroker, border, outline);
 
-    // "Stroke" with the outline emboldener in two passes.
+    // "Stroke" with the outline emboldener (in two passes if needed).
     // The outlines look uglier, but the emboldening never adds any points
     } else {
+#if (FREETYPE_MAJOR > 2) || \
+    ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR > 4)) || \
+    ((FREETYPE_MAJOR == 2) && (FREETYPE_MINOR == 4) && (FREETYPE_PATCH >= 10))
+        FT_Outline_EmboldenXY(outline, sx * 2, sy * 2);
+        FT_Outline_Translate(outline, -sx, -sy);
+#else
         int i;
         FT_Outline nol;
 
@@ -935,6 +1052,7 @@ static void stroke_outline(ASS_Renderer *render_priv, FT_Outline *outline,
             outline->points[i].y = nol.points[i].y;
 
         FT_Outline_Done(render_priv->ftlibrary, &nol);
+#endif
     }
 }
 
@@ -995,7 +1113,8 @@ static void fill_composite_hash(CompositeHashKey *hk, CombinedBitmapInfo *info)
     hk->border_style = info->border_style;
     hk->has_outline = info->has_outline;
     hk->is_drawing = info->is_drawing;
-    hk->str = info->str;
+    hk->str.size = info->str_length;
+    hk->str.data = info->str;
     hk->chars = info->chars;
     hk->shadow_x = info->shadow_x;
     hk->shadow_y = info->shadow_y;
@@ -1258,9 +1377,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
         }
 
         // render glyph
-        error = outline_to_bitmap3(render_priv->library,
-                render_priv->synth_priv,
-                render_priv->ftlibrary,
+        error = outline_to_bitmap3(render_priv,
                 outline, border,
                 &hash_val.bm, &hash_val.bm_o,
                 &hash_val.bm_s, info->be,
@@ -1787,7 +1904,7 @@ static int
 ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
                  EventImages *event_images)
 {
-    char *p;
+    char *p, *q;
     FT_Vector pen;
     unsigned code;
     DBBox bbox;
@@ -1816,44 +1933,35 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     text_info->length = 0;
     p = event->Text;
 
-    int in_tag = 0;
-
     // Event parsing.
     while (1) {
         // get next char, executing style override
         // this affects render_context
-        do {
-            code = 0;
-            if (!in_tag && *p == '{') {            // '\0' goes here
+        code = 0;
+        while (*p) {
+            if ((*p == '{') && (q = strchr(p, '}'))) {
+                while (p < q)
+                    p = parse_tag(render_priv, p, q, 1.);
+                assert(*p == '}');
                 p++;
-                in_tag = 1;
-                if (render_priv->state.drawing_scale) {
-                    // A drawing definition has just ended.
-                    // Exit and create the drawing now lest we
-                    // accidentally let it consume later text
-                    // or be affected by later override tags.
-                    // See Google Code issues #47 and #101.
-                    break;
-                }
-            }
-            if (in_tag) {
-                p = parse_tag(render_priv, p, 1.);
-                if (*p == '}') {    // end of tag
-                    p++;
-                    in_tag = 0;
-                } else if (*p != '\\') {
-                    ass_msg(render_priv->library, MSGL_V,
-                            "Unable to parse: '%.30s'", p);
-                }
+            } else if (render_priv->state.drawing_scale) {
+                q = p;
+                if (*p == '{')
+                    q++;
+                while ((*q != '{') && (*q != 0))
+                    q++;
+                ass_drawing_set_text(drawing, p, q - p);
+                code = 0xfffc; // object replacement character
+                p = q;
+                break;
             } else {
                 code = get_next_char(render_priv, &p);
-                if (code && render_priv->state.drawing_scale) {
-                    ass_drawing_add_char(drawing, (char) code);
-                    continue;   // skip everything in drawing mode
-                }
                 break;
             }
-        } while (*p);
+        }
+
+        if (code == 0)
+            break;
 
         if (text_info->length >= text_info->max_glyphs) {
             // Raise maximum number of glyphs
@@ -1869,14 +1977,13 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         memset(info, 0, sizeof(GlyphInfo));
 
         // Parse drawing
-        if (drawing->i) {
+        if (drawing->text) {
             drawing->scale_x = render_priv->state.scale_x *
                                      render_priv->font_scale;
             drawing->scale_y = render_priv->state.scale_y *
                                      render_priv->font_scale;
             drawing->scale = render_priv->state.drawing_scale;
             drawing->pbo = render_priv->state.pbo;
-            code = 0xfffc; // object replacement character
             info->drawing = drawing;
         }
 
@@ -1885,9 +1992,6 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             free_render_context(render_priv);
             return 1;
         }
-
-        if (code == 0)
-            break;
 
         // Fill glyph information
         info->symbol = code;
@@ -1949,7 +2053,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             resolve_base_direction(render_priv->state.font_encoding));
     ass_shaper_find_runs(render_priv->shaper, render_priv, glyphs,
             text_info->length);
-    ass_shaper_shape(render_priv->shaper, text_info);
+    if (ass_shaper_shape(render_priv->shaper, text_info) < 0) {
+        ass_msg(render_priv->library, MSGL_ERR, "Failed to shape text");
+        free_render_context(render_priv);
+        return 1;
+    }
 
     // Retrieve glyphs
     for (i = 0; i < text_info->length; i++) {
@@ -2039,6 +2147,12 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // Reorder text into visual order
     FriBidiStrIndex *cmap = ass_shaper_reorder(render_priv->shaper, text_info);
+    if (!cmap) {
+        ass_msg(render_priv->library, MSGL_ERR, "Failed to reorder text");
+        ass_shaper_cleanup(render_priv->shaper, text_info);
+        free_render_context(render_priv);
+        return 1;
+    }
 
     // Reposition according to the map
     pen.x = 0;
@@ -2344,9 +2458,10 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
                 current_info->bm = current_info->bm_o = current_info->bm_s = NULL;
 
-                current_info->max_str_length = MAX_STR_LENGTH_INITIAL;
+                current_info->max_str_length =
+                    MAX_STR_LENGTH_INITIAL * sizeof(info->glyph_index);
                 current_info->str_length = 0;
-                current_info->str = malloc(MAX_STR_LENGTH_INITIAL);
+                current_info->str = malloc(current_info->max_str_length);
                 current_info->chars = 0;
 
                 current_info->w = current_info->h = current_info->o_w = current_info->o_h = 0;
@@ -2356,19 +2471,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             if(info->drawing){
                 free(current_info->str);
                 current_info->str = strdup(info->drawing->text);
+                current_info->str_length = strlen(info->drawing->text);
                 current_info->is_drawing = 1;
                 ass_drawing_free(info->drawing);
             }else{
-                current_info->str_length +=
-                    ass_utf8_put_char(
-                        current_info->str + current_info->str_length,
-                        info->symbol);
+                int length = current_info->str_length;
                 current_info->chars++;
-                if(current_info->str_length > current_info->max_str_length - 5){
+                current_info->str_length += sizeof(info->glyph_index);
+                if(current_info->str_length > current_info->max_str_length){
                     current_info->max_str_length *= 2;
                     current_info->str = realloc(current_info->str,
                                                 current_info->max_str_length);
                 }
+                *(int *)(current_info->str + length) = info->glyph_index;
             }
 
             current_info->has_outline = current_info->has_outline || !!info->bm_o;
@@ -2515,6 +2630,24 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->event = event;
     event_images->imgs = render_text(render_priv, (int) device_x, (int) device_y);
 
+    if (render_priv->state.border_style == 4) {
+        void *nbuffer = ass_aligned_alloc(1, event_images->width * event_images->height);
+        if (nbuffer) {
+            free_list_add(render_priv, nbuffer);
+            memset(nbuffer, 0xFF, event_images->width * event_images->height);
+            ASS_Image *img = my_draw_bitmap(nbuffer, event_images->width,
+                                            event_images->height,
+                                            event_images->width,
+                                            event_images->left,
+                                            event_images->top,
+                                            render_priv->state.c[3]);
+            if (img) {
+                img->next = event_images->imgs;
+                event_images->imgs = img;
+            }
+        }
+    }
+
     ass_shaper_cleanup(render_priv->shaper, text_info);
     free_render_context(render_priv);
 
@@ -2582,23 +2715,6 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     render_priv->time = now;
 
     ass_lazy_track_init(render_priv->library, render_priv->track);
-
-    render_priv->font_scale = settings_priv->font_size_coeff *
-        render_priv->orig_height / render_priv->track->PlayResY;
-    if (settings_priv->storage_height)
-        render_priv->blur_scale = ((double) render_priv->orig_height) /
-            settings_priv->storage_height;
-    else
-        render_priv->blur_scale = 1.;
-    if (render_priv->track->ScaledBorderAndShadow)
-        render_priv->border_scale =
-            ((double) render_priv->orig_height) /
-            render_priv->track->PlayResY;
-    else
-        render_priv->border_scale = render_priv->blur_scale;
-    if (!settings_priv->storage_height)
-        render_priv->blur_scale = render_priv->border_scale;
-    render_priv->border_scale *= settings_priv->font_size_coeff;
 
     ass_shaper_set_kerning(render_priv->shaper, track->Kerning);
     ass_shaper_set_language(render_priv->shaper, track->Language);
@@ -2834,7 +2950,7 @@ static int ass_detect_change(ASS_Renderer *priv)
     ASS_Image *img, *img2;
     int diff;
 
-    if (priv->cache_cleared || priv->state.has_vector_clip)
+    if (priv->cache_cleared || priv->state.has_clips)
         return 2;
 
     img = priv->prev_images_root;

@@ -23,7 +23,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01102000
+#define LIBASS_VERSION 0x01200000
 
 /*
  * A linked list of images produced by an ass renderer.
@@ -86,6 +86,15 @@ typedef enum {
     ASS_SHAPING_SIMPLE = 0,
     ASS_SHAPING_COMPLEX
 } ASS_ShapingLevel;
+
+/**
+ * \brief Style override options. See
+ * ass_set_selective_style_override_enabled() for details.
+ */
+typedef enum {
+    ASS_OVERRIDE_BIT_STYLE = 1,
+    ASS_OVERRIDE_BIT_FONT_SIZE = 2,
+} ASS_OverrideBits;
 
 /**
  * \brief Return the version of library. This returns the value LIBASS_VERSION
@@ -318,6 +327,44 @@ void ass_set_line_position(ASS_Renderer *priv, double line_position);
 void ass_set_fonts(ASS_Renderer *priv, const char *default_font,
                    const char *default_family, int fc, const char *config,
                    int update);
+
+/**
+ * \brief Set selective style override mode.
+ * If enabled, the renderer attempts to override the ASS script's styling of
+ * normal subtitles, without affecting explicitly positioned text. If an event
+ * looks like a normal subtitle, parts of the font style are copied from the
+ * user style set with ass_set_selective_style_override().
+ * Warning: the heuristic used for deciding when to override the style is rather
+ *          rough, and enabling this option can lead to incorrectly rendered
+ *          subtitles. Since the ASS format doesn't have any support for
+ *          allowing end-users to customize subtitle styling, this feature can
+ *          only be implemented on "best effort" basis, and has to rely on
+ *          heuristics that can easily break.
+ * \param priv renderer handle
+ * \param bits bit mask comprised of ASS_OverrideBits values. If the value is
+ *  0, all override features are disabled, and libass will behave like libass
+ *  versions before this feature was introduced. Possible values:
+ *      ASS_OVERRIDE_BIT_STYLE: apply the style as set with
+ *          ass_set_selective_style_override() on events which look like
+ *          dialogue. Other style overrides are also applied this way, except
+ *          ass_set_font_scale(). How ass_set_font_scale() is applied depends
+ *          on the ASS_OVERRIDE_BIT_FONT_SIZE flag.
+ *      ASS_OVERRIDE_BIT_FONT_SIZE: apply ass_set_font_scale() only on events
+ *          which look like dialogue. If not set, it is applied to all
+ *          events.
+ *      0: ignore ass_set_selective_style_override(), but apply all other
+ *          overrides (traditional behavior).
+ */
+void ass_set_selective_style_override_enabled(ASS_Renderer *priv, int bits);
+
+/**
+ * \brief Set style for selective style override.
+ * See ass_set_selective_style_override_enabled().
+ * \param style style settings to use if override is enabled. Applications
+ * should initialize it with {0} before setting fields. Strings will be copied
+ * by the function.
+ */
+void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
 
 /**
  * \brief Update/build font cache.  This needs to be called if it was

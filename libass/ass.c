@@ -153,22 +153,6 @@ void ass_free_style(ASS_Track *track, int sid)
 
 // ==============================================================================================
 
-static void skip_spaces(char **str)
-{
-    char *p = *str;
-    while ((*p == ' ') || (*p == '\t'))
-        ++p;
-    *str = p;
-}
-
-static void rskip_spaces(char **str, char *limit)
-{
-    char *p = *str;
-    while ((p >= limit) && ((*p == ' ') || (*p == '\t')))
-        --p;
-    *str = p;
-}
-
 /**
  * \brief Set up default style
  * \param style style to edit to defaults
@@ -193,13 +177,6 @@ static void set_default_style(ASS_Style *style)
     style->Shadow           = 3;
     style->Alignment        = 2;
     style->MarginL = style->MarginR = style->MarginV = 20;
-}
-
-static uint32_t string2color(ASS_Library *library, char *p)
-{
-    uint32_t tmp;
-    (void) strtocolor(library, &p, &tmp, 0);
-    return tmp;
 }
 
 static long long string2timecode(ASS_Library *library, char *p)
@@ -267,7 +244,7 @@ static int numpad2align(int val)
 
 #define COLORVAL(name) \
 	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = string2color(track->library, token);
+		target->name = string2color(track->library, token, 0);
 
 #define INTVAL(name) ANYVAL(name,atoi)
 #define FPVAL(name) ANYVAL(name,ass_atof)
@@ -297,12 +274,7 @@ static char *next_token(char **str)
         *p = '\0';
         *str = p + 1;           // ',' found, str will point to the next char (beginning of the next token)
     }
-    --p;                        // end of current token
-    rskip_spaces(&p, start);
-    if (p < start)
-        p = start;              // empty token
-    else
-        ++p;                    // the first space character, or '\0'
+    rskip_spaces(&p, start);    // end of current token: the first space character, or '\0'
     *p = '\0';
     return start;
 }

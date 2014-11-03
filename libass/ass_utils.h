@@ -52,18 +52,20 @@ int has_avx2(void);
 void *ass_aligned_alloc(size_t alignment, size_t size);
 void ass_aligned_free(void *ptr);
 
+void skip_spaces(char **str);
+void rskip_spaces(char **str, char *limit);
 int mystrtoi(char **p, int *res);
 int mystrtoll(char **p, long long *res);
 int mystrtou32(char **p, int base, uint32_t *res);
 int mystrtod(char **p, double *res);
-int strtocolor(ASS_Library *library, char **q, uint32_t *res, int hex);
+uint32_t string2color(ASS_Library *library, char *p, int hex);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);
 unsigned ass_utf8_get_char(char **str);
 unsigned ass_utf8_put_char(char *dest, uint32_t ch);
 void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...);
 int lookup_style(ASS_Track *track, char *name);
-ASS_Style *lookup_style_strict(ASS_Track *track, char *name);
+ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len);
 #ifdef CONFIG_ENCA
 void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
                           int buflen, char *preferred_language,

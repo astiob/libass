@@ -42,6 +42,7 @@ typedef struct ass_shaper ASS_Shaper;
 #include "ass_library.h"
 #include "ass_drawing.h"
 #include "ass_bitmap.h"
+#include "ass_rasterizer.h"
 
 #define GLYPH_CACHE_MAX 10000
 #define BITMAP_CACHE_MAX_SIZE 500 * 1048576
@@ -84,6 +85,7 @@ typedef struct {
     double par;                 // user defined pixel aspect ratio (0 = unset)
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
+    int selective_style_overrides;
 
     char *default_font;
     char *default_family;
@@ -231,7 +233,7 @@ typedef struct {
     ASS_Event *event;
     ASS_Style *style;
     int parsed_tags;
-    int has_vector_clip;
+    int has_clips;              // clips that conflict with cache change detection
 
     ASS_Font *font;
     double font_size;
@@ -293,6 +295,12 @@ typedef struct {
     int treat_family_as_pattern;
     int wrap_style;
     int font_encoding;
+
+    // combination of ASS_OVERRIDE_BIT_* flags that apply right now
+    unsigned overrides;
+
+    // used to store RenderContext.style when doing selective style overrides
+    ASS_Style override_style_temp_storage;
 } RenderContext;
 
 typedef struct {
@@ -315,9 +323,6 @@ typedef void (*BitmapMulFunc)(uint8_t *dst, intptr_t dst_stride,
 typedef void (*BEBlurFunc)(uint8_t *buf, intptr_t w,
                            intptr_t h, intptr_t stride,
                            uint16_t *tmp);
-typedef void (*RestrideBitmapFunc)(uint8_t *dst, intptr_t dst_stride,
-                                   uint8_t *src, intptr_t src_stride,
-                                   intptr_t width, intptr_t height);
 
 struct ass_renderer {
     ASS_Library *library;
@@ -352,14 +357,18 @@ struct ass_renderer {
     TextInfo text_info;
     CacheStore cache;
 
+#if CONFIG_RASTERIZER
+    ASS_Rasterizer rasterizer;
+#endif
     BitmapBlendFunc add_bitmaps_func;
     BitmapBlendFunc sub_bitmaps_func;
     BitmapMulFunc mul_bitmaps_func;
     BEBlurFunc be_blur_func;
-    RestrideBitmapFunc restride_bitmap_func;
 
     FreeList *free_head;
     FreeList *free_tail;
+
+    ASS_Style user_override_style;
 };
 
 typedef struct render_priv {

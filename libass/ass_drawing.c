@@ -36,6 +36,8 @@ static inline void drawing_add_point(ASS_Drawing *drawing,
                                      FT_Vector *point)
 {
     FT_Outline *ol = &drawing->outline;
+    if (ol->n_points == SHRT_MAX)
+        return;
 
     if (ol->n_points >= drawing->max_points) {
         drawing->max_points *= 2;
@@ -56,6 +58,11 @@ static inline void drawing_add_point(ASS_Drawing *drawing,
 static inline void drawing_close_shape(ASS_Drawing *drawing)
 {
     FT_Outline *ol = &drawing->outline;
+    if (ol->n_contours == SHRT_MAX) {
+        if (ol->n_points)
+            ol->contours[ol->n_contours] = ol->n_points - 1;
+        return;
+    }
 
     if (ol->n_contours >= drawing->max_contours) {
         drawing->max_contours *= 2;
@@ -335,8 +342,6 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
     ASS_Drawing *drawing;
 
     drawing = calloc(1, sizeof(*drawing));
-    drawing->text = calloc(1, DRAWING_INITIAL_SIZE);
-    drawing->size = DRAWING_INITIAL_SIZE;
     drawing->cbox.xMin = drawing->cbox.yMin = INT_MAX;
     drawing->cbox.xMax = drawing->cbox.yMax = INT_MIN;
     drawing->ftlibrary = ftlib;
@@ -367,17 +372,14 @@ void ass_drawing_free(ASS_Drawing* drawing)
 }
 
 /*
- * \brief Add one ASCII character to the drawing text buffer
+ * \brief Copy an ASCII string to the drawing text buffer
  */
-void ass_drawing_add_char(ASS_Drawing* drawing, char symbol)
+void ass_drawing_set_text(ASS_Drawing* drawing, char *str, size_t len)
 {
-    drawing->text[drawing->i++] = symbol;
-    drawing->text[drawing->i] = 0;
-
-    if (drawing->i + 1 >= drawing->size) {
-        drawing->size *= 2;
-        drawing->text = realloc(drawing->text, drawing->size);
-    }
+    free(drawing->text);
+    drawing->text = malloc(len + 1);
+    memcpy(drawing->text, str, len);
+    drawing->text[len] = 0;
 }
 
 /*
