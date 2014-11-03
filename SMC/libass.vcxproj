@@ -68,6 +68,7 @@
     <ClInclude Include="..\libass\ass_fontconfig.h" />
     <ClInclude Include="..\libass\ass_library.h" />
     <ClInclude Include="..\libass\ass_parse.h" />
+    <ClInclude Include="..\libass\ass_rasterizer.h" />
     <ClInclude Include="..\libass\ass_render.h" />
     <ClInclude Include="..\libass\ass_shaper.h" />
     <ClInclude Include="..\libass\ass_types.h" />
@@ -75,6 +76,7 @@
     <ClInclude Include="..\libass\x86\be_blur.h" />
     <ClInclude Include="..\libass\x86\blend_bitmaps.h" />
     <ClInclude Include="..\libass\x86\cpuid.h" />
+    <ClInclude Include="..\libass\x86\rasterizer.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="version.h" />
   </ItemGroup>
@@ -87,6 +89,8 @@
     <ClCompile Include="..\libass\ass_fontconfig.c" />
     <ClCompile Include="..\libass\ass_library.c" />
     <ClCompile Include="..\libass\ass_parse.c" />
+    <ClCompile Include="..\libass\ass_rasterizer.c" />
+    <ClCompile Include="..\libass\ass_rasterizer_c.c" />
     <ClCompile Include="..\libass\ass_render.c" />
     <ClCompile Include="..\libass\ass_render_api.c" />
     <ClCompile Include="..\libass\ass_shaper.c" />
@@ -108,6 +112,7 @@
     </YASM>
     <YASM Include="..\libass\x86\blend_bitmaps.asm" />
     <YASM Include="..\libass\x86\cpuid.asm" />
+    <YASM Include="..\libass\x86\rasterizer.asm" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />

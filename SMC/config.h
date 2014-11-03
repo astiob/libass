@@ -20,8 +20,14 @@
 /* use iconv */
 /* #undef CONFIG_ICONV */
 
+/* use small tiles */
+/* #undef CONFIG_LARGE_TILES */
+
 /* found libpng via pkg-config */
 /* #undef CONFIG_LIBPNG */
+
+/* rasterizer enabled */
+#define CONFIG_RASTERIZER 1
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 /* #undef HAVE_DLFCN_H */
