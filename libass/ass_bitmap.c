@@ -73,8 +73,6 @@ struct ass_synth_priv {
     unsigned *g;
     unsigned *gt2;
 
-    unsigned *b;
-    unsigned *bt2;
     unsigned *bl;
     unsigned *blt2;
 
@@ -150,7 +148,6 @@ static bool generate_gaussian_tables(ASS_SynthPriv *priv, double radius)
 
 static bool generate_be_tables(ASS_SynthPriv *priv, double radius)
 {
-    double inside = ceil(radius) - radius, outside = 1 - inside;
     int mx, i;
     double volume_diff, volume_factor = 0;
     unsigned volume;
@@ -169,11 +166,9 @@ static bool generate_be_tables(ASS_SynthPriv *priv, double radius)
     priv->b_w = 2 * priv->b_r + 1;
 
     if (priv->b_r) {
-        priv->b = ass_realloc_array(priv->b, priv->b_w, sizeof(unsigned));
-        priv->bt2 = ass_realloc_array(priv->bt2, priv->b_w, 256 * sizeof(unsigned));
         priv->bl = ass_realloc_array(priv->bl, priv->b_w, sizeof(unsigned));
         priv->blt2 = ass_realloc_array(priv->blt2, priv->b_w, 256 * sizeof(unsigned));
-        if (!priv->b || !priv->bt2 || !priv->bl || !priv->blt2) {
+        if (!priv->bl || !priv->blt2) {
             free(priv->b);
             free(priv->bt2);
             free(priv->bl);
@@ -183,37 +178,6 @@ static bool generate_be_tables(ASS_SynthPriv *priv, double radius)
     }
 
     if (priv->b_r) {
-        // integer be comb with volume = 65536
-        for (volume_diff = 10000000; volume_diff > 0.0000001;
-             volume_diff *= 0.5) {
-            volume_factor += volume_diff;
-            volume = 0;
-            priv->b[0] = (unsigned) (outside * volume_factor + .5);
-            priv->b[1] = (unsigned) (inside * volume_factor + .5);
-            priv->b[priv->b_w - 2] = priv->b[1];
-            priv->b[priv->b_w - 1] = priv->b[0];
-            priv->b[priv->b_r] = (unsigned) (2 * volume_factor + .5);
-            for (i = 0; i < priv->b_w; ++i)
-                volume += priv->b[i];
-            if (volume > 65536)
-                volume_factor -= volume_diff;
-        }
-        volume = 0;
-        priv->b[0] = (unsigned) (outside * volume_factor + .5);
-        priv->b[1] = (unsigned) (inside * volume_factor + .5);
-        priv->b[priv->b_w - 2] = priv->b[1];
-        priv->b[priv->b_w - 1] = priv->b[0];
-        priv->b[priv->b_r] = (unsigned) (2 * volume_factor + .5);
-        for (i = 0; i < priv->b_w; ++i)
-            volume += priv->b[i];
-
-        // lookup table
-        for (mx = 0; mx < priv->b_w; mx++) {
-            for (i = 0; i < 256; i++) {
-                priv->bt2[mx + i * priv->b_w] = i * priv->b[mx];
-            }
-        }
-
         // integer triangle with volume = 65536
         for (volume_diff = 10000000; volume_diff > 0.0000001;
              volume_diff *= 0.5) {
@@ -303,9 +267,8 @@ void ass_synth_blur(const BitmapEngine *engine,
                             memset(tmp, 0, stride * 2);
                             engine->be_blur(buf, w, h, stride, tmp);
                         }else{
-                            ass_convolve(buf, tmp, w, h, stride,
-                                         priv_blur->bt2, priv_blur->b_r,
-                                         priv_blur->b_w);
+                            upscaled_be_blur_c(buf, w, h, stride, tmp,
+                                               radius_scale);
                         }
                     }
                     be_blur_post(buf, w, h, stride);
@@ -314,9 +277,7 @@ void ass_synth_blur(const BitmapEngine *engine,
                     memset(tmp, 0, stride * 2);
                     engine->be_blur(buf, w, h, stride, tmp);
                 }else{
-                    ass_convolve(buf, tmp, w, h, stride,
-                                 priv_blur->bt2, priv_blur->b_r,
-                                 priv_blur->b_w);
+                    upscaled_be_blur_c(buf, w, h, stride, tmp, radius_scale);
                     ass_convolve(buf, tmp, w, h, stride,
                                  priv_blur->blt2, priv_blur->b_r,
                                  priv_blur->b_w);
@@ -337,9 +298,8 @@ void ass_synth_blur(const BitmapEngine *engine,
                             memset(tmp, 0, stride * 2);
                             engine->be_blur(buf, w, h, stride, tmp);
                         }else{
-                            ass_convolve(buf, tmp, w, h, stride,
-                                         priv_blur->bt2, priv_blur->b_r,
-                                         priv_blur->b_w);
+                            upscaled_be_blur_c(buf, w, h, stride, tmp,
+                                               radius_scale);
                         }
                     }
                     be_blur_post(buf, w, h, stride);
@@ -348,9 +308,7 @@ void ass_synth_blur(const BitmapEngine *engine,
                     memset(tmp, 0, stride * 2);
                     engine->be_blur(buf, w, h, stride, tmp);
                 }else{
-                    ass_convolve(buf, tmp, w, h, stride,
-                                 priv_blur->bt2, priv_blur->b_r,
-                                 priv_blur->b_w);
+                    upscaled_be_blur_c(buf, w, h, stride, tmp, radius_scale);
                     ass_convolve(buf, tmp, w, h, stride,
                                  priv_blur->blt2, priv_blur->b_r,
                                  priv_blur->b_w);
@@ -668,7 +626,7 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 }
 
 /*
- * Convolution filter.  An fast pure C implementation from MPlayer.
+ * Convolution filter. A fast pure C implementation from MPlayer.
  */
 void ass_convolve(unsigned char *buffer, unsigned *tmp2,
                   int width, int height, int stride,
@@ -842,6 +800,77 @@ void ass_be_blur_c(uint8_t *buf, intptr_t w, intptr_t h,
             col_pix_buf[x-1] = temp1;
             dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
             col_sum_buf[x-1] = temp2;
+        }
+        temp1 = old_sum + old_pix;
+        temp2 = col_pix_buf[x-1] + temp1;
+        col_pix_buf[x-1] = temp1;
+        dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
+        col_sum_buf[x-1] = temp2;
+    }
+
+    {
+        dst=buf+(y-1)*stride;
+        for (x = 0; x < w; x++)
+            dst[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
+    }
+}
+
+/**
+ * \brief Blur with [[1,0,...,0,2,0,...,0,1], [2...4...2], [1...2...1]] kernel
+ * This blur is an upscaled version of the kernel used by be_blur.
+ * Pure C implementation.
+ */
+void upscaled_be_blur_c(uint8_t *buf, intptr_t w,
+                        intptr_t h, intptr_t stride,
+                        uint16_t *tmp, double scale)
+{
+    unsigned radius = ceil(scale);
+    double inside = radius - scale, outside = 1 - inside;
+    unsigned short *col_pix_buf = tmp;
+    unsigned short *col_sum_buf = tmp + w * sizeof(unsigned short);
+    unsigned x, y, temp1, temp2;
+    unsigned char *src, *dst;
+    memset(col_pix_buf, 0, w * sizeof(unsigned short));
+    memset(col_sum_buf, 0, w * sizeof(unsigned short));
+    // TODO: properly handle fractional scale
+
+    if (w <= radius)
+        return;
+
+    {
+        y = 0;
+        src=buf+y*stride;
+
+        x = 0;
+        for (; x < radius; x++) {
+            col_sum_buf[x] =
+            col_pix_buf[x] = src[x] * 2 + src[x + radius];
+        }
+        for (; x < w - radius; x++) {
+            col_sum_buf[x] =
+            col_pix_buf[x] = src[x - radius] + src[x] * 2 + src[x + radius];
+        }
+        for (; x < w; x++) {
+            col_sum_buf[x] =
+            col_pix_buf[x] = src[x - radius] + src[x] * 2;
+        }
+    }
+
+    for (y = 1; y < h; y++) {
+        src=buf+y*stride;
+        dst=buf+(y-1)*stride;
+
+        x = 0;
+        for (; x < radius; x++) {
+            temp1 = src[x] * 2 + src[x + radius];
+            temp2 = col_pix_buf[x] + temp1;
+            col_pix_buf[x] = temp1;
+            dst[x] = (col_sum_buf[x] + temp2) >> 4;
+            col_sum_buf[x] = temp2;
+        }
+        for (; x < w - radius; x++) {
+            temp1 = src[x - radius] + src[x] * 2 + src[x + radius];
+            
         }
         temp1 = old_sum + old_pix;
         temp2 = col_pix_buf[x-1] + temp1;
