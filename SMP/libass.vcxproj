@@ -78,7 +78,6 @@
     <ClInclude Include="..\libass\x86\cpuid.h" />
     <ClInclude Include="..\libass\x86\rasterizer.h" />
     <ClInclude Include="config.h" />
-    <ClInclude Include="version.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\libass\ass.c" />

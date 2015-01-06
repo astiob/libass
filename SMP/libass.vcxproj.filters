@@ -27,9 +27,6 @@
     <ClInclude Include="config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="version.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\libass\ass_cache_template.h">
       <Filter>Header Files\libass</Filter>
     </ClInclude>
