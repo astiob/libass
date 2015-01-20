@@ -166,8 +166,8 @@ typedef struct glyph_info {
 #endif
     double font_size;
     ASS_Drawing *drawing;
-    FT_Outline *outline;
-    FT_Outline *border;
+    ASS_Outline *outline;
+    ASS_Outline *border;
     Bitmap *bm;                 // glyph bitmap
     Bitmap *bm_o;               // outline bitmap
     Bitmap *bm_s;               // shadow bitmap
@@ -363,7 +363,6 @@ struct ass_renderer {
     BitmapBlendFunc add_bitmaps_func;
     BitmapBlendFunc sub_bitmaps_func;
     BitmapMulFunc mul_bitmaps_func;
-    BEBlurFunc be_blur_func;
 
     FreeList *free_head;
     FreeList *free_tail;

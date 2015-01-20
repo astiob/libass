@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <ft2build.h>
 #include FT_GLYPH_H
@@ -32,17 +33,42 @@
 #include "ass_bitmap.h"
 #include "ass_render.h"
 
+#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#include "x86/be_blur.h"
+#endif
+
 static const unsigned base = 256;
 
-int generate_tables(ASS_SynthPriv *priv, double radius)
+struct ass_synth_priv {
+    size_t tmp_allocated;
+    void *tmp;
+
+    int g_r;
+    int g_w;
+
+    double *g0;
+    unsigned *g;
+    unsigned *gt2;
+
+    double radius;
+
+    BEBlurFunc be_blur_func;
+};
+
+static bool generate_tables(ASS_SynthPriv *priv, double radius)
 {
     double A = log(1.0 / base) / (radius * radius * 2);
     int mx, i;
     double volume_diff, volume_factor = 0;
     unsigned volume;
 
+    if (radius < 0)
+        return false;
+    if (radius + 2.0 > INT_MAX / 2)
+        radius = INT_MAX / 2;
+
     if (priv->radius == radius)
-        return 0;
+        return true;
     else
         priv->radius = radius;
 
@@ -50,11 +76,14 @@ int generate_tables(ASS_SynthPriv *priv, double radius)
     priv->g_w = 2 * priv->g_r + 1;
 
     if (priv->g_r) {
-        priv->g0 = realloc(priv->g0, priv->g_w * sizeof(double));
-        priv->g = realloc(priv->g, priv->g_w * sizeof(unsigned));
-        priv->gt2 = realloc(priv->gt2, 256 * priv->g_w * sizeof(unsigned));
-        if (priv->g == NULL || priv->gt2 == NULL) {
-            return -1;
+        priv->g0 = ass_realloc_array(priv->g0, priv->g_w, sizeof(double));
+        priv->g = ass_realloc_array(priv->g, priv->g_w, sizeof(unsigned));
+        priv->gt2 = ass_realloc_array(priv->gt2, priv->g_w, 256 * sizeof(unsigned));
+        if (!priv->g || !priv->g0 || !priv->gt2) {
+            free(priv->g0);
+            free(priv->g);
+            free(priv->gt2);
+            return false;
         }
     }
 
@@ -90,30 +119,100 @@ int generate_tables(ASS_SynthPriv *priv, double radius)
         }
     }
 
-    return 0;
+    return true;
 }
 
-void resize_tmp(ASS_SynthPriv *priv, int w, int h)
+static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
-    if (priv->tmp_w >= w && priv->tmp_h >= h)
-        return;
-    if (priv->tmp_w == 0)
-        priv->tmp_w = 64;
-    if (priv->tmp_h == 0)
-        priv->tmp_h = 64;
-    while (priv->tmp_w < w)
-        priv->tmp_w *= 2;
-    while (priv->tmp_h < h)
-        priv->tmp_h *= 2;
+    if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / FFMAX(h, 1))
+        return false;
+    size_t needed = sizeof(unsigned) * (w + 1) * h;
+    if (priv->tmp && priv->tmp_allocated >= needed)
+        return true;
+
     ass_aligned_free(priv->tmp);
-    priv->tmp =
-        ass_aligned_alloc(32, (priv->tmp_w + 1) * priv->tmp_h * sizeof(unsigned));
+    priv->tmp_allocated = FFMAX(needed, priv->tmp_allocated * 2);
+    priv->tmp = ass_aligned_alloc(32, priv->tmp_allocated);
+    return !!priv->tmp;
+}
+
+void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
+                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
+{
+    if(blur_radius > 0.0 || be){
+        if (bm_o && !resize_tmp(priv_blur, bm_o->w, bm_o->h))
+            return;
+        if ((!bm_o || opaque_box) && !resize_tmp(priv_blur, bm_g->w, bm_g->h))
+            return;
+    }
+
+    // Apply box blur (multiple passes, if requested)
+    if (be) {
+        uint16_t* tmp = priv_blur->tmp;
+        if (bm_o) {
+            unsigned passes = be;
+            unsigned w = bm_o->w;
+            unsigned h = bm_o->h;
+            unsigned stride = bm_o->stride;
+            unsigned char *buf = bm_o->buffer;
+            if(w && h){
+                while(passes--){
+                    memset(tmp, 0, stride * 2);
+                    if(w < 16){
+                        be_blur_c(buf, w, h, stride, tmp);
+                    }else{
+                        priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                    }
+                }
+            }
+        }
+        if (!bm_o || opaque_box) {
+            unsigned passes = be;
+            unsigned w = bm_g->w;
+            unsigned h = bm_g->h;
+            unsigned stride = bm_g->stride;
+            unsigned char *buf = bm_g->buffer;
+            if(w && h){
+                while(passes--){
+                    memset(tmp, 0, stride * 2);
+                    priv_blur->be_blur_func(buf, w, h, stride, tmp);
+                }
+            }
+        }
+    }
+
+    // Apply gaussian blur
+    if (blur_radius > 0.0 && generate_tables(priv_blur, blur_radius)) {
+        if (bm_o)
+            ass_gauss_blur(bm_o->buffer, priv_blur->tmp,
+                           bm_o->w, bm_o->h, bm_o->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+        if (!bm_o || opaque_box)
+            ass_gauss_blur(bm_g->buffer, priv_blur->tmp,
+                           bm_g->w, bm_g->h, bm_g->stride,
+                           priv_blur->gt2, priv_blur->g_r,
+                           priv_blur->g_w);
+    }
 }
 
 ASS_SynthPriv *ass_synth_init(double radius)
 {
     ASS_SynthPriv *priv = calloc(1, sizeof(ASS_SynthPriv));
-    generate_tables(priv, radius);
+    if (!priv || !generate_tables(priv, radius)) {
+        free(priv);
+        return NULL;
+    }
+    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+        int avx2 = has_avx2();
+        #ifdef __x86_64__
+            priv->be_blur_func = avx2 ? ass_be_blur_avx2 : ass_be_blur_sse2;
+        #else
+            priv->be_blur_func = be_blur_c;
+        #endif
+    #else
+        priv->be_blur_func = be_blur_c;
+    #endif
     return priv;
 }
 
@@ -131,9 +230,18 @@ static Bitmap *alloc_bitmap_raw(int w, int h)
     Bitmap *bm;
 
     unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
-    unsigned s = ass_align(align, w);
+    size_t s = ass_align(align, w);
+    // Too often we use ints as offset for bitmaps => use INT_MAX.
+    if (s > (INT_MAX - 32) / FFMAX(h, 1))
+        return NULL;
     bm = malloc(sizeof(Bitmap));
+    if (!bm)
+        return NULL;
     bm->buffer = ass_aligned_alloc(align, s * h + 32);
+    if (!bm->buffer) {
+        free(bm);
+        return NULL;
+    }
     bm->w = w;
     bm->h = h;
     bm->stride = s;
@@ -160,6 +268,8 @@ void ass_free_bitmap(Bitmap *bm)
 Bitmap *copy_bitmap(const Bitmap *src)
 {
     Bitmap *dst = alloc_bitmap_raw(src->w, src->h);
+    if (!dst)
+        return NULL;
     dst->left = src->left;
     dst->top = src->top;
     memcpy(dst->buffer, src->buffer, src->stride * src->h);
@@ -169,7 +279,7 @@ Bitmap *copy_bitmap(const Bitmap *src)
 #if CONFIG_RASTERIZER
 
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord)
+                          ASS_Outline *outline, int bord)
 {
     ASS_Rasterizer *rst = &render_priv->rasterizer;
     if (!rasterizer_set_outline(rst, outline)) {
@@ -177,11 +287,19 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
     }
 
+    if (bord < 0 || bord > INT_MAX / 2)
+        return NULL;
+
     if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
         Bitmap *bm = alloc_bitmap(2 * bord, 2 * bord);
+        if (!bm)
+            return NULL;
         bm->left = bm->top = -bord;
         return bm;
     }
+
+    if (rst->x_max > INT_MAX - 63 || rst->y_max > INT_MAX - 63)
+        return NULL;
 
     int x_min = rst->x_min >> 6;
     int y_min = rst->y_min >> 6;
@@ -190,28 +308,31 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     int w = x_max - x_min;
     int h = y_max - y_min;
 
-    if (w * h > 8000000) {
+    int mask = (1 << rst->tile_order) - 1;
+
+    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1) ||
+        w > INT_MAX - (2 * bord + mask) || h > INT_MAX - (2 * bord + mask)) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                 w, h);
         return NULL;
     }
 
-    int mask = (1 << rst->tile_order) - 1;
     int tile_w = (w + 2 * bord + mask) & ~mask;
     int tile_h = (h + 2 * bord + mask) & ~mask;
     Bitmap *bm = alloc_bitmap(tile_w, tile_h);
+    if (!bm)
+        return NULL;
     bm->left = x_min - bord;
-    bm->top = -y_max - bord;
+    bm->top =  y_min - bord;
 
     int offs = bord & ~mask;
-    int bord_h = tile_h - h - bord;
     if (!rasterizer_fill(rst,
             bm->buffer + offs * (bm->stride + 1),
             x_min - bord + offs,
-            y_min - bord_h + (bord_h & ~mask),
+            y_min - bord + offs,
             ((w + bord + mask) & ~mask) - offs,
             ((h + bord + mask) & ~mask) - offs,
-            bm->stride, 1)) {
+            bm->stride)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
         ass_free_bitmap(bm);
         return NULL;
@@ -222,8 +343,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
 #else
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          FT_Outline *outline, int bord)
+static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
+                                    FT_Outline *outline, int bord)
 {
     Bitmap *bm;
     int w, h;
@@ -234,6 +355,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     FT_Outline_Get_CBox(outline, &bbox);
     if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
         bm = alloc_bitmap(2 * bord, 2 * bord);
+        if (!bm)
+            return NULL;
         bm->left = bm->top = -bord;
         return bm;
     }
@@ -242,6 +365,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     bbox.xMin &= ~63;
     bbox.yMin &= ~63;
     FT_Outline_Translate(outline, -bbox.xMin, -bbox.yMin);
+    if (bbox.xMax > INT_MAX - 63 || bbox.yMax > INT_MAX - 63)
+        return NULL;
     // bitmap size
     bbox.xMax = (bbox.xMax + 63) & ~63;
     bbox.yMax = (bbox.yMax + 63) & ~63;
@@ -251,7 +376,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     bbox.xMin >>= 6;
     bbox.yMax >>= 6;
 
-    if (w * h > 8000000) {
+    if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1) ||
+        w > INT_MAX - 2 * bord || h > INT_MAX - 2 * bord) {
         ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
                 w, h);
         return NULL;
@@ -259,6 +385,8 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     // allocate and set up bitmap
     bm = alloc_bitmap(w + 2 * bord, h + 2 * bord);
+    if (!bm)
+        return NULL;
     bm->left = bbox.xMin - bord;
     bm->top = -bbox.yMax - bord;
     bitmap.width = w;
@@ -275,6 +403,42 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
     }
 
+    return bm;
+}
+
+Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
+                          ASS_Outline *outline, int bord)
+{
+    size_t n_points = outline->n_points;
+    if (n_points > SHRT_MAX) {
+        ass_msg(render_priv->library, MSGL_WARN, "Too many outline points: %d",
+                outline->n_points);
+        n_points = SHRT_MAX;
+    }
+
+    size_t n_contours = FFMIN(outline->n_contours, SHRT_MAX);
+    short contours_small[EFFICIENT_CONTOUR_COUNT];
+    short *contours = contours_small;
+    short *contours_large = NULL;
+    if (n_contours > EFFICIENT_CONTOUR_COUNT) {
+        contours_large = malloc(n_contours * sizeof(short));
+        if (!contours_large)
+            return NULL;
+        contours = contours_large;
+    }
+    for (size_t i = 0; i < n_contours; ++i)
+        contours[i] = FFMIN(outline->contours[i], n_points - 1);
+
+    FT_Outline ftol;
+    ftol.n_points = n_points;
+    ftol.n_contours = n_contours;
+    ftol.points = outline->points;
+    ftol.tags = outline->tags;
+    ftol.contours = contours;
+    ftol.flags = 0;
+
+    Bitmap *bm = outline_to_bitmap_ft(render_priv, &ftol, bord);
+    free(contours_large);
     return bm;
 }
 
@@ -327,43 +491,23 @@ void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
     int s = bm->stride;
     unsigned char *buf = bm->buffer;
 
+    assert((shift_x & ~63) == 0 && (shift_y & ~63) == 0);
+
     // Shift in x direction
-    if (shift_x > 0) {
-        for (y = 0; y < h; y++) {
-            for (x = w - 1; x > 0; x--) {
-                b = (buf[x + y * s - 1] * shift_x) >> 6;
-                buf[x + y * s - 1] -= b;
-                buf[x + y * s] += b;
-            }
-        }
-    } else if (shift_x < 0) {
-        shift_x = -shift_x;
-        for (y = 0; y < h; y++) {
-            for (x = 0; x < w - 1; x++) {
-                b = (buf[x + y * s + 1] * shift_x) >> 6;
-                buf[x + y * s + 1] -= b;
-                buf[x + y * s] += b;
-            }
+    for (y = 0; y < h; y++) {
+        for (x = w - 1; x > 0; x--) {
+            b = (buf[x + y * s - 1] * shift_x) >> 6;
+            buf[x + y * s - 1] -= b;
+            buf[x + y * s] += b;
         }
     }
 
     // Shift in y direction
-    if (shift_y > 0) {
-        for (x = 0; x < w; x++) {
-            for (y = h - 1; y > 0; y--) {
-                b = (buf[x + (y - 1) * s] * shift_y) >> 6;
-                buf[x + (y - 1) * s] -= b;
-                buf[x + y * s] += b;
-            }
-        }
-    } else if (shift_y < 0) {
-        shift_y = -shift_y;
-        for (x = 0; x < w; x++) {
-            for (y = 0; y < h - 1; y++) {
-                b = (buf[x + (y + 1) * s] * shift_y) >> 6;
-                buf[x + (y + 1) * s] -= b;
-                buf[x + y * s] += b;
-            }
+    for (x = 0; x < w; x++) {
+        for (y = h - 1; y > 0; y--) {
+            b = (buf[x + (y - 1) * s] * shift_y) >> 6;
+            buf[x + (y - 1) * s] -= b;
+            buf[x + y * s] += b;
         }
     }
 }
@@ -563,14 +707,15 @@ void be_blur_c(uint8_t *buf, intptr_t w,
     }
 }
 
-int outline_to_bitmap3(ASS_Renderer *render_priv, FT_Outline *outline, FT_Outline *border,
+int outline_to_bitmap3(ASS_Renderer *render_priv,
+                       ASS_Outline *outline, ASS_Outline *border,
                        Bitmap **bm_g, Bitmap **bm_o, Bitmap **bm_s,
                        int be, double blur_radius, FT_Vector shadow_offset,
                        int border_style, int border_visible)
 {
     blur_radius *= 2;
     int bbord = be > 0 ? sqrt(2 * be) : 0;
-    int gbord = blur_radius > 0.0 ? blur_radius + 1 : 0;
+    int gbord = blur_radius > 0.0 ? FFMIN(blur_radius + 1, INT_MAX) : 0;
     int bord = FFMAX(bbord, gbord);
     if (bord == 0 && (shadow_offset.x || shadow_offset.y))
         bord = 1;

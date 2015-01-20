@@ -579,9 +579,7 @@ static int process_info_line(ASS_Track *track, char *str)
     } else if (!strncmp(str, "Language:", 9)) {
         char *p = str + 9;
         while (*p && isspace(*p)) p++;
-        track->Language = malloc(3);
-        strncpy(track->Language, p, 2);
-        track->Language[2] = 0;
+        track->Language = strndup(p, 2);
     }
     return 0;
 }
@@ -669,6 +667,8 @@ static int decode_font(ASS_Track *track)
         goto error_decode_font;
     }
     buf = malloc(size / 4 * 3 + 2);
+    if (!buf)
+        goto error_decode_font;
     q = buf;
     for (i = 0, p = (unsigned char *) track->parser_priv->fontdata;
          i < size / 4; i++, p += 4) {
@@ -776,12 +776,6 @@ static int process_line(ASS_Track *track, char *str)
             break;
         }
     }
-
-    // there is no explicit end-of-font marker in ssa/ass
-    if ((track->parser_priv->state != PST_FONTS)
-        && (track->parser_priv->fontname))
-        decode_font(track);
-
     return 0;
 }
 
@@ -809,6 +803,9 @@ static int process_text(ASS_Track *track, char *str)
             break;
         p = q;
     }
+    // there is no explicit end-of-font marker in ssa/ass
+    if (track->parser_priv->fontname)
+        decode_font(track);
     return 0;
 }
 
@@ -821,6 +818,8 @@ static int process_text(ASS_Track *track, char *str)
 void ass_process_data(ASS_Track *track, char *data, int size)
 {
     char *str = malloc(size + 1);
+    if (!str)
+        return;
 
     memcpy(str, data, size);
     str[size] = '\0';
@@ -881,6 +880,8 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
     }
 
     str = malloc(size + 1);
+    if (!str)
+        return;
     memcpy(str, data, size);
     str[size] = '\0';
     ass_msg(track->library, MSGL_V, "Event at %" PRId64 ", +%" PRId64 ": %s",
@@ -967,6 +968,9 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
 #endif
     }
 
+    if (icdsc == (iconv_t) (-1))
+        return NULL;
+
     {
         size_t osize = size;
         size_t ileft = size;
@@ -977,6 +981,8 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
         int clear = 0;
 
         outbuf = malloc(osize);
+        if (!outbuf)
+            goto out;
         ip = data;
         op = outbuf;
 
@@ -990,7 +996,13 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
             if (rc == (size_t) (-1)) {
                 if (errno == E2BIG) {
                     size_t offset = op - outbuf;
-                    outbuf = (char *) realloc(outbuf, osize + size);
+                    char *nbuf = realloc(outbuf, osize + size);
+                    if (!nbuf) {
+                        free(outbuf);
+                        outbuf = 0;
+                        goto out;
+                    }
+                    outbuf = nbuf;
                     op = outbuf + offset;
                     osize += size;
                     oleft += size;
@@ -1049,7 +1061,11 @@ static char *read_file(ASS_Library *library, char *fname, size_t *bufsize)
 
     ass_msg(library, MSGL_V, "File size: %ld", sz);
 
-    buf = malloc(sz + 1);
+    buf = sz < SIZE_MAX ? malloc(sz + 1) : NULL;
+    if (!buf) {
+        fclose(fp);
+        return NULL;
+    }
     assert(buf);
     bytes_read = 0;
     do {
@@ -1087,10 +1103,6 @@ static ASS_Track *parse_memory(ASS_Library *library, char *buf)
     // external SSA/ASS subs does not have ReadOrder field
     for (i = 0; i < track->n_events; ++i)
         track->events[i].ReadOrder = i;
-
-    // there is no explicit end-of-font marker in ssa/ass
-    if (track->parser_priv->fontname)
-        decode_font(track);
 
     if (track->track_type == TRACK_TYPE_UNKNOWN) {
         ass_free_track(track);
@@ -1278,9 +1290,15 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
 ASS_Track *ass_new_track(ASS_Library *library)
 {
     ASS_Track *track = calloc(1, sizeof(ASS_Track));
+    if (!track)
+        return NULL;
     track->library = library;
     track->ScaledBorderAndShadow = 1;
     track->parser_priv = calloc(1, sizeof(ASS_ParserPriv));
+    if (!track->parser_priv) {
+        free(track);
+        return NULL;
+    }
     return track;
 }
 

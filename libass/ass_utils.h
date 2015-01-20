@@ -25,12 +25,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
+
+#include "config.h"
 
 #ifdef CONFIG_ENCA
 #include <enca.h>
 #endif
 
 #include "ass.h"
+
+#ifndef SIZE_MAX
+#define SIZE_MAX ((size_t)-1)
+#endif
 
 #define MSGL_FATAL 0
 #define MSGL_ERR 1
@@ -49,8 +56,29 @@ int has_avx(void);
 int has_avx2(void);
 #endif
 
+#ifndef HAVE_STRNDUP
+char *ass_strndup(const char *s, size_t n);
+#define strndup ass_strndup
+#endif
+
 void *ass_aligned_alloc(size_t alignment, size_t size);
 void ass_aligned_free(void *ptr);
+
+void *ass_realloc_array(void *ptr, size_t nmemb, size_t size);
+void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
+
+/**
+ * Reallocate the array in ptr to at least count elements. For example, if
+ * you do "int *ptr = NULL; ASS_REALLOC_ARRAY(ptr, 5)", you can access ptr[0]
+ * through ptr[4] (inclusive).
+ *
+ * If memory allocation fails, ptr is left unchanged, and the macro returns 0:
+ * "if (!ASS_REALLOC_ARRAY(ptr, 5)) goto error;"
+ *
+ * A count of 0 does not free the array (see ass_realloc_array for remarks).
+ */
+#define ASS_REALLOC_ARRAY(ptr, count) \
+    (errno = 0, (ptr) = ass_try_realloc_array(ptr, count, sizeof(*ptr)), !errno)
 
 void skip_spaces(char **str);
 void rskip_spaces(char **str, char *limit);
@@ -77,6 +105,8 @@ double ass_strtod(const char *string, char **endPtr);
 
 static inline size_t ass_align(size_t alignment, size_t s)
 {
+    if (s > SIZE_MAX - (alignment - 1))
+        return s;
     return (s + (alignment - 1)) & ~(alignment - 1);
 }
 
@@ -90,11 +120,11 @@ static inline int d16_to_int(int x)
 }
 static inline int int_to_d6(int x)
 {
-    return x << 6;
+    return x * (1 << 6);
 }
 static inline int int_to_d16(int x)
 {
-    return x << 16;
+    return x * (1 << 16);
 }
 static inline int d16_to_d6(int x)
 {
@@ -102,7 +132,7 @@ static inline int d16_to_d6(int x)
 }
 static inline int d6_to_d16(int x)
 {
-    return x << 10;
+    return x * (1 << 10);
 }
 static inline double d6_to_double(int x)
 {

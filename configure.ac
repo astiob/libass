@@ -1,10 +1,10 @@
-AC_INIT(libass, 0.12.0)
+AC_INIT(libass, 0.12.1)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
 # Disable C++/Fortran checks
 define([AC_LIBTOOL_LANG_CXX_CONFIG], [:])
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
-AC_PROG_LIBTOOL
+LT_INIT
 AC_CONFIG_SRCDIR([libass/ass.c])
 AC_CONFIG_HEADER([config.h])
 
@@ -28,7 +28,7 @@ AC_TYPE_UINT32_T
 AC_TYPE_UINT8_T
 
 # Checks for library functions.
-AC_CHECK_FUNCS([mkdir strcasecmp strdup strtol])
+AC_CHECK_FUNCS([mkdir strcasecmp strdup strndup strtol])
 
 # Checks for libraries.
 AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
