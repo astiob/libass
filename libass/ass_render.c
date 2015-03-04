@@ -978,6 +978,9 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
 static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
                            int sx, int sy)
 {
+    fprintf(stderr, "%s(%p, %p, %i, %i)\n",
+            __func__, render_priv, outline, sx, sy);
+
     if (sx <= 0 && sy <= 0)
         return;
 
@@ -1031,6 +1034,7 @@ static void stroke_outline(ASS_Renderer *render_priv, ASS_Outline *outline,
         outline->n_points = outline->n_contours = 0;
         if (new_contours > FFMAX(EFFICIENT_CONTOUR_COUNT, n_contours)) {
             if (!ASS_REALLOC_ARRAY(contours_large, new_contours)) {
+                fprintf(stderr, "  contours_large realloc failed\n");
                 free(contours_large);
                 return;
             }
@@ -1203,6 +1207,15 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
 
         outline_get_cbox(val->outline, &val->bbox_scaled);
 
+        fprintf(stderr, "%s(%p, %p):\n", __func__, priv, info);
+        fprintf(stderr, "  info->border_style == %i\n", info->border_style);
+        fprintf(stderr, "  info->border_x == %f\n", info->border_x);
+        fprintf(stderr, "  info->border_y == %f\n", info->border_y);
+        fprintf(stderr, "  info->scale_x == %f\n", info->scale_x);
+        fprintf(stderr, "  info->scale_y == %f\n", info->scale_y);
+        fprintf(stderr, "  double_to_d6(info->scale_x) == %i\n", double_to_d6(info->scale_x));
+        fprintf(stderr, "  double_to_d6(info->scale_y) == %i\n", double_to_d6(info->scale_y));
+
         if (info->border_style == 3) {
             val->border = calloc(1, sizeof(ASS_Outline));
             if (!val->border) {
@@ -1234,6 +1247,8 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
                     double_to_d6(info->border_y * priv->border_scale));
         }
 
+        fprintf(stderr, "  val->outline == %p\n", val->outline);
+        fprintf(stderr, "  val->border == %p\n", val->border);
         ass_cache_commit(val, 1);
     }
 
@@ -1354,6 +1369,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
 
     ASS_Outline *outline = outline_copy(info->outline);
     ASS_Outline *border  = outline_copy(info->border);
+    fprintf(stderr, "%s(%p, %p):\n", __func__, render_priv, info);
+    fprintf(stderr, "  info->outline == %p\n", info->outline);
+    fprintf(stderr, "  info->border == %p\n", info->border);
+    fprintf(stderr, "  outline == %p\n", outline);
+    fprintf(stderr, "  border == %p\n", border);
 
     // calculating rotation shift vector (from rotation origin to the glyph basepoint)
     FT_Vector shift = { key->shift_x, key->shift_y };
@@ -1388,6 +1408,13 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
                                    &val->bm, &val->bm_o);
     if (error)
         info->symbol = 0;
+
+    fprintf(stderr, "  error == %i\n", error);
+    fprintf(stderr, "  info->symbol == %u\n", info->symbol);
+    fprintf(stderr, "  outline == %p\n", outline);
+    fprintf(stderr, "  border == %p\n", border);
+    fprintf(stderr, "  val->bm == %p\n", val->bm);
+    fprintf(stderr, "  val->bm_o == %p\n", val->bm_o);
 
     ass_cache_commit(val, bitmap_size(val->bm) + bitmap_size(val->bm_o) +
                      sizeof(BitmapHashKey) + sizeof(BitmapHashValue));
@@ -1789,6 +1816,12 @@ static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
 
 static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 {
+    fprintf(stderr, "%s(%p, %p):\n", __func__, info, render_priv);
+    fprintf(stderr, "  info->filter.flags == %i\n", info->filter.flags);
+    fprintf(stderr, "  info->bm == %p\n", info->bm);
+    fprintf(stderr, "  info->bm_o == %p\n", info->bm_o);
+    fprintf(stderr, "  info->bm_s == %p\n", info->bm_s);
+
     if (!(info->filter.flags & FILTER_NONZERO_SHADOW)) {
         if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
             fix_outline(info->bm, info->bm_o);
@@ -1810,6 +1843,9 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
         info->bm_o = 0;
     } else if (info->bm)
         info->bm_s = copy_bitmap(render_priv->engine, info->bm);
+
+    fprintf(stderr, "  info->bm_o == %p\n", info->bm_o);
+    fprintf(stderr, "  info->bm_s == %p\n", info->bm_s);
 
     if (!info->bm_s)
         return;
