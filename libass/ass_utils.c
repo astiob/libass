@@ -267,9 +267,9 @@ uint32_t parse_color_tag(char *str)
     return ass_bswap32((uint32_t) color);
 }
 
-uint32_t parse_color_header(char *str)
+static uint32_t parse_uint32_header(char *str)
 {
-    uint32_t color = 0;
+    uint32_t val = 0;
     int base;
 
     if (!ass_strncasecmp(str, "&h", 2) || !ass_strncasecmp(str, "0x", 2)) {
@@ -278,8 +278,22 @@ uint32_t parse_color_header(char *str)
     } else
         base = 10;
 
-    mystrtou32_modulo(&str, base, &color);
-    return ass_bswap32(color);
+    mystrtou32_modulo(&str, base, &val);
+    return val;
+}
+
+int parse_int_header(char *str)
+{
+    // Carefully avoid any implementation-defined behavior
+    // when converting negative values from unsigned to signed,
+    // as long as the int32_t value is representable in plain int
+    uint32_t val = parse_uint32_header(str);
+    return val & 0x80000000 ? -((long long) -val) : val;
+}
+
+uint32_t parse_color_header(char *str)
+{
+    return ass_bswap32(parse_uint32_header(str));
 }
 
 // Return a boolean value for a string

@@ -287,7 +287,7 @@ static int numpad2align(int val)
         target->name = strdup(token);
 
 #define COLORVAL(name) ANYVAL(name,parse_color_header)
-#define INTVAL(name) ANYVAL(name,atoi)
+#define INTVAL(name) ANYVAL(name,parse_int_header)
 #define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
 	} else if (ass_strcasecmp(tname, #name) == 0) { \

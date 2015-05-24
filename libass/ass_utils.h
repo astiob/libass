@@ -84,6 +84,7 @@ int mystrtod(char **p, double *res);
 int mystrtoi32(char **p, int base, int32_t *res);
 int32_t parse_alpha_tag(char *str);
 uint32_t parse_color_tag(char *str);
+int parse_int_header(char *str);
 uint32_t parse_color_header(char *str);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);
