@@ -240,14 +240,13 @@ typedef struct {
     int clip_x0, clip_y0, clip_x1, clip_y1;
     char clip_mode;             // 1 = iclip
     char detect_collisions;
-    uint32_t fade;              // alpha from \fad
+    int fade;                   // alpha from \fad
     char be;                    // blur edges
     double blur;                // gaussian blur
     double shadow_x;
     double shadow_y;
     int drawing_scale;          // currently reading: regular text if 0, drawing otherwise
     double pbo;                 // drawing baseline offset
-    ASS_Drawing *drawing;       // current drawing
     ASS_Drawing *clip_drawing;  // clip vector
     int clip_drawing_mode;      // 0 = regular clip, 1 = inverse clip
 
@@ -292,17 +291,6 @@ typedef struct {
     size_t composite_max_size;
 } CacheStore;
 
-typedef void (*BitmapBlendFunc)(uint8_t *dst, intptr_t dst_stride,
-                                uint8_t *src, intptr_t src_stride,
-                                intptr_t height, intptr_t width);
-typedef void (*BitmapMulFunc)(uint8_t *dst, intptr_t dst_stride,
-                              uint8_t *src1, intptr_t src1_stride,
-                              uint8_t *src2, intptr_t src2_stride,
-                              intptr_t width, intptr_t height);
-typedef void (*BEBlurFunc)(uint8_t *buf, intptr_t w,
-                           intptr_t h, intptr_t stride,
-                           uint16_t *tmp);
-
 struct ass_renderer {
     ASS_Library *library;
     FT_Library ftlibrary;
@@ -336,12 +324,10 @@ struct ass_renderer {
     TextInfo text_info;
     CacheStore cache;
 
+    const BitmapEngine *engine;
 #if CONFIG_RASTERIZER
-    ASS_Rasterizer rasterizer;
+    RasterizerData rasterizer;
 #endif
-    BitmapBlendFunc add_bitmaps_func;
-    BitmapBlendFunc sub_bitmaps_func;
-    BitmapMulFunc mul_bitmaps_func;
 
     FreeList *free_head;
     FreeList *free_tail;

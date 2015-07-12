@@ -33,9 +33,29 @@
 #include "ass_bitmap.h"
 #include "ass_render.h"
 
+
+#define ALIGN           C_ALIGN_ORDER
+#define DECORATE(func)  ass_##func##_c
+#include "ass_func_template.h"
+#undef ALIGN
+#undef DECORATE
+
 #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-#include "x86/be_blur.h"
+
+#define ALIGN           4
+#define DECORATE(func)  ass_##func##_sse2
+#include "ass_func_template.h"
+#undef ALIGN
+#undef DECORATE
+
+#define ALIGN           5
+#define DECORATE(func)  ass_##func##_avx2
+#include "ass_func_template.h"
+#undef ALIGN
+#undef DECORATE
+
 #endif
+
 
 static const unsigned base = 256;
 
@@ -51,8 +71,6 @@ struct ass_synth_priv {
     unsigned *gt2;
 
     double radius;
-
-    BEBlurFunc be_blur_func;
 };
 
 static bool generate_tables(ASS_SynthPriv *priv, double radius)
@@ -126,7 +144,8 @@ static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
 {
     if (w >= INT_MAX || (w + 1) > SIZE_MAX / 2 / sizeof(unsigned) / FFMAX(h, 1))
         return false;
-    size_t needed = sizeof(unsigned) * (w + 1) * h;
+    size_t needed = FFMAX(sizeof(unsigned) * (w + 1) * h,
+                          sizeof(uint16_t) * ass_align(32, w) * 2);
     if (priv->tmp && priv->tmp_allocated >= needed)
         return true;
 
@@ -136,7 +155,8 @@ static bool resize_tmp(ASS_SynthPriv *priv, int w, int h)
     return !!priv->tmp;
 }
 
-void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
+void ass_synth_blur(const BitmapEngine *engine,
+                    ASS_SynthPriv *priv_blur, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
 {
     if(blur_radius > 0.0 || be){
@@ -144,41 +164,6 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
             return;
         if ((!bm_o || opaque_box) && !resize_tmp(priv_blur, bm_g->w, bm_g->h))
             return;
-    }
-
-    // Apply box blur (multiple passes, if requested)
-    if (be) {
-        uint16_t* tmp = priv_blur->tmp;
-        if (bm_o) {
-            unsigned passes = be;
-            unsigned w = bm_o->w;
-            unsigned h = bm_o->h;
-            unsigned stride = bm_o->stride;
-            unsigned char *buf = bm_o->buffer;
-            if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    if(w < 16){
-                        be_blur_c(buf, w, h, stride, tmp);
-                    }else{
-                        priv_blur->be_blur_func(buf, w, h, stride, tmp);
-                    }
-                }
-            }
-        }
-        if (!bm_o || opaque_box) {
-            unsigned passes = be;
-            unsigned w = bm_g->w;
-            unsigned h = bm_g->h;
-            unsigned stride = bm_g->stride;
-            unsigned char *buf = bm_g->buffer;
-            if(w && h){
-                while(passes--){
-                    memset(tmp, 0, stride * 2);
-                    priv_blur->be_blur_func(buf, w, h, stride, tmp);
-                }
-            }
-        }
     }
 
     // Apply gaussian blur
@@ -194,6 +179,49 @@ void ass_synth_blur(ASS_SynthPriv *priv_blur, int opaque_box, int be,
                            priv_blur->gt2, priv_blur->g_r,
                            priv_blur->g_w);
     }
+
+    // Apply box blur (multiple passes, if requested)
+    if (be) {
+        uint16_t* tmp = priv_blur->tmp;
+        if (bm_o) {
+            unsigned passes = be;
+            unsigned w = bm_o->w;
+            unsigned h = bm_o->h;
+            unsigned stride = bm_o->stride;
+            unsigned char *buf = bm_o->buffer;
+            if(w && h){
+                if(passes > 1){
+                    be_blur_pre(buf, w, h, stride);
+                    while(--passes){
+                        memset(tmp, 0, stride * 2);
+                        engine->be_blur(buf, w, h, stride, tmp);
+                    }
+                    be_blur_post(buf, w, h, stride);
+                }
+                memset(tmp, 0, stride * 2);
+                engine->be_blur(buf, w, h, stride, tmp);
+            }
+        }
+        if (!bm_o || opaque_box) {
+            unsigned passes = be;
+            unsigned w = bm_g->w;
+            unsigned h = bm_g->h;
+            unsigned stride = bm_g->stride;
+            unsigned char *buf = bm_g->buffer;
+            if(w && h){
+                if(passes > 1){
+                    be_blur_pre(buf, w, h, stride);
+                    while(--passes){
+                        memset(tmp, 0, stride * 2);
+                        engine->be_blur(buf, w, h, stride, tmp);
+                    }
+                    be_blur_post(buf, w, h, stride);
+                }
+                memset(tmp, 0, stride * 2);
+                engine->be_blur(buf, w, h, stride, tmp);
+            }
+        }
+    }
 }
 
 ASS_SynthPriv *ass_synth_init(double radius)
@@ -203,16 +231,6 @@ ASS_SynthPriv *ass_synth_init(double radius)
         free(priv);
         return NULL;
     }
-    #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
-        int avx2 = has_avx2();
-        #ifdef __x86_64__
-            priv->be_blur_func = avx2 ? ass_be_blur_avx2 : ass_be_blur_sse2;
-        #else
-            priv->be_blur_func = be_blur_c;
-        #endif
-    #else
-        priv->be_blur_func = be_blur_c;
-    #endif
     return priv;
 }
 
@@ -225,36 +243,42 @@ void ass_synth_done(ASS_SynthPriv *priv)
     free(priv);
 }
 
-static Bitmap *alloc_bitmap_raw(int w, int h)
+static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, int h)
 {
-    Bitmap *bm;
-
-    unsigned align = (w >= 32) ? 32 : ((w >= 16) ? 16 : 1);
+    unsigned align = 1 << engine->align_order;
     size_t s = ass_align(align, w);
     // Too often we use ints as offset for bitmaps => use INT_MAX.
     if (s > (INT_MAX - 32) / FFMAX(h, 1))
-        return NULL;
-    bm = malloc(sizeof(Bitmap));
-    if (!bm)
-        return NULL;
-    bm->buffer = ass_aligned_alloc(align, s * h + 32);
-    if (!bm->buffer) {
-        free(bm);
-        return NULL;
-    }
+        return false;
+    uint8_t *buf = ass_aligned_alloc(align, s * h + 32);
+    if (!buf)
+        return false;
     bm->w = w;
     bm->h = h;
     bm->stride = s;
-    bm->left = bm->top = 0;
+    bm->buffer = buf;
+    return true;
+}
+
+static Bitmap *alloc_bitmap_raw(const BitmapEngine *engine, int w, int h)
+{
+    Bitmap *bm = malloc(sizeof(Bitmap));
+    if (!bm)
+        return NULL;
+    if (!alloc_bitmap_buffer(engine, bm, w, h)) {
+        free(bm);
+        return NULL;
+    }
     return bm;
 }
 
-Bitmap *alloc_bitmap(int w, int h)
+Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h)
 {
-    Bitmap *bm = alloc_bitmap_raw(w, h);
+    Bitmap *bm = alloc_bitmap_raw(engine, w, h);
     if(!bm)
         return NULL;
     memset(bm->buffer, 0, bm->stride * bm->h + 32);
+    bm->left = bm->top = 0;
     return bm;
 }
 
@@ -265,9 +289,9 @@ void ass_free_bitmap(Bitmap *bm)
     free(bm);
 }
 
-Bitmap *copy_bitmap(const Bitmap *src)
+Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src)
 {
-    Bitmap *dst = alloc_bitmap_raw(src->w, src->h);
+    Bitmap *dst = alloc_bitmap_raw(engine, src->w, src->h);
     if (!dst)
         return NULL;
     dst->left = src->left;
@@ -281,7 +305,7 @@ Bitmap *copy_bitmap(const Bitmap *src)
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
                           ASS_Outline *outline, int bord)
 {
-    ASS_Rasterizer *rst = &render_priv->rasterizer;
+    RasterizerData *rst = &render_priv->rasterizer;
     if (!rasterizer_set_outline(rst, outline)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return NULL;
@@ -291,7 +315,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
         return NULL;
 
     if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
-        Bitmap *bm = alloc_bitmap(2 * bord, 2 * bord);
+        Bitmap *bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord);
         if (!bm)
             return NULL;
         bm->left = bm->top = -bord;
@@ -308,7 +332,7 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
     int w = x_max - x_min;
     int h = y_max - y_min;
 
-    int mask = (1 << rst->tile_order) - 1;
+    int mask = (1 << render_priv->engine->tile_order) - 1;
 
     if (w < 0 || h < 0 || w > 8000000 / FFMAX(h, 1) ||
         w > INT_MAX - (2 * bord + mask) || h > INT_MAX - (2 * bord + mask)) {
@@ -319,13 +343,13 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     int tile_w = (w + 2 * bord + mask) & ~mask;
     int tile_h = (h + 2 * bord + mask) & ~mask;
-    Bitmap *bm = alloc_bitmap_raw(tile_w, tile_h);
+    Bitmap *bm = alloc_bitmap_raw(render_priv->engine, tile_w, tile_h);
     if (!bm)
         return NULL;
     bm->left = x_min - bord;
     bm->top =  y_min - bord;
 
-    if (!rasterizer_fill(rst, bm->buffer,
+    if (!rasterizer_fill(render_priv->engine, rst, bm->buffer,
                          x_min - bord, y_min - bord,
                          bm->stride, tile_h, bm->stride)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
@@ -630,63 +654,47 @@ void ass_gauss_blur(unsigned char *buffer, unsigned *tmp2,
 }
 
 /**
- * \brief Blur with [[1,2,1]. [2,4,2], [1,2,1]] kernel
+ * \brief Blur with [[1,2,1], [2,4,2], [1,2,1]] kernel
  * This blur is the same as the one employed by vsfilter.
  * Pure C implementation.
  */
-void be_blur_c(uint8_t *buf, intptr_t w,
-               intptr_t h, intptr_t stride,
-               uint16_t *tmp)
+void ass_be_blur_c(uint8_t *buf, intptr_t w, intptr_t h,
+                   intptr_t stride, uint16_t *tmp)
 {
-    unsigned short *col_pix_buf = tmp;
-    unsigned short *col_sum_buf = tmp + w * sizeof(unsigned short);
+    uint16_t *col_pix_buf = tmp;
+    uint16_t *col_sum_buf = tmp + w;
     unsigned x, y, old_pix, old_sum, temp1, temp2;
-    unsigned char *src, *dst;
-    memset(col_pix_buf, 0, w * sizeof(unsigned short));
-    memset(col_sum_buf, 0, w * sizeof(unsigned short));
+    uint8_t *src, *dst;
+    memset(tmp, 0, sizeof(uint16_t) * w * 2);
+    y = 0;
+
     {
-        y = 0;
         src=buf+y*stride;
 
-        x = 2;
+        x = 1;
         old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
+        old_sum = old_pix;
         for ( ; x < w; x++) {
             temp1 = src[x];
             temp2 = old_pix + temp1;
             old_pix = temp1;
             temp1 = old_sum + temp2;
             old_sum = temp2;
-            col_pix_buf[x] = temp1;
+            col_pix_buf[x-1] = temp1;
+            col_sum_buf[x-1] = temp1;
         }
-    }
-    {
-        y = 1;
-        src=buf+y*stride;
-
-        x = 2;
-        old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
-        for ( ; x < w; x++) {
-            temp1 = src[x];
-            temp2 = old_pix + temp1;
-            old_pix = temp1;
-            temp1 = old_sum + temp2;
-            old_sum = temp2;
-
-            temp2 = col_pix_buf[x] + temp1;
-            col_pix_buf[x] = temp1;
-            col_sum_buf[x] = temp2;
-        }
+        temp1 = old_sum + old_pix;
+        col_pix_buf[x-1] = temp1;
+        col_sum_buf[x-1] = temp1;
     }
 
-    for (y = 2; y < h; y++) {
+    for (y++; y < h; y++) {
         src=buf+y*stride;
         dst=buf+(y-1)*stride;
 
-        x = 2;
+        x = 1;
         old_pix = src[x-1];
-        old_sum = old_pix + src[x-2];
+        old_sum = old_pix;
         for ( ; x < w; x++) {
             temp1 = src[x];
             temp2 = old_pix + temp1;
@@ -694,12 +702,81 @@ void be_blur_c(uint8_t *buf, intptr_t w,
             temp1 = old_sum + temp2;
             old_sum = temp2;
 
-            temp2 = col_pix_buf[x] + temp1;
-            col_pix_buf[x] = temp1;
-            dst[x-1] = (col_sum_buf[x] + temp2) >> 4;
-            col_sum_buf[x] = temp2;
+            temp2 = col_pix_buf[x-1] + temp1;
+            col_pix_buf[x-1] = temp1;
+            dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
+            col_sum_buf[x-1] = temp2;
+        }
+        temp1 = old_sum + old_pix;
+        temp2 = col_pix_buf[x-1] + temp1;
+        col_pix_buf[x-1] = temp1;
+        dst[x-1] = (col_sum_buf[x-1] + temp2) >> 4;
+        col_sum_buf[x-1] = temp2;
+    }
+
+    {
+        dst=buf+(y-1)*stride;
+        for (x = 0; x < w; x++)
+            dst[x] = (col_sum_buf[x] + col_pix_buf[x]) >> 4;
+    }
+}
+
+void be_blur_pre(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
+{
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x)
+        {
+            // This is equivalent to (value * 64 + 127) / 255 for all
+            // values from 0 to 256 inclusive. Assist vectorizing
+            // compilers by noting that all temporaries fit in 8 bits.
+            buf[y * stride + x] =
+                (uint8_t) ((buf[y * stride + x] >> 1) + 1) >> 1;
         }
     }
+}
+
+void be_blur_post(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
+{
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x)
+        {
+            // This is equivalent to (value * 255 + 32) / 64 for all values
+            // from 0 to 96 inclusive, and we only care about 0 to 64.
+            uint8_t value = buf[y * stride + x];
+            buf[y * stride + x] = (value << 2) - (value > 32);
+        }
+    }
+}
+
+/*
+ * To find these values, simulate blur on the border between two
+ * half-planes, one zero-filled (background) and the other filled
+ * with the maximum supported value (foreground). Keep incrementing
+ * the \be argument. The necessary padding is the distance by which
+ * the blurred foreground image extends beyond the original border
+ * and into the background. Initially it increases along with \be,
+ * but very soon it grinds to a halt. At some point, the blurred
+ * image actually reaches a stationary point and stays unchanged
+ * forever after, simply _shifting_ by one pixel for each \be
+ * step--moving in the direction of the non-zero half-plane and
+ * thus decreasing the necessary padding (although the large
+ * padding is still needed for intermediate results). In practice,
+ * images are finite rather than infinite like half-planes, but
+ * this can only decrease the required padding. Half-planes filled
+ * with extreme values are the theoretical limit of the worst case.
+ * Make sure to use the right pixel value range in the simulation!
+ */
+int be_padding(int be)
+{
+    if (be <= 3)
+        return be;
+    if (be <= 7)
+        return 4;
+    if (be <= 123)
+        return 5;
+    return FFMAX(128 - be, 0);
 }
 
 int outline_to_bitmap2(ASS_Renderer *render_priv,
@@ -729,9 +806,9 @@ int outline_to_bitmap2(ASS_Renderer *render_priv,
  * \brief Add two bitmaps together at a given position
  * Uses additive blending, clipped to [0,255]. Pure C implementation.
  */
-void add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
-                   uint8_t *src, intptr_t src_stride,
-                   intptr_t height, intptr_t width)
+void ass_add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                       uint8_t *src, intptr_t src_stride,
+                       intptr_t height, intptr_t width)
 {
     unsigned out;
     uint8_t* end = dst + dst_stride * height;
@@ -745,9 +822,9 @@ void add_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
     }
 }
 
-void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
-                   uint8_t *src, intptr_t src_stride,
-                   intptr_t height, intptr_t width)
+void ass_sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                       uint8_t *src, intptr_t src_stride,
+                       intptr_t height, intptr_t width)
 {
     short out;
     uint8_t* end = dst + dst_stride * height;
@@ -761,10 +838,10 @@ void sub_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
     }
 }
 
-void mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
-                   uint8_t *src1, intptr_t src1_stride,
-                   uint8_t *src2, intptr_t src2_stride,
-                   intptr_t w, intptr_t h)
+void ass_mul_bitmaps_c(uint8_t *dst, intptr_t dst_stride,
+                       uint8_t *src1, intptr_t src1_stride,
+                       uint8_t *src2, intptr_t src2_stride,
+                       intptr_t w, intptr_t h)
 {
     uint8_t* end = src1 + src1_stride * h;
     while (src1 < end) {

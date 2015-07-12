@@ -3,7 +3,7 @@ AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
             -Wpointer-arith -Wredundant-decls -D_GNU_SOURCE
 
 LIBASS_LT_CURRENT = 6
-LIBASS_LT_REVISION = 1
+LIBASS_LT_REVISION = 2
 LIBASS_LT_AGE = 1
 
 yasm_verbose = $(yasm_verbose_$(V))
@@ -13,9 +13,9 @@ yasm_verbose_0 = @echo "  YASM    " $@;
 .asm.lo:
 	$(yasm_verbose)$(LIBTOOL) $(AM_V_lt) --mode=compile $(AS) $(ASFLAGS) -o $@ $< -prefer-non-pic
 
-SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm x86/blend_bitmaps.h x86/cpuid.h
-SRC_INTEL64 = x86/be_blur.asm x86/be_blur.h
-SRC_INTEL_RASTERIZER = x86/rasterizer.asm x86/rasterizer.h
+SRC_INTEL = x86/blend_bitmaps.asm x86/cpuid.asm x86/cpuid.h
+SRC_INTEL64 = x86/be_blur.asm
+SRC_INTEL_RASTERIZER = x86/rasterizer.asm
 
 SRC_RASTERIZER = ass_rasterizer.h ass_rasterizer.c ass_rasterizer_c.c
 
@@ -26,7 +26,7 @@ libass_la_SOURCES = ass.c ass_cache.c ass_font.c ass_fontconfig.c ass_render.c \
                     ass_library.h ass_types.h ass_utils.h ass_drawing.c \
                     ass_drawing.h ass_cache_template.h ass_render.h \
                     ass_parse.c ass_parse.h ass_render_api.c ass_shaper.c \
-                    ass_shaper.h ass_strtod.c
+                    ass_shaper.h ass_strtod.c ass_func_template.h
 
 libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LIBASS_LT_REVISION):$(LIBASS_LT_AGE)
 libass_la_LDFLAGS += -export-symbols $(srcdir)/libass.sym

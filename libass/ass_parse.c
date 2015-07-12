@@ -178,17 +178,15 @@ void change_border(ASS_Renderer *render_priv, double border_x, double border_y)
  */
 static void change_color(uint32_t *var, uint32_t new, double pwr)
 {
-    (*var) = ((uint32_t) (_r(*var) * (1 - pwr) + _r(new) * pwr) << 24) +
-        ((uint32_t) (_g(*var) * (1 - pwr) + _g(new) * pwr) << 16) +
-        ((uint32_t) (_b(*var) * (1 - pwr) + _b(new) * pwr) << 8) + _a(*var);
+    (*var) = ((uint32_t) (_r(*var) * (1 - pwr) + _r(new) * pwr) << 24) |
+        ((uint32_t) (_g(*var) * (1 - pwr) + _g(new) * pwr) << 16) |
+        ((uint32_t) (_b(*var) * (1 - pwr) + _b(new) * pwr) << 8) | _a(*var);
 }
 
 // like change_color, but for alpha component only
-inline void change_alpha(uint32_t *var, uint32_t new, double pwr)
+inline void change_alpha(uint32_t *var, int32_t new, double pwr)
 {
-    *var =
-        (_r(*var) << 24) + (_g(*var) << 16) + (_b(*var) << 8) +
-        (uint32_t) (_a(*var) * (1 - pwr) + _a(new) * pwr);
+    *var = (*var & 0xFFFFFF00) | (uint8_t) (_a(*var) * (1 - pwr) + new * pwr);
 }
 
 /**
@@ -207,11 +205,11 @@ inline uint32_t mult_alpha(uint32_t a, uint32_t b)
  * \brief Calculate alpha value by piecewise linear function
  * Used for \fad, \fade implementation.
  */
-static unsigned
+static int
 interpolate_alpha(long long now, long long t1, long long t2, long long t3,
-                  long long t4, unsigned a1, unsigned a2, unsigned a3)
+                  long long t4, int a1, int a2, int a3)
 {
-    unsigned a;
+    int a;
     double cf;
 
     if (now < t1) {
@@ -545,23 +543,20 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
         render_priv->state.family = family;
         update_font(render_priv);
     } else if (tag("alpha")) {
-        uint32_t val;
         int i;
-        int hex = render_priv->track->track_type == TRACK_TYPE_ASS;
         if (nargs) {
-            val = string2color(render_priv->library, args->start, hex);
-            unsigned char a = val >> 24;
+            int32_t a = parse_alpha_tag(args->start);
             for (i = 0; i < 4; ++i)
                 change_alpha(&render_priv->state.c[i], a, pwr);
         } else {
             change_alpha(&render_priv->state.c[0],
-                         render_priv->state.style->PrimaryColour, 1);
+                         _a(render_priv->state.style->PrimaryColour), 1);
             change_alpha(&render_priv->state.c[1],
-                         render_priv->state.style->SecondaryColour, 1);
+                         _a(render_priv->state.style->SecondaryColour), 1);
             change_alpha(&render_priv->state.c[2],
-                         render_priv->state.style->OutlineColour, 1);
+                         _a(render_priv->state.style->OutlineColour), 1);
             change_alpha(&render_priv->state.c[3],
-                         render_priv->state.style->BackColour, 1);
+                         _a(render_priv->state.style->BackColour), 1);
         }
         // FIXME: simplify
     } else if (tag("an")) {
@@ -714,59 +709,62 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
             if (parse_vector_clip(render_priv, args, nargs))
                 render_priv->state.clip_drawing_mode = 0;
         }
-    } else if (tag("c")) {
-        uint32_t val;
-        int hex = render_priv->track->track_type == TRACK_TYPE_ASS;
+    } else if (tag("c") || tag("1c")) {
         if (nargs) {
-            val = string2color(render_priv->library, args->start, hex);
+            uint32_t val = parse_color_tag(args->start);
             change_color(&render_priv->state.c[0], val, pwr);
         } else
             change_color(&render_priv->state.c[0],
                          render_priv->state.style->PrimaryColour, 1);
-    } else if ((*p >= '1') && (*p <= '4') && (++p)
-               && (tag("c") || tag("a"))) {
-        char n = *(p - 2);
-        int cidx = n - '1';
-        char cmd = *(p - 1);
-        uint32_t val;
-        int hex = render_priv->track->track_type == TRACK_TYPE_ASS;
-        assert((n >= '1') && (n <= '4'));
-        if (nargs)
-            val = string2color(render_priv->library, args->start, hex);
-        else {
-            switch (n) {
-            case '1':
-                val = render_priv->state.style->PrimaryColour;
-                break;
-            case '2':
-                val = render_priv->state.style->SecondaryColour;
-                break;
-            case '3':
-                val = render_priv->state.style->OutlineColour;
-                break;
-            case '4':
-                val = render_priv->state.style->BackColour;
-                break;
-            default:
-                val = 0;
-                break;          // impossible due to assert; avoid compilation warning
-            }
-            if (cmd == 'a')
-                val <<= 24;
-            pwr = 1;
-        }
-        switch (cmd) {
-        case 'c':
-            change_color(render_priv->state.c + cidx, val, pwr);
-            break;
-        case 'a':
-            change_alpha(render_priv->state.c + cidx, val >> 24, pwr);
-            break;
-        default:
-            ass_msg(render_priv->library, MSGL_WARN, "Bad command: %c%c",
-                    n, cmd);
-            break;
-        }
+    } else if (tag("2c")) {
+        if (nargs) {
+            uint32_t val = parse_color_tag(args->start);
+            change_color(&render_priv->state.c[1], val, pwr);
+        } else
+            change_color(&render_priv->state.c[1],
+                         render_priv->state.style->SecondaryColour, 1);
+    } else if (tag("3c")) {
+        if (nargs) {
+            uint32_t val = parse_color_tag(args->start);
+            change_color(&render_priv->state.c[2], val, pwr);
+        } else
+            change_color(&render_priv->state.c[2],
+                         render_priv->state.style->OutlineColour, 1);
+    } else if (tag("4c")) {
+        if (nargs) {
+            uint32_t val = parse_color_tag(args->start);
+            change_color(&render_priv->state.c[3], val, pwr);
+        } else
+            change_color(&render_priv->state.c[3],
+                         render_priv->state.style->BackColour, 1);
+    } else if (tag("1a")) {
+        if (nargs) {
+            uint32_t val = parse_alpha_tag(args->start);
+            change_alpha(&render_priv->state.c[0], val, pwr);
+        } else
+            change_alpha(&render_priv->state.c[0],
+                         _a(render_priv->state.style->PrimaryColour), 1);
+    } else if (tag("2a")) {
+        if (nargs) {
+            uint32_t val = parse_alpha_tag(args->start);
+            change_alpha(&render_priv->state.c[1], val, pwr);
+        } else
+            change_alpha(&render_priv->state.c[1],
+                         _a(render_priv->state.style->SecondaryColour), 1);
+    } else if (tag("3a")) {
+        if (nargs) {
+            uint32_t val = parse_alpha_tag(args->start);
+            change_alpha(&render_priv->state.c[2], val, pwr);
+        } else
+            change_alpha(&render_priv->state.c[2],
+                         _a(render_priv->state.style->OutlineColour), 1);
+    } else if (tag("4a")) {
+        if (nargs) {
+            uint32_t val = parse_alpha_tag(args->start);
+            change_alpha(&render_priv->state.c[3], val, pwr);
+        } else
+            change_alpha(&render_priv->state.c[3],
+                         _a(render_priv->state.style->BackColour), 1);
     } else if (tag("r")) {
         if (nargs) {
             int len = args->end - args->start;

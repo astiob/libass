@@ -188,7 +188,7 @@ static long long string2timecode(ASS_Library *library, char *p)
         ass_msg(library, MSGL_WARN, "Bad timestamp");
         return 0;
     }
-    tm = ((h * 60 + m) * 60 + s) * 1000 + ms * 10;
+    tm = ((h * 60LL + m) * 60 + s) * 1000 + ms * 10;
     return tm;
 }
 
@@ -242,10 +242,7 @@ static int numpad2align(int val)
         while (*token == '*') ++token; \
         target->name = strdup(token);
 
-#define COLORVAL(name) \
-	} else if (strcasecmp(tname, #name) == 0) { \
-		target->name = string2color(track->library, token, 0);
-
+#define COLORVAL(name) ANYVAL(name,parse_color_header)
 #define INTVAL(name) ANYVAL(name,atoi)
 #define FPVAL(name) ANYVAL(name,ass_atof)
 #define TIMEVAL(name) \
@@ -1021,7 +1018,6 @@ static char *sub_recode(ASS_Library *library, char *data, size_t size,
 out:
     if (icdsc != (iconv_t) (-1)) {
         (void) iconv_close(icdsc);
-        icdsc = (iconv_t) (-1);
         ass_msg(library, MSGL_V, "Closed iconv descriptor");
     }
 
@@ -1232,12 +1228,13 @@ int ass_read_styles(ASS_Track *track, char *fname, char *codepage)
         buf = tmpbuf;
     }
     if (!buf)
-        return 0;
+        return 1;
 #endif
 
     old_state = track->parser_priv->state;
     track->parser_priv->state = PST_STYLES;
     process_text(track, buf);
+    free(buf);
     track->parser_priv->state = old_state;
 
     return 0;
