@@ -211,6 +211,63 @@ static double x2scr_scaled(ASS_Renderer *render_priv, double x)
         render_priv->track->PlayResX +
         FFMAX(render_priv->settings.left_margin, 0);
 }
+
+// the same for lines aligned left
+static double x2scr_left(ASS_Renderer *render_priv, double x)
+{
+    if (render_priv->state.explicit)
+        return x2scr_pos(render_priv, x);
+    if (render_priv->settings.use_margins)
+        return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
+            render_priv->track->PlayResX;
+    else
+        return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
+            render_priv->track->PlayResX +
+            FFMAX(render_priv->settings.left_margin, 0);
+}
+static double x2scr_left_scaled(ASS_Renderer *render_priv, double x)
+{
+    if (render_priv->state.explicit)
+        return x2scr_pos(render_priv, x);
+    if (render_priv->settings.use_margins)
+        return x * render_priv->orig_width_nocrop /
+            render_priv->track->PlayResX;
+    else
+        return x * render_priv->orig_width_nocrop /
+            render_priv->track->PlayResX +
+            FFMAX(render_priv->settings.left_margin, 0);
+}
+
+// the same for lines aligned right
+static double x2scr_right(ASS_Renderer *render_priv, double x)
+{
+    if (render_priv->state.explicit)
+        return x2scr_pos(render_priv, x);
+    if (render_priv->settings.use_margins)
+        return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
+            render_priv->track->PlayResX +
+            FFMAX(render_priv->settings.left_margin, 0) +
+            FFMAX(render_priv->settings.right_margin, 0);
+    else
+        return x * render_priv->orig_width_nocrop / render_priv->font_scale_x /
+            render_priv->track->PlayResX +
+            FFMAX(render_priv->settings.left_margin, 0);
+}
+static double x2scr_right_scaled(ASS_Renderer *render_priv, double x)
+{
+    if (render_priv->state.explicit)
+        return x2scr_pos(render_priv, x);
+    if (render_priv->settings.use_margins)
+        return x * render_priv->orig_width_nocrop /
+            render_priv->track->PlayResX +
+            FFMAX(render_priv->settings.left_margin, 0) +
+            FFMAX(render_priv->settings.right_margin, 0);
+    else
+        return x * render_priv->orig_width_nocrop /
+            render_priv->track->PlayResX +
+            FFMAX(render_priv->settings.left_margin, 0);
+}
+
 /**
  * \brief Mapping between script and screen coordinates
  */
@@ -249,8 +306,8 @@ static double y2scr_sub(ASS_Renderer *render_priv, double y)
     if (render_priv->settings.use_margins)
         return y * render_priv->orig_height_nocrop /
             render_priv->track->PlayResY +
-            FFMAX(render_priv->settings.top_margin, 0)
-            + FFMAX(render_priv->settings.bottom_margin, 0);
+            FFMAX(render_priv->settings.top_margin, 0) +
+            FFMAX(render_priv->settings.bottom_margin, 0);
     else
         return y * render_priv->orig_height_nocrop /
             render_priv->track->PlayResY +
@@ -2504,8 +2561,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // calculate max length of a line
     double max_text_width =
-        x2scr(render_priv, render_priv->track->PlayResX - MarginR) -
-        x2scr(render_priv, MarginL);
+        x2scr_right(render_priv, render_priv->track->PlayResX - MarginR) -
+        x2scr_left(render_priv, MarginL);
 
     // wrap lines
     if (render_priv->state.evt_type != EVENT_HSCROLL) {
@@ -2531,18 +2588,17 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     // x coordinate for everything except positioned events
     if (render_priv->state.evt_type == EVENT_NORMAL ||
         render_priv->state.evt_type == EVENT_VSCROLL) {
-        device_x = x2scr(render_priv, MarginL);
+        device_x = x2scr_left(render_priv, MarginL);
     } else if (render_priv->state.evt_type == EVENT_HSCROLL) {
         if (render_priv->state.scroll_direction == SCROLL_RL)
             device_x =
-                x2scr(render_priv,
-                      render_priv->track->PlayResX -
-                      render_priv->state.scroll_shift);
+                x2scr_right(render_priv,
+                            render_priv->track->PlayResX -
+                            render_priv->state.scroll_shift);
         else if (render_priv->state.scroll_direction == SCROLL_LR)
             device_x =
-                x2scr(render_priv,
-                      render_priv->state.scroll_shift) - (bbox.xMax -
-                                                          bbox.xMin);
+                x2scr_left(render_priv, render_priv->state.scroll_shift) -
+                (bbox.xMax - bbox.xMin);
     }
 
     // y coordinate for everything except positioned events
@@ -2608,9 +2664,9 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         render_priv->state.evt_type == EVENT_HSCROLL ||
         render_priv->state.evt_type == EVENT_VSCROLL) {
         render_priv->state.clip_x0 =
-            x2scr_scaled(render_priv, render_priv->state.clip_x0);
+            x2scr_left_scaled(render_priv, render_priv->state.clip_x0);
         render_priv->state.clip_x1 =
-            x2scr_scaled(render_priv, render_priv->state.clip_x1);
+            x2scr_right_scaled(render_priv, render_priv->state.clip_x1);
         if (valign == VALIGN_TOP) {
             render_priv->state.clip_y0 =
                 y2scr_top(render_priv, render_priv->state.clip_y0);
