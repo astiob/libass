@@ -66,6 +66,7 @@
     <ClInclude Include="..\libass\ass_drawing.h" />
     <ClInclude Include="..\libass\ass_font.h" />
     <ClInclude Include="..\libass\ass_fontconfig.h" />
+    <ClInclude Include="..\libass\ass_func_template.h" />
     <ClInclude Include="..\libass\ass_library.h" />
     <ClInclude Include="..\libass\ass_parse.h" />
     <ClInclude Include="..\libass\ass_rasterizer.h" />
@@ -73,10 +74,7 @@
     <ClInclude Include="..\libass\ass_shaper.h" />
     <ClInclude Include="..\libass\ass_types.h" />
     <ClInclude Include="..\libass\ass_utils.h" />
-    <ClInclude Include="..\libass\x86\be_blur.h" />
-    <ClInclude Include="..\libass\x86\blend_bitmaps.h" />
     <ClInclude Include="..\libass\x86\cpuid.h" />
-    <ClInclude Include="..\libass\x86\rasterizer.h" />
     <ClInclude Include="config.h" />
   </ItemGroup>
   <ItemGroup>

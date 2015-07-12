@@ -66,20 +66,14 @@
     <ClInclude Include="..\libass\ass_cache.h">
       <Filter>Header Files\libass</Filter>
     </ClInclude>
-    <ClInclude Include="..\libass\x86\be_blur.h">
-      <Filter>Header Files\libass\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="..\libass\x86\blend_bitmaps.h">
-      <Filter>Header Files\libass\x86</Filter>
-    </ClInclude>
     <ClInclude Include="..\libass\x86\cpuid.h">
       <Filter>Header Files\libass\x86</Filter>
     </ClInclude>
     <ClInclude Include="..\libass\ass_rasterizer.h">
       <Filter>Header Files\libass</Filter>
     </ClInclude>
-    <ClInclude Include="..\libass\x86\rasterizer.h">
-      <Filter>Header Files\libass\x86</Filter>
+    <ClInclude Include="..\libass\ass_func_template.h">
+      <Filter>Header Files\libass</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
