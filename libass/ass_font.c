@@ -281,31 +281,14 @@ void ass_face_set_size(FT_Face face, double size)
 {
     TT_HoriHeader *hori = FT_Get_Sfnt_Table(face, ft_sfnt_hhea);
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-    double mscale = 1.;
     FT_Size_RequestRec rq;
     FT_Size_Metrics *m = &face->size->metrics;
-    // VSFilter uses metrics from TrueType OS/2 table
-    // The idea was borrowed from asa (http://asa.diac24.net)
-    if (os2) {
-        int ft_height = 0;
-        if (hori)
-            ft_height = hori->Ascender - hori->Descender;
-        if (!ft_height)
-            ft_height = os2->sTypoAscender - os2->sTypoDescender;
-        /* sometimes used for signed values despite unsigned in spec */
-        int os2_height = (short)os2->usWinAscent + (short)os2->usWinDescent;
-        if (ft_height && os2_height)
-            mscale = (double) ft_height / os2_height;
-    }
     memset(&rq, 0, sizeof(rq));
-    rq.type = FT_SIZE_REQUEST_TYPE_REAL_DIM;
+    rq.type = FT_SIZE_REQUEST_TYPE_NOMINAL;
     rq.width = 0;
-    rq.height = double_to_d6(size * mscale);
+    rq.height = double_to_d6(size);
     rq.horiResolution = rq.vertResolution = 0;
     FT_Request_Size(face, &rq);
-    m->ascender /= mscale;
-    m->descender /= mscale;
-    m->height /= mscale;
 }
 
 /**
