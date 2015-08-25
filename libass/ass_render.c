@@ -2437,6 +2437,8 @@ static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
     }
 }
 
+static FILE *bounds;
+
 /**
  * \brief Main ass rendering function, glues everything together
  * \param event event to render
@@ -2525,6 +2527,11 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
 
     // determing text bounding box
     compute_string_bbox(text_info, &bbox);
+    fprintf(bounds,
+            "%05d: %f %f\n",
+            event->ReadOrder,
+            bbox.xMax - bbox.xMin,
+            bbox.yMax - bbox.yMin);
 
     // determine device coordinates for text
 
@@ -3008,6 +3015,8 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
         return NULL;
     }
 
+    bounds = fopen("bounds.txt", "w");
+
     // render events separately
     cnt = 0;
     for (i = 0; i < track->n_events; ++i) {
@@ -3025,6 +3034,9 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
                 ++cnt;
         }
     }
+
+    fclose(bounds);
+    bounds = NULL;
 
     // sort by layer
     qsort(priv->eimg, cnt, sizeof(EventImages), cmp_event_layer);
