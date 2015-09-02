@@ -477,6 +477,7 @@ cd $(ProjectDir)
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
+      <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -570,6 +571,7 @@ cd $(ProjectDir)
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
+      <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -927,6 +929,7 @@ cd $(ProjectDir)
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
+      <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -1042,6 +1045,7 @@ cd $(ProjectDir)
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090</DisableSpecificWarnings>
       <C99Support>true</C99Support>
+      <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
