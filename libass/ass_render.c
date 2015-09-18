@@ -699,6 +699,9 @@ static void compute_string_bbox(TextInfo *text, DBBox *bbox)
         }
     } else
         bbox->xMin = bbox->xMax = bbox->yMin = bbox->yMax = 0.;
+
+    fprintf(stderr, "xMin=%f, xMax=%f, yMin=%f, yMax=%f\n",
+            bbox->xMin, bbox->xMax, bbox->yMin, bbox->yMax);
 }
 
 static ASS_Style *handle_selective_style_overrides(ASS_Renderer *render_priv,
