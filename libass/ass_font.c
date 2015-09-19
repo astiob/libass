@@ -304,10 +304,11 @@ void ass_face_set_size(FT_Face face, double size)
     rq.horiResolution = rq.vertResolution = 0;
     FT_Request_Size(face, &rq);
     fprintf(stderr, "size=%f, mscale=%f\n", size, mscale);
-    fprintf(stderr, "nominal: asc=%f, desc=%f, height=%f\n",
+    fprintf(stderr, "nominal: asc=%f, desc=%f, height=%f, y_scale=%f\n",
             d6_to_double(m->ascender),
             d6_to_double(m->descender),
-            d6_to_double(m->height));
+            d6_to_double(m->height),
+            d16_to_double(m->y_scale));
     memset(&rq, 0, sizeof(rq));
     rq.type = FT_SIZE_REQUEST_TYPE_REAL_DIM;
     rq.width = 0;
@@ -317,10 +318,11 @@ void ass_face_set_size(FT_Face face, double size)
     m->ascender /= mscale;
     m->descender /= mscale;
     m->height /= mscale;
-    fprintf(stderr, "ASS:     asc=%f, desc=%f, height=%f\n",
+    fprintf(stderr, "ASS:     asc=%f, desc=%f, height=%f, y_scale=%f\n",
             d6_to_double(m->ascender),
             d6_to_double(m->descender),
-            d6_to_double(m->height));
+            d6_to_double(m->height),
+            d16_to_double(m->y_scale));
 }
 
 /**
