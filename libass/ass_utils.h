@@ -28,12 +28,6 @@
 #include <errno.h>
 #include <math.h>
 
-#include "config.h"
-
-#ifdef CONFIG_ENCA
-#include <enca.h>
-#endif
-
 #include "ass.h"
 
 #ifndef SIZE_MAX
@@ -90,18 +84,16 @@ int mystrtoi32(char **p, int base, int32_t *res);
 int32_t parse_alpha_tag(char *str);
 uint32_t parse_color_tag(char *str);
 uint32_t parse_color_header(char *str);
+char *trim_space(char *str);
+char *strdup_trimmed(const char *str);
 char parse_bool(char *str);
 int parse_ycbcr_matrix(char *str);
 unsigned ass_utf8_get_char(char **str);
 unsigned ass_utf8_put_char(char *dest, uint32_t ch);
-void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...);
+void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size);
+void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...);
 int lookup_style(ASS_Track *track, char *name);
 ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len);
-#ifdef CONFIG_ENCA
-void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
-                          int buflen, char *preferred_language,
-                          char *fallback);
-#endif
 
 /* defined in ass_strtod.c */
 double ass_strtod(const char *string, char **endPtr);
@@ -183,7 +175,7 @@ static inline int rot_key(double a)
 
 static inline unsigned fnv_32a_buf(void *buf, size_t len, unsigned hval)
 {
-    unsigned char *bp = buf;
+    unsigned char *bp = (unsigned char*)buf;
     size_t n = (len + 3) / 4;
 
     switch (len % 4) {

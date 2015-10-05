@@ -1,8 +1,7 @@
-AC_INIT(libass, 0.12.3)
+AC_INIT(libass, 0.13.0)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
-# Disable C++/Fortran checks
-define([AC_LIBTOOL_LANG_CXX_CONFIG], [:])
+# Disable Fortran checks
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
 LT_INIT
 AC_CONFIG_SRCDIR([libass/ass.c])
@@ -17,20 +16,13 @@ AM_PROG_AS
 # Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_STDBOOL
-AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h sys/time.h unistd.h iconv.h])
-
-# Checks for typedefs, structures, and compiler characteristics.
-AC_C_CONST
-AC_C_INLINE
-AC_TYPE_INT64_T
-AC_TYPE_SIZE_T
-AC_TYPE_UINT32_T
-AC_TYPE_UINT8_T
+AC_CHECK_HEADERS([stdint.h iconv.h])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([mkdir strcasecmp strdup strndup strtol])
+AC_CHECK_FUNCS([strdup strndup])
 
 # Checks for libraries.
+AC_SEARCH_LIBS([libiconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
 AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
 AC_CHECK_LIB([m], [fabs])
 
@@ -39,10 +31,14 @@ AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
     [enable test program (requires libpng) @<:@default=no@:>@]))
 AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
     [enable profiling program @<:@default=no@:>@]))
-AC_ARG_ENABLE([enca], AS_HELP_STRING([--disable-enca],
-    [disable enca (charset autodetect) support @<:@default=check@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
     [disable fontconfig support @<:@default=enabled@:>@]))
+AC_ARG_ENABLE([directwrite], AS_HELP_STRING([--disable-directwrite],
+    [disable DirectWrite support (win32 only) @<:@default=check@:>@]))
+AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
+    [disable CoreText support (OSX only) @<:@default=check@:>@]))
+AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-system-font-provider],
+    [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
 AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
@@ -132,6 +128,7 @@ AM_COND_IF([ENABLE_LARGE_TILES],
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
+    CXXFLAGS="$CFLAGS $FREETYPE_CFLAGS"
     LIBS="$LIBS $FREETYPE_LIBS"
     AC_DEFINE(CONFIG_FREETYPE, 1, [found freetype2 via pkg-config])
     ])
@@ -148,8 +145,51 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
     LIBS="$LIBS $FONTCONFIG_LIBS"
     AC_DEFINE(CONFIG_FONTCONFIG, 1, [found fontconfig via pkg-config])
 	fontconfig=true
-    ])
+    ], [fontconfig=false])
 fi
+
+if test x$enable_coretext != xno; then
+OLDLIBS="$LIBS"
+# Linking to CoreText directly only works from Mountain Lion and iOS6. In
+# earlier OS releases CoreText was part of the ApplicationServices umbrella
+# framework.
+LIBS="$LIBS -framework CoreText -framework CoreFoundation -framework CoreGraphics"
+AC_MSG_CHECKING([for CORETEXT])
+AC_LINK_IFELSE([
+  AC_LANG_PROGRAM(
+    [[#include <CoreText/CoreText.h>]],
+    [[CTFontCreateWithFontDescriptor(NULL, 0.0, NULL);]],)
+  ], [
+    AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText in System library])
+    coretext=true
+    AC_MSG_RESULT([yes])
+  ], [
+    LIBS="$OLDLIBS"
+    coretext=false
+    AC_MSG_RESULT([no])
+  ])
+fi
+AM_CONDITIONAL([CORETEXT], [test x$coretext = xtrue])
+
+
+
+if test x$enable_directwrite != xno; then
+# Linking to DirectWrite directly only works from Windows
+AC_MSG_CHECKING([for DIRECTWRITE])
+AC_LINK_IFELSE([
+  AC_LANG_PROGRAM(
+    [[#include <windows.h>]],
+    [[;]],)
+  ], [
+    AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite])
+    directwrite=true
+    AC_MSG_RESULT([yes])
+  ], [
+    directwrite=false
+    AC_MSG_RESULT([no])
+  ])
+fi
+AM_CONDITIONAL([DIRECTWRITE], [test x$directwrite = xtrue])
 
 if test x$enable_harfbuzz != xno; then
 PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
@@ -158,15 +198,6 @@ PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
     AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz-ng via pkg-config])
 	harfbuzz=true
     ], [harfbuzz=false])
-fi
-
-if test x$enable_enca != xno; then
-PKG_CHECK_MODULES([ENCA], enca, [
-    CFLAGS="$CFLAGS $ENCA_CFLAGS"
-    LIBS="$LIBS $ENCA_LIBS"
-    AC_DEFINE(CONFIG_ENCA, 1, [found enca via pkg-config])
-	enca=true
-	], [enca=false])
 fi
 
 libpng=false
@@ -185,14 +216,22 @@ AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 pkg_libs="-lm"
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
-if test x$enca = xtrue; then
-    pkg_requires="enca, ${pkg_requires}"
-fi
 if test x$fontconfig = xtrue; then
     pkg_requires="fontconfig >= 2.4.2, ${pkg_requires}"
 fi
 if test x$harfbuzz = xtrue; then
     pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"
+fi
+
+if test x$enable_require_system_font_provider != xno &&
+   test x$fontconfig != xtrue &&
+   test x$directwrite != xtrue &&
+   test x$coretext != xtrue
+then
+    AC_MSG_ERROR([\
+Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig\
+(Linux, other) is required. If you really want to compile without\
+a system font provider, add --disable-require-system-font-provider])
 fi
 
 AC_SUBST([PKG_LIBS_DEFAULT], [$(test x$enable_shared = xno && echo ${pkg_libs})])

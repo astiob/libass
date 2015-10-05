@@ -17,6 +17,7 @@
  */
 
 #include "config.h"
+#include "ass_compat.h"
 
 #include <assert.h>
 #include <math.h>
@@ -57,8 +58,6 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
         FT_Done_FreeType(ft);
         goto ass_init_exit;
     }
-
-    priv->synth_priv = ass_synth_init(BLUR_MAX_RADIUS);
 
     priv->library = library;
     priv->ftlibrary = ft;
@@ -147,13 +146,11 @@ void ass_renderer_done(ASS_Renderer *render_priv)
         FT_Stroker_Done(render_priv->state.stroker);
         render_priv->state.stroker = 0;
     }
+    if (render_priv->fontselect)
+        ass_fontselect_free(render_priv->fontselect);
+    ass_shaper_free(render_priv->shaper);
     if (render_priv->ftlibrary)
         FT_Done_FreeType(render_priv->ftlibrary);
-    if (render_priv->fontconfig_priv)
-        fontconfig_done(render_priv->fontconfig_priv);
-    if (render_priv->synth_priv)
-        ass_synth_done(render_priv->synth_priv);
-    ass_shaper_free(render_priv->shaper);
     free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
     free(render_priv->text_info.lines);
@@ -1185,7 +1182,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             ass_font_set_transform(info->font, info->scale_x,
                                    info->scale_y, NULL);
             FT_Glyph glyph =
-                ass_font_get_glyph(priv->fontconfig_priv, info->font,
+                ass_font_get_glyph(info->font,
                         info->symbol, info->face_index, info->glyph_index,
                         priv->settings.hinting, info->flags);
             if (glyph != NULL) {
@@ -1485,7 +1482,7 @@ static void trim_whitespace(ASS_Renderer *render_priv)
             }
             // A break itself can contain a whitespace, too
             cur = ti->glyphs + i;
-            if (cur->symbol == ' ') {
+            if (cur->symbol == ' ' || cur->symbol == '\n') {
                 cur->skip++;
                 // Mark whitespace after
                 j = i + 1;
@@ -1789,7 +1786,7 @@ static int is_new_bm_run(GlyphInfo *info, GlyphInfo *last)
 static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_priv)
 {
     if (!(info->filter.flags & FILTER_NONZERO_SHADOW)) {
-        if (info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
+        if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
             fix_outline(info->bm, info->bm_o);
         } else if (info->bm_o && !(info->filter.flags & FILTER_NONZERO_BORDER)) {
             ass_free_bitmap(info->bm_o);
@@ -1799,7 +1796,7 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
     }
 
     // Create shadow and fix outline as needed
-    if (info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
+    if (info->bm && info->bm_o && !(info->filter.flags & FILTER_BORDER_STYLE_3)) {
         info->bm_s = copy_bitmap(render_priv->engine, info->bm_o);
         fix_outline(info->bm, info->bm_o);
     } else if (info->bm_o && (info->filter.flags & FILTER_NONZERO_BORDER)) {
@@ -1807,7 +1804,7 @@ static void make_shadow_bitmap(CombinedBitmapInfo *info, ASS_Renderer *render_pr
     } else if (info->bm_o) {
         info->bm_s = info->bm_o;
         info->bm_o = 0;
-    } else
+    } else if (info->bm)
         info->bm_s = copy_bitmap(render_priv->engine, info->bm);
 
     if (!info->bm_s)
@@ -2277,10 +2274,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             continue;
         }
 
-        int bbord = be_padding(info->filter.be);
-        int gbord = info->filter.blur > 0.0 ? FFMIN(info->filter.blur + 1, INT_MAX) : 0;
-        int bord = FFMAX(bbord, gbord);
-
+        int bord = be_padding(info->filter.be);
         if (!bord && info->n_bm == 1) {
             for (int j = 0; j < info->bitmap_count; ++j) {
                 if (!info->bitmaps[j].image->bm)
@@ -2351,8 +2345,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
         }
 
         if(info->bm || info->bm_o){
-            ass_synth_blur(render_priv->engine,
-                           render_priv->synth_priv, info->filter.flags & FILTER_BORDER_STYLE_3,
+            ass_synth_blur(render_priv->engine, info->filter.flags & FILTER_BORDER_STYLE_3,
                            info->filter.be, info->filter.blur, info->bm, info->bm_o);
             if (info->filter.flags & FILTER_DRAW_SHADOW)
                 make_shadow_bitmap(info, render_priv);
@@ -2679,7 +2672,10 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
         && !render_priv->settings.frame_height)
         return 1;               // library not initialized
 
-    if (!render_priv->fontconfig_priv)
+    if (!render_priv->fontselect)
+        return 1;
+
+    if (render_priv->library != track->library)
         return 1;
 
     free_list_clear(render_priv);

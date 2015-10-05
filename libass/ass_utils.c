@@ -17,18 +17,18 @@
  */
 
 #include "config.h"
+#include "ass_compat.h"
 
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <inttypes.h>
-#include <strings.h>
-#include <limits.h>
 
 #include "ass_library.h"
 #include "ass.h"
 #include "ass_utils.h"
+#include "ass_string.h"
 
 #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
 
@@ -48,6 +48,9 @@ int has_avx(void)
     if(!(ecx & (1 << 27))) // not OSXSAVE
         return 0;
     uint32_t misc = ecx;
+    ass_get_xgetbv(0, &eax, &edx);
+    if((eax & 0x6) != 0x6)
+        return 0;
     eax = 0;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
     return (ecx & 0x6) == 0x6 ? (misc >> 28) & 0x1 : 0; // check high bits are relevant, then AVX support
@@ -229,7 +232,7 @@ static int mystrtou32_modulo(char **p, int base, uint32_t *res)
     else if (**p == '-')
         sign = -1, ++*p;
 
-    if (base == 16 && !strncasecmp(*p, "0x", 2))
+    if (base == 16 && !ass_strncasecmp(*p, "0x", 2))
         *p += 2;
 
     if (read_digits(p, base, res)) {
@@ -268,7 +271,7 @@ uint32_t parse_color_header(char *str)
     uint32_t color = 0;
     int base;
 
-    if (!strncasecmp(str, "&h", 2) || !strncasecmp(str, "0x", 2)) {
+    if (!ass_strncasecmp(str, "&h", 2) || !ass_strncasecmp(str, "0x", 2)) {
         str += 2;
         base = 16;
     } else
@@ -282,7 +285,7 @@ uint32_t parse_color_header(char *str)
 char parse_bool(char *str)
 {
     skip_spaces(&str);
-    return !strncasecmp(str, "yes", 3) || strtol(str, NULL, 10) > 0;
+    return !ass_strncasecmp(str, "yes", 3) || strtol(str, NULL, 10) > 0;
 }
 
 int parse_ycbcr_matrix(char *str)
@@ -302,33 +305,55 @@ int parse_ycbcr_matrix(char *str)
     memcpy(buffer, str, n);
     buffer[n] = '\0';
 
-    if (!strcasecmp(buffer, "none"))
+    if (!ass_strcasecmp(buffer, "none"))
         return YCBCR_NONE;
-    if (!strcasecmp(buffer, "tv.601"))
+    if (!ass_strcasecmp(buffer, "tv.601"))
         return YCBCR_BT601_TV;
-    if (!strcasecmp(buffer, "pc.601"))
+    if (!ass_strcasecmp(buffer, "pc.601"))
         return YCBCR_BT601_PC;
-    if (!strcasecmp(buffer, "tv.709"))
+    if (!ass_strcasecmp(buffer, "tv.709"))
         return YCBCR_BT709_TV;
-    if (!strcasecmp(buffer, "pc.709"))
+    if (!ass_strcasecmp(buffer, "pc.709"))
         return YCBCR_BT709_PC;
-    if (!strcasecmp(buffer, "tv.240m"))
+    if (!ass_strcasecmp(buffer, "tv.240m"))
         return YCBCR_SMPTE240M_TV;
-    if (!strcasecmp(buffer, "pc.240m"))
+    if (!ass_strcasecmp(buffer, "pc.240m"))
         return YCBCR_SMPTE240M_PC;
-    if (!strcasecmp(buffer, "tv.fcc"))
+    if (!ass_strcasecmp(buffer, "tv.fcc"))
         return YCBCR_FCC_TV;
-    if (!strcasecmp(buffer, "pc.fcc"))
+    if (!ass_strcasecmp(buffer, "pc.fcc"))
         return YCBCR_FCC_PC;
     return YCBCR_UNKNOWN;
 }
 
-void ass_msg(ASS_Library *priv, int lvl, char *fmt, ...)
+void ass_msg(ASS_Library *priv, int lvl, const char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
     priv->msg_callback(lvl, fmt, va, priv->msg_callback_data);
     va_end(va);
+}
+
+/**
+ * Return a string with spaces trimmed at start and end.
+ * \param str input string
+ * \return output string, can be released with free()
+ */
+char *strdup_trimmed(const char *str)
+{
+    int left = 0;
+    int right = strlen(str) - 1;
+    char *out = NULL;
+
+    while (ass_isspace(str[left])) left++;
+    while (right > left && ass_isspace(str[right])) right--;
+
+    out = calloc(1, right-left+2);
+
+    if (out)
+        memcpy(out, str + left, right-left+1);
+
+    return out;
 }
 
 unsigned ass_utf8_get_char(char **str)
@@ -394,6 +419,64 @@ unsigned ass_utf8_put_char(char *dest, uint32_t ch)
 }
 
 /**
+ * \brief Parse UTF-16 and return the code point of the sequence starting at src.
+ * \param src pointer to a pointer to the start of the UTF-16 data
+ *            (will be set to the start of the next code point)
+ * \return the code point
+ */
+static uint32_t ass_read_utf16be(uint8_t **src, size_t bytes)
+{
+    if (bytes < 2)
+        goto too_short;
+
+    uint32_t cp = ((*src)[0] << 8) | (*src)[1];
+    *src += 2;
+    bytes -= 2;
+
+    if (cp >= 0xD800 && cp <= 0xDBFF) {
+        if (bytes < 2)
+            goto too_short;
+
+        uint32_t cp2 = ((*src)[0] << 8) | (*src)[1];
+
+        if (cp2 < 0xDC00 || cp2 > 0xDFFF)
+            return 0xFFFD;
+
+        *src += 2;
+
+        cp = 0x10000 + ((cp - 0xD800) << 10) + (cp2 - 0xDC00);
+    }
+
+    if (cp >= 0xDC00 && cp <= 0xDFFF)
+        return 0xFFFD;
+
+    return cp;
+
+too_short:
+    *src += bytes;
+    return 0xFFFD;
+}
+
+void ass_utf16be_to_utf8(char *dst, size_t dst_size, uint8_t *src, size_t src_size)
+{
+    uint8_t *end = src + src_size;
+
+    if (!dst_size)
+        return;
+
+    while (src < end) {
+        uint32_t cp = ass_read_utf16be(&src, end - src);
+        if (dst_size < 5)
+            break;
+        unsigned s = ass_utf8_put_char(dst, cp);
+        dst += s;
+        dst_size -= s;
+    }
+
+    *dst = '\0';
+}
+
+/**
  * \brief find style by name
  * \param track track
  * \param name style name
@@ -410,7 +493,7 @@ int lookup_style(ASS_Track *track, char *name)
         ++name;
     // VSFilter then normalizes the case of "Default"
     // (only in contexts where this function is called)
-    if (strcasecmp(name, "Default") == 0)
+    if (ass_strcasecmp(name, "Default") == 0)
         name = "Default";
     for (i = track->n_styles - 1; i >= 0; --i) {
         if (strcmp(track->styles[i].Name, name) == 0)
@@ -445,47 +528,3 @@ ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
     return NULL;
 }
 
-#ifdef CONFIG_ENCA
-void *ass_guess_buffer_cp(ASS_Library *library, unsigned char *buffer,
-                          int buflen, char *preferred_language,
-                          char *fallback)
-{
-    const char **languages;
-    size_t langcnt;
-    EncaAnalyser analyser;
-    EncaEncoding encoding;
-    char *detected_sub_cp = NULL;
-    int i;
-
-    languages = enca_get_languages(&langcnt);
-    ass_msg(library, MSGL_V, "ENCA supported languages");
-    for (i = 0; i < langcnt; i++) {
-        ass_msg(library, MSGL_V, "lang %s", languages[i]);
-    }
-
-    for (i = 0; i < langcnt; i++) {
-        const char *tmp;
-
-        if (strcasecmp(languages[i], preferred_language) != 0)
-            continue;
-        analyser = enca_analyser_alloc(languages[i]);
-        encoding = enca_analyse_const(analyser, buffer, buflen);
-        tmp = enca_charset_name(encoding.charset, ENCA_NAME_STYLE_ICONV);
-        if (tmp && encoding.charset != ENCA_CS_UNKNOWN) {
-            detected_sub_cp = strdup(tmp);
-            ass_msg(library, MSGL_INFO, "ENCA detected charset: %s", tmp);
-        }
-        enca_analyser_free(analyser);
-    }
-
-    free(languages);
-
-    if (!detected_sub_cp) {
-        detected_sub_cp = strdup(fallback);
-        ass_msg(library, MSGL_INFO,
-               "ENCA detection failed: fallback to %s", fallback);
-    }
-
-    return detected_sub_cp;
-}
-#endif

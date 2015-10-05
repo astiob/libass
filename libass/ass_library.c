@@ -17,6 +17,7 @@
  */
 
 #include "config.h"
+#include "ass_compat.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -27,6 +28,7 @@
 #include "ass.h"
 #include "ass_library.h"
 #include "ass_utils.h"
+#include "ass_string.h"
 
 static void ass_msg_handler(int level, const char *fmt, va_list va, void *data)
 {

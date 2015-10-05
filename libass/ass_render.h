@@ -30,15 +30,12 @@
 #include "hb.h"
 #endif
 
-// XXX: fix the inclusion mess so we can avoid doing this here
-typedef struct ass_shaper ASS_Shaper;
-
 #include "ass.h"
 #include "ass_font.h"
 #include "ass_bitmap.h"
 #include "ass_cache.h"
 #include "ass_utils.h"
-#include "ass_fontconfig.h"
+#include "ass_fontselect.h"
 #include "ass_library.h"
 #include "ass_drawing.h"
 #include "ass_bitmap.h"
@@ -291,13 +288,14 @@ typedef struct {
     size_t composite_max_size;
 } CacheStore;
 
+#include "ass_shaper.h"
+
 struct ass_renderer {
     ASS_Library *library;
     FT_Library ftlibrary;
-    FCInstance *fontconfig_priv;
+    ASS_FontSelector *fontselect;
     ASS_Settings settings;
     int render_id;
-    ASS_SynthPriv *synth_priv;
     ASS_Shaper *shaper;
 
     ASS_Image *images_root;     // rendering result is stored here

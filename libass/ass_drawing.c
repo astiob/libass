@@ -16,6 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "config.h"
+#include "ass_compat.h"
+
 #include <ft2build.h>
 #include FT_OUTLINE_H
 #include FT_BBOX_H
@@ -296,7 +299,10 @@ ASS_Drawing *ass_drawing_new(ASS_Library *lib, FT_Library ftlib)
     drawing->scale_x = 1.;
     drawing->scale_y = 1.;
 
-    outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_CONTOURS);
+    if (!outline_alloc(&drawing->outline, GLYPH_INITIAL_POINTS, GLYPH_INITIAL_CONTOURS)) {
+        free(drawing);
+        return NULL;
+    }
     return drawing;
 }
 

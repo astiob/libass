@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Grigori Goronzy <greg@chown.ath.cx>
+ * Copyright (C) 2015 Grigori Goronzy <greg@kinoho.net>
  *
  * This file is part of libass.
  *
@@ -16,18 +16,23 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "ass_types.h"
-#include "ass_fontselect.h"
+#include <stdlib.h>
 
-#ifndef ASS_FONTCONFIG_H
-#define ASS_FONTCONFIG_H
+#ifndef ASS_STRING_H
+#define ASS_STRING_H
 
-#ifdef CONFIG_FONTCONFIG
+int ass_strcasecmp(const char *s1, const char *s2);
+int ass_strncasecmp(const char *s1, const char *s2, size_t n);
 
-ASS_FontProvider *
-ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
-                            const char *config);
+static inline int ass_isspace(int c)
+{
+    return c == ' ' || c == '\t' || c == '\n' || c == '\v' ||
+           c == '\f' || c == '\r';
+}
 
-#endif
+static inline int ass_isdigit(int c)
+{
+    return c >= '0' && c <= '9';
+}
 
 #endif

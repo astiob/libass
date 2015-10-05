@@ -17,6 +17,7 @@
  */
 
 #include "config.h"
+#include "ass_compat.h"
 
 #include "ass_shaper.h"
 #include "ass_render.h"
@@ -79,7 +80,7 @@ struct ass_shaper_font_data {
  */
 void ass_shaper_info(ASS_Library *lib)
 {
-    ass_msg(lib, MSGL_V, "Shaper: FriBidi "
+    ass_msg(lib, MSGL_INFO, "Shaper: FriBidi "
             FRIBIDI_VERSION " (SIMPLE)"
 #ifdef CONFIG_HARFBUZZ
             " HarfBuzz-ng %s (COMPLEX)", hb_version_string()
@@ -733,7 +734,7 @@ void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
         if (info->symbol == 0xfffc)
             continue;
         // set size and get glyph index
-        ass_font_get_index(render_priv->fontconfig_priv, info->font,
+        ass_font_get_index(render_priv->fontselect, info->font,
                 info->symbol, &info->face_index, &info->glyph_index);
         // shape runs break on: xbord, ybord, xshad, yshad,
         // all four colors, all four alphas, be, blur, fn, fs,
