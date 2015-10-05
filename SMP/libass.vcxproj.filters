@@ -75,6 +75,21 @@
     <ClInclude Include="..\libass\ass_func_template.h">
       <Filter>Header Files\libass</Filter>
     </ClInclude>
+    <ClInclude Include="..\libass\ass_fontselect.h">
+      <Filter>Header Files\libass</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libass\ass_compat.h">
+      <Filter>Header Files\libass</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libass\ass_string.h">
+      <Filter>Header Files\libass</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libass\dwrite_c.h">
+      <Filter>Header Files\libass</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libass\ass_directwrite.h">
+      <Filter>Header Files\libass</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\libass\ass_fontconfig.c">
@@ -122,6 +137,18 @@
     <ClCompile Include="..\libass\ass_rasterizer.c">
       <Filter>Source Files\libass</Filter>
     </ClCompile>
+    <ClCompile Include="..\libass\ass_fontselect.c">
+      <Filter>Source Files\libass</Filter>
+    </ClCompile>
+    <ClCompile Include="..\libass\ass_blur.c">
+      <Filter>Source Files\libass</Filter>
+    </ClCompile>
+    <ClCompile Include="..\libass\ass_string.c">
+      <Filter>Source Files\libass</Filter>
+    </ClCompile>
+    <ClCompile Include="..\libass\ass_directwrite.c">
+      <Filter>Source Files\libass</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="libass.def">
@@ -139,6 +166,12 @@
       <Filter>Source Files\libass\x86</Filter>
     </YASM>
     <YASM Include="..\libass\x86\rasterizer.asm">
+      <Filter>Source Files\libass\x86</Filter>
+    </YASM>
+    <YASM Include="..\libass\x86\utils.asm">
+      <Filter>Source Files\libass\x86</Filter>
+    </YASM>
+    <YASM Include="..\libass\x86\blur.asm">
       <Filter>Source Files\libass\x86</Filter>
     </YASM>
   </ItemGroup>

@@ -63,27 +63,35 @@
     <ClInclude Include="..\libass\ass_bitmap.h" />
     <ClInclude Include="..\libass\ass_cache.h" />
     <ClInclude Include="..\libass\ass_cache_template.h" />
+    <ClInclude Include="..\libass\ass_compat.h" />
+    <ClInclude Include="..\libass\ass_directwrite.h" />
     <ClInclude Include="..\libass\ass_drawing.h" />
     <ClInclude Include="..\libass\ass_font.h" />
     <ClInclude Include="..\libass\ass_fontconfig.h" />
+    <ClInclude Include="..\libass\ass_fontselect.h" />
     <ClInclude Include="..\libass\ass_func_template.h" />
     <ClInclude Include="..\libass\ass_library.h" />
     <ClInclude Include="..\libass\ass_parse.h" />
     <ClInclude Include="..\libass\ass_rasterizer.h" />
     <ClInclude Include="..\libass\ass_render.h" />
     <ClInclude Include="..\libass\ass_shaper.h" />
+    <ClInclude Include="..\libass\ass_string.h" />
     <ClInclude Include="..\libass\ass_types.h" />
     <ClInclude Include="..\libass\ass_utils.h" />
+    <ClInclude Include="..\libass\dwrite_c.h" />
     <ClInclude Include="..\libass\x86\cpuid.h" />
     <ClInclude Include="config.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\libass\ass.c" />
     <ClCompile Include="..\libass\ass_bitmap.c" />
+    <ClCompile Include="..\libass\ass_blur.c" />
     <ClCompile Include="..\libass\ass_cache.c" />
+    <ClCompile Include="..\libass\ass_directwrite.c" />
     <ClCompile Include="..\libass\ass_drawing.c" />
     <ClCompile Include="..\libass\ass_font.c" />
     <ClCompile Include="..\libass\ass_fontconfig.c" />
+    <ClCompile Include="..\libass\ass_fontselect.c" />
     <ClCompile Include="..\libass\ass_library.c" />
     <ClCompile Include="..\libass\ass_parse.c" />
     <ClCompile Include="..\libass\ass_rasterizer.c" />
@@ -91,6 +99,7 @@
     <ClCompile Include="..\libass\ass_render.c" />
     <ClCompile Include="..\libass\ass_render_api.c" />
     <ClCompile Include="..\libass\ass_shaper.c" />
+    <ClCompile Include="..\libass\ass_string.c" />
     <ClCompile Include="..\libass\ass_strtod.c" />
     <ClCompile Include="..\libass\ass_utils.c" />
   </ItemGroup>
@@ -102,8 +111,10 @@
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\libass\x86\blend_bitmaps.asm" />
+    <YASM Include="..\libass\x86\blur.asm" />
     <YASM Include="..\libass\x86\cpuid.asm" />
     <YASM Include="..\libass\x86\rasterizer.asm" />
+    <YASM Include="..\libass\x86\utils.asm" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />
@@ -355,7 +366,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libencad.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
@@ -401,7 +412,7 @@ cd $(ProjectDir)
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libencad.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
@@ -447,7 +458,7 @@ cd $(ProjectDir)
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalLibraryDirectories>$(OutDir)\bin\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libencad.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
@@ -495,7 +506,7 @@ cd $(ProjectDir)
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libencad.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
@@ -543,7 +554,7 @@ cd $(ProjectDir)
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalLibraryDirectories>$(OutDir)\bin\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libencad.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Link>
@@ -590,7 +601,7 @@ cd $(ProjectDir)
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libencad.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Link>
@@ -652,7 +663,7 @@ cd $(ProjectDir)
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
@@ -713,7 +724,7 @@ cd $(ProjectDir)
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
@@ -774,7 +785,7 @@ cd $(ProjectDir)
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
@@ -835,7 +846,7 @@ cd $(ProjectDir)
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
@@ -893,7 +904,7 @@ cd $(ProjectDir)
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalLibraryDirectories>$(OutDir)\bin\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Link>
@@ -952,7 +963,7 @@ cd $(ProjectDir)
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Link>
@@ -1011,7 +1022,7 @@ cd $(ProjectDir)
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalLibraryDirectories>$(OutDir)\bin\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -1069,7 +1080,7 @@ cd $(ProjectDir)
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libenca.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
