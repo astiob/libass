@@ -89,7 +89,7 @@ typedef void    (*DestroyProviderFunc)(void *priv);
  */
 typedef void    (*MatchFontsFunc)(ASS_Library *lib,
                                   ASS_FontProvider *provider,
-                                  char *name);
+                                  const char *name);
 
 /**
  * Substitute font name by another. This implements generic font family
@@ -151,18 +151,18 @@ struct ass_font_provider_meta_data {
     /**
      * List of localized font family names, e.g. "Arial".
      */
-    char **families;
+    const char **families;
 
     /**
      * List of localized full names, e.g. "Arial Bold".
      * The English name should be listed first to speed up typical matching.
      */
-    char **fullnames;
+    const char **fullnames;
 
     /**
      * The PostScript name, e.g. "Arial-BoldMT".
      */
-    char *postscript_name;
+    const char *postscript_name;
 
     int n_family;       // Number of localized family names
     int n_fullname;     // Number of localized full names
@@ -211,9 +211,10 @@ ass_fontselect_init(ASS_Library *library,
                     FT_Library ftlibrary, const char *family,
                     const char *path, const char *config,
                     ASS_DefaultFontProvider dfp);
-char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
-                      ASS_Font *font, int *index, char **postscript_name,
-                      int *uid, ASS_FontStream *data, uint32_t code);
+const char *
+ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
+                ASS_Font *font, int *index, const char **postscript_name,
+                int *uid, ASS_FontStream *data, uint32_t code);
 void ass_fontselect_free(ASS_FontSelector *priv);
 
 // Font provider functions

@@ -87,8 +87,8 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         int index, weight;
         char *path;
         char *format;
-        char *fullnames[MAX_NAME];
-        char *families[MAX_NAME];
+        const char *fullnames[MAX_NAME];
+        const char *families[MAX_NAME];
 
         // skip non-outline fonts
         FcResult result = FcPatternGetBool(pat, FC_OUTLINE, 0, &outline);
@@ -247,7 +247,7 @@ static void get_substitutions(void *priv, const char *name,
 
     // read and strdup fullnames
     meta->n_fullname = 0;
-    meta->fullnames = calloc(MAX_NAME, sizeof(char *));
+    meta->fullnames = calloc(MAX_NAME, sizeof(const char *));
     if (!meta->fullnames)
         goto cleanup;
 
@@ -288,7 +288,7 @@ ass_fontconfig_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
 
     // build and load fontconfig configuration
     fc->config = FcConfigCreate();
-    rc = FcConfigParseAndLoad(fc->config, (unsigned char *) config, FcTrue);
+    rc = FcConfigParseAndLoad(fc->config, (const FcChar8 *) config, FcTrue);
     if (!rc) {
         ass_msg(lib, MSGL_WARN, "No usable fontconfig configuration "
                 "file found, using fallback.");

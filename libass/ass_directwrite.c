@@ -588,7 +588,7 @@ static void scan_fonts(IDWriteFactory *factory,
 
             if (exists) {
                 meta.n_fullname = IDWriteLocalizedStrings_GetCount(fontNames);
-                meta.fullnames = (char **) calloc(meta.n_fullname, sizeof(char *));
+                meta.fullnames = (const char **) calloc(meta.n_fullname, sizeof(const char *));
                 for (UINT32 k = 0; k < meta.n_fullname; ++k) {
                     hr = IDWriteLocalizedStrings_GetString(fontNames, k,
                                                            temp_name,
@@ -616,7 +616,7 @@ static void scan_fonts(IDWriteFactory *factory,
             }
 
             meta.n_family = IDWriteLocalizedStrings_GetCount(familyNames);
-            meta.families = (char **) calloc(meta.n_family, sizeof(char *));
+            meta.families = (const char **) calloc(meta.n_family, sizeof(const char *));
             for (UINT32 k = 0; k < meta.n_family; ++k) {
                 hr = IDWriteLocalizedStrings_GetString(familyNames, k,
                                                        temp_name,

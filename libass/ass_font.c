@@ -134,8 +134,8 @@ close_stream_font(FT_Stream stream)
  */
 static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 {
-    char *path;
-    char *postscript_name = NULL;
+    const char *path;
+    const char *postscript_name = NULL;
     int i, index, uid, error;
     ASS_FontStream stream = { NULL, NULL };
     FT_Face face;

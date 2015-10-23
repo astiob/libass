@@ -175,8 +175,8 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
 {
     ASS_FontProviderMetaData meta;
     char *families[1];
-    char *identifiers[1];
     char *fullnames[1];
+    char *identifier;
 
     if (!fontsd)
         return;
@@ -196,14 +196,14 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         get_font_traits(fontd, &meta);
 
         get_name(fontd, kCTFontFamilyNameAttribute, families, &meta.n_family);
-        meta.families = families;
+        meta.families = (const char **)families;
 
         get_name(fontd, kCTFontDisplayNameAttribute, fullnames, &meta.n_fullname);
-        meta.fullnames = fullnames;
+        meta.fullnames = (const char **)fullnames;
 
         int zero = 0;
-        get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
-        meta.postscript_name = identifiers[0];
+        get_name(fontd, kCTFontNameAttribute, &identifier, &zero);
+        meta.postscript_name = identifier;
 
         meta.is_postscript = is_postscript(fontd);
 
@@ -212,19 +212,19 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         ass_font_provider_add_font(provider, &meta, path, index, (void*)chset);
 
         for (int j = 0; j < meta.n_family; j++)
-            free(meta.families[j]);
+            free(families[j]);
 
         for (int j = 0; j < meta.n_fullname; j++)
-            free(meta.fullnames[j]);
+            free(fullnames[j]);
 
-        free(meta.postscript_name);
+        free(identifier);
 
         free(path);
     }
 }
 
 static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
-                        char *name)
+                        const char *name)
 {
     const size_t attributes_n = 3;
     CTFontDescriptorRef ctdescrs[attributes_n];

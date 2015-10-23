@@ -491,11 +491,11 @@ static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
     return provider->funcs.check_glyph(fi->priv, code);
 }
 
-static char *
+static const char *
 find_font(ASS_FontSelector *priv, ASS_Library *library,
           ASS_FontProviderMetaData meta, unsigned bold, unsigned italic,
-          int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
-          uint32_t code, bool *name_match)
+          int *index, const char **postscript_name, int *uid,
+          ASS_FontStream *stream, uint32_t code, bool *name_match)
 {
     ASS_FontInfo req = {0};
     ASS_FontInfo *selected = NULL;
@@ -562,7 +562,7 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
     }
 
     // found anything?
-    char *result = NULL;
+    const char *result = NULL;
     if (selected) {
         // successfully matched, set up return values
         *postscript_name = selected->postscript_name;
@@ -588,14 +588,15 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
     return result;
 }
 
-static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
-                         const char *family, unsigned bold, unsigned italic,
-                         int *index, char **postscript_name, int *uid,
-                         ASS_FontStream *stream, uint32_t code)
+static const char *
+select_font(ASS_FontSelector *priv, ASS_Library *library,
+            const char *family, unsigned bold, unsigned italic,
+            int *index, const char **postscript_name, int *uid,
+            ASS_FontStream *stream, uint32_t code)
 {
     ASS_FontProvider *default_provider = priv->default_provider;
     ASS_FontProviderMetaData meta = {0};
-    char *result = NULL;
+    const char *result = NULL;
     bool name_match = false;
 
     if (family == NULL)
@@ -656,11 +657,12 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
  * \param code: the character that should be present in the font, can be 0
  * \return font file path
 */
-char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
-                      ASS_Font *font, int *index, char **postscript_name,
-                      int *uid, ASS_FontStream *data, uint32_t code)
+const char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
+                            ASS_Font *font, int *index,
+                            const char **postscript_name, int *uid,
+                            ASS_FontStream *data, uint32_t code)
 {
-    char *res = 0;
+    const char *res = 0;
     const char *family = font->desc.family;
     unsigned bold = font->desc.bold;
     unsigned italic = font->desc.italic;
@@ -728,8 +730,8 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     int num_family   = 0;
     int num_names = FT_Get_Sfnt_Name_Count(face);
     int slant, weight;
-    char *fullnames[MAX_FULLNAME];
-    char *families[MAX_FULLNAME];
+    const char *fullnames[MAX_FULLNAME];
+    const char *families[MAX_FULLNAME];
     PS_FontInfoRec postscript_info;
 
     // we're only interested in outlines
@@ -790,17 +792,18 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     info->postscript_name = FT_Get_Postscript_Name(face);
     info->is_postscript = !FT_Get_PS_Font_Info(face, &postscript_info);
 
-    info->families = calloc(sizeof(char *), num_family);
+    info->families = calloc(sizeof(const char *), num_family);
     if (info->families == NULL)
         goto error;
-    memcpy(info->families, &families, sizeof(char *) * num_family);
+    memcpy(info->families, &families, sizeof(const char *) * num_family);
     info->n_family = num_family;
 
     if (num_fullname) {
-        info->fullnames = calloc(sizeof(char *), num_fullname);
+        info->fullnames = calloc(sizeof(const char *), num_fullname);
         if (info->fullnames == NULL)
             goto error;
-        memcpy(info->fullnames, &fullnames, sizeof(char *) * num_fullname);
+        memcpy(info->fullnames, &fullnames,
+               sizeof(const char *) * num_fullname);
         info->n_fullname = num_fullname;
     }
 
@@ -1048,7 +1051,7 @@ void ass_map_font(const ASS_FontMapping *map, int len, const char *name,
 {
     for (int i = 0; i < len; i++) {
         if (ass_strcasecmp(map[i].from, name) == 0) {
-            meta->fullnames = calloc(1, sizeof(char *));
+            meta->fullnames = calloc(1, sizeof(const char *));
             if (meta->fullnames) {
                 meta->fullnames[0] = strdup(map[i].to);
                 if (meta->fullnames[0])
