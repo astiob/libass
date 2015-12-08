@@ -59,6 +59,16 @@ typedef enum DWRITE_FACTORY_TYPE {
   DWRITE_FACTORY_TYPE_ISOLATED 
 } DWRITE_FACTORY_TYPE;
 
+typedef enum DWRITE_FONT_FACE_TYPE {
+  DWRITE_FONT_FACE_TYPE_CFF = 0,
+  DWRITE_FONT_FACE_TYPE_TRUETYPE,
+  DWRITE_FONT_FACE_TYPE_TRUETYPE_COLLECTION,
+  DWRITE_FONT_FACE_TYPE_TYPE1,
+  DWRITE_FONT_FACE_TYPE_VECTOR,
+  DWRITE_FONT_FACE_TYPE_BITMAP,
+  DWRITE_FONT_FACE_TYPE_UNKNOWN,
+  DWRITE_FONT_FACE_TYPE_RAW_CFF
+} DWRITE_FONT_FACE_TYPE;
 
 typedef enum DWRITE_FONT_SIMULATIONS {
   DWRITE_FONT_SIMULATIONS_NONE      = 0x0000,
@@ -319,7 +329,7 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
 #endif
 
     /* IDWriteFontFace methods */
-    STDMETHOD(dummy1)(THIS);
+    STDMETHOD_(DWRITE_FONT_FACE_TYPE, GetType)(THIS) PURE;
 
     STDMETHOD(GetFiles)(THIS_
         UINT32 *numberOfFiles,
@@ -330,6 +340,7 @@ DECLARE_INTERFACE_(IDWriteFontFace,IUnknown)
 };
 #ifdef COBJMACROS
 #define IDWriteFontFace_Release(This) (This)->lpVtbl->Release(This)
+#define IDWriteFontFace_GetType(This) (This)->lpVtbl->GetType(This)
 #define IDWriteFontFace_GetFiles(This,fontFiles,b) (This)->lpVtbl->GetFiles(This,fontFiles,b)
 #endif /*COBJMACROS*/
 

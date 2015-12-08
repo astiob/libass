@@ -1,4 +1,4 @@
-AC_INIT(libass, 0.13.0)
+AC_INIT(libass, 0.13.1)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
@@ -22,9 +22,15 @@ AC_CHECK_HEADERS([stdint.h iconv.h])
 AC_CHECK_FUNCS([strdup strndup])
 
 # Checks for libraries.
-AC_SEARCH_LIBS([libiconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
-AC_SEARCH_LIBS([iconv_open], [iconv], AC_DEFINE(CONFIG_ICONV, 1, [use iconv]))
+# Add them to pkg-config for static linking.
+OLDLIBS="$LIBS"
+LIBS=
+use_libiconv=false
+AC_SEARCH_LIBS([libiconv_open], [iconv], use_libiconv=true)
+AC_SEARCH_LIBS([iconv_open], [iconv], use_libiconv=true)
 AC_CHECK_LIB([m], [fabs])
+pkg_libs="$LIBS"
+LIBS="$OLDLIBS $LIBS"
 
 # Check for libraries via pkg-config
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
@@ -56,6 +62,12 @@ AS_IF([test x$enable_asm != xno], [
             X86=true
             BITS=32
             ASFLAGS="$ASFLAGS -DARCH_X86_64=0 -m x86" ],
+        [x86_64-*-gnux32|amd64-*-gnux32], [
+            AS=yasm
+            INTEL=true
+            X64=true
+            BITS=64
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m x32" ],
         [x86_64-*|amd64-*], [
             AS=yasm
             INTEL=true
@@ -140,7 +152,7 @@ PKG_CHECK_MODULES([FRIBIDI], fribidi >= 0.19.0, [
     ])
 
 if test x$enable_fontconfig != xno; then
-PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.4.2, [
+PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.10.92, [
     CFLAGS="$CFLAGS $FONTCONFIG_CFLAGS"
     LIBS="$LIBS $FONTCONFIG_LIBS"
     AC_DEFINE(CONFIG_FONTCONFIG, 1, [found fontconfig via pkg-config])
@@ -212,12 +224,14 @@ AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
 
 AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 
-# add libraries/packages to pkg-config for static linking
-pkg_libs="-lm"
+# add packages to pkg-config for static linking
+if test "$use_libiconv" = true; then
+    AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
+fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
 if test x$fontconfig = xtrue; then
-    pkg_requires="fontconfig >= 2.4.2, ${pkg_requires}"
+    pkg_requires="fontconfig >= 2.10.92, ${pkg_requires}"
 fi
 if test x$harfbuzz = xtrue; then
     pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"

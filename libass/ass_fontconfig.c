@@ -40,23 +40,37 @@ typedef struct fc_private {
     FcCharSet *fallback_chars;
 } ProviderPrivate;
 
-static int check_glyph(void *priv, uint32_t code)
+static bool check_postscript(void *priv)
+{
+    FcPattern *pat = (FcPattern *)priv;
+    char *format;
+
+    FcResult result =
+        FcPatternGetString(pat, FC_FONTFORMAT, 0, (FcChar8 **)&format);
+    if (result != FcResultMatch)
+        return false;
+
+    return !strcmp(format, "Type 1") || !strcmp(format, "Type 42") ||
+           !strcmp(format, "CID Type 1") || !strcmp(format, "CFF");
+}
+
+static bool check_glyph(void *priv, uint32_t code)
 {
     FcPattern *pat = (FcPattern *)priv;
     FcCharSet *charset;
 
     if (!pat)
-        return 1;
+        return true;
 
     if (code == 0)
-        return 1;
+        return true;
 
     FcResult result = FcPatternGetCharSet(pat, FC_CHARSET, 0, &charset);
     if (result != FcResultMatch)
-        return 0;
+        return false;
     if (FcCharSetHasChar(charset, code) == FcTrue)
-        return 1;
-    return 0;
+        return true;
+    return false;
 }
 
 static void destroy(void *priv)
@@ -117,7 +131,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
         if (result != FcResultMatch)
             continue;
 
-        // read and strdup fullnames
+        // read family names
         meta.n_family = 0;
         while (FcPatternGetString(pat, FC_FAMILY, meta.n_family,
                     (FcChar8 **)&families[meta.n_family]) == FcResultMatch
@@ -125,7 +139,7 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
             meta.n_family++;
         meta.families = families;
 
-        // read and strdup fullnames
+        // read fullnames
         meta.n_fullname = 0;
         while (FcPatternGetString(pat, FC_FULLNAME, meta.n_fullname,
                     (FcChar8 **)&fullnames[meta.n_fullname]) == FcResultMatch
@@ -133,8 +147,12 @@ static void scan_fonts(FcConfig *config, ASS_FontProvider *provider)
             meta.n_fullname++;
         meta.fullnames = fullnames;
 
-        ass_font_provider_add_font(provider, &meta, path, index, NULL,
-                                   (void *)pat);
+        // read PostScript name
+        meta.postscript_name = NULL;
+        FcPatternGetString(pat, FC_POSTSCRIPT_NAME, 0,
+                           (FcChar8 **)&meta.postscript_name);
+
+        ass_font_provider_add_font(provider, &meta, path, index, (void *)pat);
     }
 }
 
@@ -256,6 +274,7 @@ cleanup:
 }
 
 static ASS_FontProviderFuncs fontconfig_callbacks = {
+    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_provider   = destroy,
     .get_substitutions  = get_substitutions,

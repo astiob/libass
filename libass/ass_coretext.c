@@ -49,21 +49,41 @@ static char *cfstr2buf(CFStringRef string)
 
 static void destroy_font(void *priv)
 {
-    CFCharacterSetRef set = priv;
-    SAFE_CFRelease(set);
+    CTFontDescriptorRef fontd = priv;
+    SAFE_CFRelease(fontd);
 }
 
-static int check_glyph(void *priv, uint32_t code)
+static bool check_postscript(void *priv)
 {
-    CFCharacterSetRef set = priv;
+    CTFontDescriptorRef fontd = priv;
+    CFNumberRef cfformat =
+        CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
+    int format;
+
+    if (!CFNumberGetValue(cfformat, kCFNumberIntType, &format))
+        return false;
+
+    SAFE_CFRelease(cfformat);
+
+    return format == kCTFontFormatOpenTypePostScript ||
+           format == kCTFontFormatPostScript;
+}
+
+static bool check_glyph(void *priv, uint32_t code)
+{
+    if (code == 0)
+        return true;
+
+    CTFontDescriptorRef fontd = priv;
+    CFCharacterSetRef set =
+        CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
 
     if (!set)
-        return 1;
+        return true;
 
-    if (code == 0)
-        return 1;
-
-    return CFCharacterSetIsLongCharacterMember(set, code);
+    bool result = CFCharacterSetIsLongCharacterMember(set, code);
+    SAFE_CFRelease(set);
+    return result;
 }
 
 static char *get_font_file(CTFontDescriptorRef fontd)
@@ -185,15 +205,15 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         get_name(fontd, kCTFontFamilyNameAttribute, families, &meta.n_family);
         meta.families = families;
 
-        int zero = 0;
-        get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
         get_name(fontd, kCTFontDisplayNameAttribute, fullnames, &meta.n_fullname);
         meta.fullnames = fullnames;
 
-        CFCharacterSetRef chset =
-            CTFontDescriptorCopyAttribute(fontd, kCTFontCharacterSetAttribute);
-        ass_font_provider_add_font(provider, &meta, path, index,
-                                   identifiers[0], (void*)chset);
+        int zero = 0;
+        get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
+        meta.postscript_name = identifiers[0];
+
+        CFRetain(fontd);
+        ass_font_provider_add_font(provider, &meta, path, index, (void*)fontd);
 
         for (int j = 0; j < meta.n_family; j++)
             free(meta.families[j]);
@@ -201,7 +221,7 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         for (int j = 0; j < meta.n_fullname; j++)
             free(meta.fullnames[j]);
 
-        free(identifiers[0]);
+        free(meta.postscript_name);
 
         free(path);
     }
@@ -281,6 +301,7 @@ static void get_substitutions(void *priv, const char *name,
 }
 
 static ASS_FontProviderFuncs coretext_callbacks = {
+    .check_postscript   = check_postscript,
     .check_glyph        = check_glyph,
     .destroy_font       = destroy_font,
     .match_fonts        = match_fonts,

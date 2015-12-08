@@ -19,6 +19,7 @@
 #ifndef LIBASS_FONTCONFIG_H
 #define LIBASS_FONTCONFIG_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -53,13 +54,21 @@ typedef size_t  (*GetDataFunc)(void *font_priv, unsigned char *data,
                                size_t offset, size_t len);
 
 /**
+ * Check whether the font contains PostScript outlines.
+ *
+ * \param font_priv font private data
+ * \return true if the font contains PostScript outlines
+ */
+typedef bool    (*CheckPostscriptFunc)(void *font_priv);
+
+/**
  * Check if a glyph is supported by a font.
  *
  * \param font_priv font private data
  * \param codepont Unicode codepoint (UTF-32)
- * \return non-zero value if codepoint is supported by the font
+ * \return true if codepoint is supported by the font
  */
-typedef int     (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
+typedef bool    (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
 
 /**
  * Destroy a font's private data.
@@ -134,6 +143,7 @@ typedef char   *(*GetFallbackFunc)(void *priv,
 
 typedef struct font_provider_funcs {
     GetDataFunc         get_data;               /* optional/mandatory */
+    CheckPostscriptFunc check_postscript;       /* mandatory */
     CheckGlyphFunc      check_glyph;            /* mandatory */
     DestroyFontFunc     destroy_font;           /* optional */
     DestroyProviderFunc destroy_provider;       /* optional */
@@ -147,7 +157,6 @@ typedef struct font_provider_funcs {
  * At minimum one family is required.
  */
 struct ass_font_provider_meta_data {
-
     /**
      * List of localized font family names, e.g. "Arial".
      */
@@ -158,6 +167,12 @@ struct ass_font_provider_meta_data {
      * The English name should be listed first to speed up typical matching.
      */
     char **fullnames;
+
+    /**
+     * The PostScript name, e.g. "Arial-BoldMT".
+     */
+    char *postscript_name;
+
     int n_family;       // Number of localized family names
     int n_fullname;     // Number of localized full names
 
@@ -230,15 +245,15 @@ ass_create_font_provider(ASS_Renderer *priv, ASS_FontProviderFuncs *funcs,
  * \param meta font metadata. See struct definition for more information.
  * \param path absolute path to font, or NULL for memory-based fonts
  * \param index index inside a font collection file
- * \param psname PostScript name of the face (overrides index if present)
+ *              (-1 to look up by PostScript name)
  * \param data private data for font callbacks
  * \return success
  *
  */
-int
+bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
-                           unsigned int index, const char *psname, void *data);
+                           int index, void *data);
 
 /**
  * \brief Free font provider and associated fonts.

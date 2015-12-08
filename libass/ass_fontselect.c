@@ -35,6 +35,7 @@
 #include FT_FREETYPE_H
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
+#include FT_TYPE1_TABLES_H
 
 #include "ass_utils.h"
 #include "ass.h"
@@ -66,6 +67,7 @@ struct font_info {
     // how to access this face
     char *path;            // absolute path
     int index;             // font index inside font collections
+
     char *postscript_name; // can be used as an alternative to index to
                            // identify a font inside a collection
 
@@ -107,12 +109,19 @@ struct font_data_ft {
     int idx;
 };
 
-static int check_glyph_ft(void *data, uint32_t codepoint)
+static bool check_postscript_ft(void *data)
+{
+    FontDataFT *fd = (FontDataFT *)data;
+    PS_FontInfoRec postscript_info;
+    return !FT_Get_PS_Font_Info(fd->face, &postscript_info);
+}
+
+static bool check_glyph_ft(void *data, uint32_t codepoint)
 {
     FontDataFT *fd = (FontDataFT *)data;
 
     if (!codepoint)
-        return 1;
+        return true;
 
     return !!FT_Get_Char_Index(fd->face, codepoint);
 }
@@ -146,13 +155,10 @@ get_data_embedded(void *data, unsigned char *buf, size_t offset, size_t len)
 }
 
 static ASS_FontProviderFuncs ft_funcs = {
-    get_data_embedded,
-    check_glyph_ft,
-    destroy_font_ft,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    .get_data          = get_data_embedded,
+    .check_postscript  = check_postscript_ft,
+    .check_glyph       = check_glyph_ft,
+    .destroy_font      = destroy_font_ft,
 };
 
 static void load_fonts_from_dir(ASS_Library *library, const char *dir)
@@ -236,15 +242,14 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
  * \param provider the font provider
  * \param meta basic metadata of the font
  * \param path path to the font file, or NULL
- * \param index face index inside the file
- * \param psname PostScript name of the face (overrides index if present)
+ * \param index face index inside the file (-1 to look up by PostScript name)
  * \param data private data for the font
  * \return success
  */
-int
+bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
-                           unsigned int index, const char *psname, void *data)
+                           int index, void *data)
 {
     int i;
     int weight, slant, width;
@@ -295,20 +300,21 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     // set uid
     info->uid = selector->uid++;
 
-    info->slant       = slant;
-    info->weight      = weight;
-    info->width       = width;
-    info->n_fullname  = meta->n_fullname;
-    info->n_family    = meta->n_family;
-    info->families    = calloc(meta->n_family, sizeof(char *));
+    info->slant         = slant;
+    info->weight        = weight;
+    info->width         = width;
+    info->n_fullname    = meta->n_fullname;
+    info->n_family      = meta->n_family;
+
+    info->families = calloc(meta->n_family, sizeof(char *));
+    if (info->families == NULL)
+        goto error;
+
     if (meta->n_fullname) {
         info->fullnames = calloc(meta->n_fullname, sizeof(char *));
         if (info->fullnames == NULL)
             goto error;
     }
-
-    if (info->families == NULL)
-        goto error;
 
     for (i = 0; i < info->n_family; i++) {
         info->families[i] = strdup(meta->families[i]);
@@ -322,15 +328,15 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
             goto error;
     }
 
-    if (path) {
-        info->path = strdup(path);
-        if (info->path == NULL)
+    if (meta->postscript_name) {
+        info->postscript_name = strdup(meta->postscript_name);
+        if (info->postscript_name == NULL)
             goto error;
     }
 
-    if (psname) {
-        info->postscript_name = strdup(psname);
-        if (info->postscript_name == NULL)
+    if (path) {
+        info->path = strdup(path);
+        if (info->path == NULL)
             goto error;
     }
 
@@ -339,11 +345,15 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     info->provider = provider;
 
     selector->n_font++;
-    return 0;
+    return true;
 
 error:
     ass_font_provider_free_fontinfo(info);
-    return 1;
+
+    if (provider->funcs.destroy_font)
+        provider->funcs.destroy_font(data);
+
+    return false;
 }
 
 /**
@@ -402,6 +412,14 @@ void ass_font_provider_free(ASS_FontProvider *provider)
     free(provider);
 }
 
+static bool check_postscript(ASS_FontInfo *fi)
+{
+    ASS_FontProvider *provider = fi->provider;
+    assert(provider && provider->funcs.check_postscript);
+
+    return provider->funcs.check_postscript(fi->priv);
+}
+
 /**
  * \brief Return whether the given font is in the given family.
  */
@@ -415,15 +433,33 @@ static bool matches_family_name(ASS_FontInfo *f, const char *family)
 }
 
 /**
- * \brief Return whether the given font has the given fullname.
+ * \brief Return whether the given font has the given fullname or
+ * PostScript name depending on whether it has PostScript outlines.
  */
-static bool matches_fullname(ASS_FontInfo *f, const char *fullname)
+static bool matches_full_or_postscript_name(ASS_FontInfo *f,
+                                            const char *fullname)
 {
+    bool matches_fullname = false;
+    bool matches_postscript_name = false;
+
     for (int i = 0; i < f->n_fullname; i++) {
-        if (ass_strcasecmp(f->fullnames[i], fullname) == 0)
-            return true;
+        if (ass_strcasecmp(f->fullnames[i], fullname) == 0) {
+            matches_fullname = true;
+            break;
+        }
     }
-    return false;
+
+    if (f->postscript_name != NULL &&
+        ass_strcasecmp(f->postscript_name, fullname) == 0)
+        matches_postscript_name = true;
+
+    if (matches_fullname == matches_postscript_name)
+        return matches_fullname;
+
+    if (check_postscript(f))
+        return matches_postscript_name;
+    else
+        return matches_fullname;
 }
 
 /**
@@ -471,7 +507,7 @@ static void font_info_dump(ASS_FontInfo *font_infos, size_t len)
 }
 #endif
 
-static int check_glyph(ASS_FontInfo *fi, uint32_t code)
+static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
 {
     ASS_FontProvider *provider = fi->provider;
     assert(provider && provider->funcs.check_glyph);
@@ -511,7 +547,7 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
                 // to determine best match in that particular family
                 score = font_attributes_similarity(font, &req);
                 *name_match = true;
-            } else if (matches_fullname(font, fullname)) {
+            } else if (matches_full_or_postscript_name(font, fullname)) {
                 // If we don't have any match, compare fullnames against request
                 // if there is a match now, assign lowest score possible. This means
                 // the font should be chosen instantly, without further search.
@@ -583,22 +619,21 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 {
     ASS_FontProvider *default_provider = priv->default_provider;
     ASS_FontProviderMetaData meta = {0};
-    char *family_trim = strdup_trimmed(family);
     char *result = NULL;
     bool name_match = false;
 
-    if (family_trim == NULL)
+    if (family == NULL)
         return NULL;
 
     ASS_FontProviderMetaData default_meta = {
         .n_fullname = 1,
-        .fullnames  = &family_trim,
+        .fullnames  = (char **)&family,
     };
 
     // Get a list of substitutes if applicable, and use it for matching.
     if (default_provider && default_provider->funcs.get_substitutions) {
         default_provider->funcs.get_substitutions(default_provider->priv,
-                                                  family_trim, &meta);
+                                                  family, &meta);
     }
 
     if (!meta.n_fullname) {
@@ -624,7 +659,6 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
     }
 
     // cleanup
-    free(family_trim);
     if (meta.fullnames != default_meta.fullnames) {
         for (int i = 0; i < meta.n_fullname; i++)
             free(meta.fullnames[i]);
@@ -710,7 +744,7 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
  * \param info metadata, returned here
  * \return success
  */
-static int
+static bool
 get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 {
     int i;
@@ -723,7 +757,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     // we're only interested in outlines
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE))
-        return 0;
+        return false;
 
     for (i = 0; i < num_names; i++) {
         FT_SfntName name;
@@ -739,14 +773,14 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
                                 name.string_len);
 
             if (name.name_id == TT_NAME_ID_FULL_NAME) {
-                fullnames[num_fullname] = strdup_trimmed(buf);
+                fullnames[num_fullname] = strdup(buf);
                 if (fullnames[num_fullname] == NULL)
                     goto error;
                 num_fullname++;
             }
 
             if (name.name_id == TT_NAME_ID_FONT_FAMILY) {
-                families[num_family] = strdup_trimmed(buf);
+                families[num_family] = strdup(buf);
                 if (families[num_family] == NULL)
                     goto error;
                 num_family++;
@@ -775,11 +809,12 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
     info->slant  = slant;
     info->weight = weight;
     info->width  = 100;     // FIXME, should probably query the OS/2 table
-    info->families  = calloc(sizeof(char *), num_family);
 
+    info->postscript_name = (char *)FT_Get_Postscript_Name(face);
+
+    info->families = calloc(sizeof(char *), num_family);
     if (info->families == NULL)
         goto error;
-
     memcpy(info->families, &families, sizeof(char *) * num_family);
     info->n_family = num_family;
 
@@ -791,7 +826,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
         info->n_fullname = num_fullname;
     }
 
-    return 0;
+    return true;
 
 error:
     for (i = 0; i < num_family; i++)
@@ -803,7 +838,7 @@ error:
     free(info->families);
     free(info->fullnames);
 
-    return 1;
+    return false;
 }
 
 /**
@@ -862,7 +897,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         charmap_magic(library, face);
 
         memset(&info, 0, sizeof(ASS_FontProviderMetaData));
-        if (get_font_info(ftlibrary, face, &info)) {
+        if (!get_font_info(ftlibrary, face, &info)) {
             ass_msg(library, MSGL_WARN,
                     "Error getting metadata for embedded font '%s'", name);
             FT_Done_Face(face);
@@ -881,8 +916,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         ft->face = face;
         ft->idx  = idx;
 
-        if (ass_font_provider_add_font(priv, &info, NULL, face_index,
-                    NULL, ft)) {
+        if (!ass_font_provider_add_font(priv, &info, NULL, face_index, ft)) {
             ass_msg(library, MSGL_WARN, "Failed to add embedded font '%s'",
                     name);
         }
