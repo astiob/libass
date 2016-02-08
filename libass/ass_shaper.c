@@ -207,6 +207,9 @@ GlyphMetricsHashValue *
 get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
                    hb_codepoint_t unicode, hb_codepoint_t glyph)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %ju)\n",
+            __func__, metrics, face, (uintmax_t) unicode, (uintmax_t) glyph);
+
     GlyphMetricsHashValue *val;
     metrics->hash_key.glyph_index = glyph;
     if (ass_cache_get(metrics->metrics_cache, &metrics->hash_key, &val)) {
@@ -243,6 +246,10 @@ static hb_bool_t
 get_glyph(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
           hb_codepoint_t variation, hb_codepoint_t *glyph, void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %ju, %p, %p)\n",
+            __func__, font, font_data, (uintmax_t) unicode,
+            (uintmax_t) variation, glyph, user_data);
+
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
 
@@ -263,6 +270,9 @@ static hb_position_t
 cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                  void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %p)\n",
+            __func__, font, font_data, (uintmax_t) glyph, user_data);
+
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
     GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
@@ -278,6 +288,9 @@ static hb_position_t
 cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                  void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %p)\n",
+            __func__, font, font_data, (uintmax_t) glyph, user_data);
+
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
     GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
@@ -293,6 +306,9 @@ static hb_bool_t
 cached_h_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                 hb_position_t *x, hb_position_t *y, void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %p, %p, %p)\n",
+            __func__, font, font_data, (uintmax_t) glyph, x, y, user_data);
+
     return true;
 }
 
@@ -300,6 +316,9 @@ static hb_bool_t
 cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                 hb_position_t *x, hb_position_t *y, void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %p, %p, %p)\n",
+            __func__, font, font_data, (uintmax_t) glyph, x, y, user_data);
+
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
     GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
@@ -316,6 +335,10 @@ static hb_position_t
 get_h_kerning(hb_font_t *font, void *font_data, hb_codepoint_t first,
                  hb_codepoint_t second, void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %ju, %p)\n",
+            __func__, font, font_data, (uintmax_t) first,
+            (uintmax_t) second, user_data);
+
     FT_Face face = font_data;
     FT_Vector kern;
 
@@ -329,6 +352,10 @@ static hb_position_t
 get_v_kerning(hb_font_t *font, void *font_data, hb_codepoint_t first,
                  hb_codepoint_t second, void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %ju, %p)\n",
+            __func__, font, font_data, (uintmax_t) first,
+            (uintmax_t) second, user_data);
+
     return 0;
 }
 
@@ -336,6 +363,10 @@ static hb_bool_t
 cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                hb_glyph_extents_t *extents, void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %p, %p)\n",
+            __func__, font, font_data, (uintmax_t) glyph,
+            (uintmax_t) extents, user_data);
+
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
     GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
@@ -355,6 +386,10 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                      unsigned int point_index, hb_position_t *x,
                      hb_position_t *y, void *user_data)
 {
+    fprintf(stderr, "%s(%p, %p, %ju, %u, %p, %p, %p)\n",
+            __func__, font, font_data, (uintmax_t) glyph,
+            point_index, x, y, user_data);
+
     FT_Face face = font_data;
     int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
         | FT_LOAD_IGNORE_TRANSFORM;
@@ -378,6 +413,8 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
  */
 static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
 {
+    fprintf(stderr, "%s(%p, %p)\n", __func__, shaper, info);
+
     ASS_Font *font = info->font;
     hb_font_t **hb_fonts;
 
