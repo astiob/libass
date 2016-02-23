@@ -2718,12 +2718,12 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
     ass_shaper_set_level(render_priv->shaper, render_priv->settings.shaper);
 
     // PAR correction
-    double par = render_priv->settings.par;
+    double par = settings_priv->par;
     if (par == 0.) {
-        if (settings_priv->frame_width && settings_priv->frame_height &&
+        if (render_priv->orig_width && render_priv->orig_height &&
             settings_priv->storage_width && settings_priv->storage_height) {
-            double dar = ((double) settings_priv->frame_width) /
-                         settings_priv->frame_height;
+            double dar = ((double) render_priv->orig_width) /
+                         render_priv->orig_height;
             double sar = ((double) settings_priv->storage_width) /
                          settings_priv->storage_height;
             par = sar / dar;
