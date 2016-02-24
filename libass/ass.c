@@ -57,6 +57,7 @@ struct parser_priv {
     // contains bitmap of ReadOrder IDs of all read events
     uint32_t *read_order_bitmap;
     int read_order_elems; // size in uint32_t units of read_order_bitmap
+    int check_readorder;
 };
 
 #define ASS_STYLES_ALLOC 20
@@ -899,6 +900,11 @@ static int check_duplicate_event(ASS_Track *track, int ReadOrder)
     return 0;
 }
 
+void ass_set_check_readorder(ASS_Track *track, int check_readorder)
+{
+    track->parser_priv->check_readorder = check_readorder == 1;
+}
+
 /**
  * \brief Process a chunk of subtitle stream data. In Matroska, this contains exactly 1 event (or a commentary).
  * \param track track
@@ -915,8 +921,9 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
     char *p;
     char *token;
     ASS_Event *event;
+    int check_readorder = track->parser_priv->check_readorder;
 
-    if (!track->parser_priv->read_order_bitmap) {
+    if (check_readorder && !track->parser_priv->read_order_bitmap) {
         for (int i = 0; i < track->n_events; i++) {
             if (test_and_set_read_order_bit(track, track->events[i].ReadOrder) < 0)
                 break;
@@ -944,7 +951,7 @@ void ass_process_chunk(ASS_Track *track, char *data, int size,
     do {
         NEXT(p, token);
         event->ReadOrder = atoi(token);
-        if (check_duplicate_event(track, event->ReadOrder))
+        if (check_readorder && check_duplicate_event(track, event->ReadOrder))
             break;
 
         NEXT(p, token);
@@ -977,6 +984,9 @@ void ass_flush_events(ASS_Track *track)
             ass_free_event(track, eid);
         track->n_events = 0;
     }
+    free(track->parser_priv->read_order_bitmap);
+    track->parser_priv->read_order_bitmap = NULL;
+    track->parser_priv->read_order_elems = 0;
 }
 
 #ifdef CONFIG_ICONV
@@ -1278,14 +1288,12 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
     int i;
     ASS_Event *best = NULL;
     long long target = now;
-    int direction = movement > 0 ? 1 : -1;
+    int direction = (movement > 0 ? 1 : -1) * !!movement;
 
-    if (movement == 0)
-        return 0;
     if (track->n_events == 0)
         return 0;
 
-    while (movement) {
+    do {
         ASS_Event *closest = NULL;
         long long closest_time = now;
         for (i = 0; i < track->n_events; i++) {
@@ -1298,10 +1306,18 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
                         closest_time = end;
                     }
                 }
-            } else {
+            } else if (direction > 0) {
                 long long start = track->events[i].Start;
                 if (start > target) {
                     if (!closest || start < closest_time) {
+                        closest = &track->events[i];
+                        closest_time = start;
+                    }
+                }
+            } else {
+                long long start = track->events[i].Start;
+                if (start < target) {
+                    if (!closest || start >= closest_time) {
                         closest = &track->events[i];
                         closest_time = start;
                     }
@@ -1312,7 +1328,7 @@ long long ass_step_sub(ASS_Track *track, long long now, int movement)
         movement -= direction;
         if (closest)
             best = closest;
-    }
+    } while (movement);
 
     return best ? best->Start - now : 0;
 }
@@ -1329,6 +1345,7 @@ ASS_Track *ass_new_track(ASS_Library *library)
         free(track);
         return NULL;
     }
+    track->parser_priv->check_readorder = 1;
     return track;
 }
 

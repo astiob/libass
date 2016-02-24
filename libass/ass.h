@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01301000
+#define LIBASS_VERSION 0x01302000
 
 #ifdef __cplusplus
 extern "C" {
@@ -565,7 +565,8 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size);
  * In later libass versions (since LIBASS_VERSION==0x01300001), using this
  * function means you agree not to modify events manually, or using other
  * functions manipulating the event list like ass_process_data(). If you do
- * anyway, the internal duplicate checking might break.
+ * anyway, the internal duplicate checking might break. Calling
+ * ass_flush_events() is still allowed.
  * \param track track
  * \param data string to parse
  * \param size length of data
@@ -574,6 +575,17 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size);
  */
 void ass_process_chunk(ASS_Track *track, char *data, int size,
                        long long timecode, long long duration);
+
+/**
+ * \brief Set whether the ReadOrder field when processing a packet with
+ * ass_process_chunk() should be used for eliminating duplicates.
+ * \param check_readorder 0 means do not try to eliminate duplicates; 1 means
+ * use the ReadOrder field embedded in the packet as unique identifier, and
+ * discard the packet if there was already a packet with the same ReadOrder.
+ * Other values are undefined.
+ * If this function is not called, the default value is 1.
+ */
+void ass_set_check_readorder(ASS_Track *track, int check_readorder);
 
 /**
  * \brief Flush buffered events.
