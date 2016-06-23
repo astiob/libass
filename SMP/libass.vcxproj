@@ -276,74 +276,88 @@
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <LinkIncremental>false</LinkIncremental>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLStaticDeps|Win32'">
     <TargetName>assd</TargetName>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <LinkIncremental>false</LinkIncremental>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">
     <TargetName>assd</TargetName>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLStaticDeps|x64'">
     <TargetName>assd</TargetName>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
     <TargetName>ass</TargetName>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLStaticDeps|Win32'">
     <TargetName>ass</TargetName>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">
     <TargetName>ass</TargetName>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLStaticDeps|x64'">
     <TargetName>ass</TargetName>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetName>libassd</TargetName>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>libassd</TargetName>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>libass</TargetName>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">
     <TargetName>libass</TargetName>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>libass</TargetName>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">
     <TargetName>libass</TargetName>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+    <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -389,6 +403,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -434,6 +460,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">
     <ClCompile>
@@ -481,6 +519,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLStaticDeps|Win32'">
     <ClCompile>
@@ -528,6 +578,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">
     <ClCompile>
@@ -574,6 +636,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLStaticDeps|x64'">
     <ClCompile>
@@ -620,6 +694,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -680,6 +766,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">
     <ClCompile>
@@ -740,6 +838,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -800,6 +910,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">
     <ClCompile>
@@ -860,6 +982,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
     <ClCompile>
@@ -918,6 +1052,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLStaticDeps|Win32'">
     <ClCompile>
@@ -976,6 +1122,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">
     <ClCompile>
@@ -1033,6 +1191,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLStaticDeps|x64'">
     <ClCompile>
@@ -1090,6 +1260,18 @@ cd $(ProjectDir)
     <YASM>
       <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
     </YASM>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist $(OutDir)\include\ass (
+rmdir /s /q $(OutDir)\include\ass
+)
+if exist $(OutDir)\licenses\libass.txt (
+del /f /q $(OutDir)\licenses\libass.txt
+)</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
