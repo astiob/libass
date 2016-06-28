@@ -365,7 +365,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_WIN32_WINNT=0x0502;_LIB;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -378,7 +378,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x86\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -422,7 +422,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_WIN32_WINNT=0x0600;_LIB;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -435,7 +435,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <TargetMachine>MachineX64</TargetMachine>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x64\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -479,7 +479,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_WIN32_WINNT=0x0502;_USRDLL;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -492,7 +492,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDatabaseFile>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(IntDir)\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>freetyped.lib;fontconfigd.lib;fribidid.lib;harfbuzzd.lib;iconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -538,7 +538,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_WIN32_WINNT=0x0502;_USRDLL;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -551,7 +551,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDatabaseFile>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(IntDir)\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -597,7 +597,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_WIN32_WINNT=0x0600;_USRDLL;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -610,7 +610,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDatabaseFile>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(IntDir)\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>freetyped.lib;fontconfigd.lib;fribidid.lib;harfbuzzd.lib;iconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
@@ -655,7 +655,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;inline=_inline;_USE_MATH_DEFINES;_WIN32_WINNT=0x0600;_USRDLL;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -668,7 +668,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDatabaseFile>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(IntDir)\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
@@ -723,7 +723,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -741,7 +741,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <Lib>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x86\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -795,7 +795,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -813,7 +813,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <Lib>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x86\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -867,7 +867,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -885,7 +885,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <Lib>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x64\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -939,7 +939,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -957,7 +957,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <Lib>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x64\$(TargetName)$(TargetExt)</OutputFile>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
@@ -1011,7 +1011,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -1026,7 +1026,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDatabaseFile>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(IntDir)\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>freetype.lib;fontconfig.lib;fribidi.lib;harfbuzz.lib;iconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
@@ -1081,7 +1081,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -1096,7 +1096,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDatabaseFile>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(IntDir)\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LargeAddressAware>true</LargeAddressAware>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
@@ -1151,7 +1151,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -1166,7 +1166,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDatabaseFile>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(IntDir)\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>freetype.lib;fontconfig.lib;fribidi.lib;harfbuzz.lib;iconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Link>
@@ -1220,7 +1220,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4018;4244;4267;4090;4005;4334;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <C99Support>true</C99Support>
@@ -1235,7 +1235,7 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDatabaseFile>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(IntDir)\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Link>
