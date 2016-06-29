@@ -24,6 +24,10 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define _USE_MATH_DEFINES
 #define inline __inline
+#include <crtversion.h>
+#if _VC_CRT_MAJOR_VERSION < 14
+#define snprintf _snprintf
+#endif
 #endif
 
 #endif                          /* LIBASS_COMPAT_H */
