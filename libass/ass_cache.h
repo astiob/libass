@@ -57,8 +57,8 @@ typedef struct {
 
 // Type-specific function pointers
 typedef unsigned(*HashFunction)(void *key, size_t key_size);
-typedef size_t(*ItemSize)(void *value, size_t value_size);
 typedef unsigned(*HashCompare)(void *a, void *b, size_t key_size);
+typedef bool(*CacheKeyMove)(void *dst, void *src, size_t key_size);
 typedef void(*CacheItemDestructor)(void *key, void *value);
 
 // cache hash keys
@@ -103,14 +103,26 @@ typedef struct {
     BitmapRef *bitmaps;
 } CompositeHashKey;
 
-Cache *ass_cache_create(HashFunction hash_func, HashCompare compare_func,
-                        CacheItemDestructor destruct_func, ItemSize size_func,
-                        size_t key_size, size_t value_size);
-void *ass_cache_put(Cache *cache, void *key, void *value);
-void *ass_cache_get(Cache *cache, void *key);
-int ass_cache_empty(Cache *cache, size_t max_size);
+typedef struct
+{
+    HashFunction hash_func;
+    HashCompare compare_func;
+    CacheKeyMove key_move_func;
+    CacheItemDestructor destruct_func;
+    size_t key_size;
+    size_t value_size;
+} CacheDesc;
+
+Cache *ass_cache_create(const CacheDesc *desc);
+bool ass_cache_get(Cache *cache, void *key, void *value_ptr);
+void *ass_cache_key(void *value);
+void ass_cache_commit(void *value, size_t item_size);
+void ass_cache_inc_ref(void *value);
+void ass_cache_dec_ref(void *value);
+void ass_cache_cut(Cache *cache, size_t max_size);
 void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
                      unsigned *misses, unsigned *count);
+void ass_cache_empty(Cache *cache);
 void ass_cache_done(Cache *cache);
 Cache *ass_font_cache_create(void);
 Cache *ass_outline_cache_create(void);

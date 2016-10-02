@@ -207,28 +207,34 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics, FT_Face face,
                    hb_codepoint_t unicode, hb_codepoint_t glyph)
 {
     GlyphMetricsHashValue *val;
-
     metrics->hash_key.glyph_index = glyph;
-    val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key);
+    if (ass_cache_get(metrics->metrics_cache, &metrics->hash_key, &val)) {
+        if (val->metrics.width >= 0)
+            return val;
+        ass_cache_dec_ref(val);
+        return NULL;
+    }
+    if (!val)
+        return NULL;
 
-    if (!val) {
-        int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
-            | FT_LOAD_IGNORE_TRANSFORM;
-        GlyphMetricsHashValue new_val;
+    int load_flags = FT_LOAD_DEFAULT | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
+        | FT_LOAD_IGNORE_TRANSFORM;
 
-        if (FT_Load_Glyph(face, glyph, load_flags))
-            return NULL;
-
-        memcpy(&new_val.metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
-
-        // if @font rendering is enabled and the glyph should be rotated,
-        // make cached_h_advance pick up the right advance later
-        if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
-            new_val.metrics.horiAdvance = new_val.metrics.vertAdvance;
-
-        val = ass_cache_put(metrics->metrics_cache, &metrics->hash_key, &new_val);
+    if (FT_Load_Glyph(face, glyph, load_flags)) {
+        val->metrics.width = -1;
+        ass_cache_commit(val, 1);
+        ass_cache_dec_ref(val);
+        return NULL;
     }
 
+    memcpy(&val->metrics, &face->glyph->metrics, sizeof(FT_Glyph_Metrics));
+
+    // if @font rendering is enabled and the glyph should be rotated,
+    // make cached_h_advance pick up the right advance later
+    if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
+        val->metrics.horiAdvance = val->metrics.vertAdvance;
+
+    ass_cache_commit(val, 1);
     return val;
 }
 
@@ -243,12 +249,13 @@ get_glyph(hb_font_t *font, void *font_data, hb_codepoint_t unicode,
         *glyph = FT_Face_GetCharVariantIndex(face, ass_font_index_magic(face, unicode), variation);
     else
         *glyph = FT_Get_Char_Index(face, ass_font_index_magic(face, unicode));
+    if (!*glyph)
+        return false;
 
     // rotate glyph advances for @fonts while we still know the Unicode codepoints
-    if (*glyph != 0)
-        get_cached_metrics(metrics_priv, face, unicode, *glyph);
-
-    return *glyph != 0;
+    GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, unicode, *glyph);
+    ass_cache_dec_ref(metrics);
+    return true;
 }
 
 static hb_position_t
@@ -258,11 +265,12 @@ cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
     GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
-
     if (!metrics)
         return 0;
 
-    return metrics->metrics.horiAdvance;
+    hb_position_t advance = metrics->metrics.horiAdvance;
+    ass_cache_dec_ref(metrics);
+    return advance;
 }
 
 static hb_position_t
@@ -272,19 +280,19 @@ cached_v_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
     GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
-
     if (!metrics)
         return 0;
 
-    return metrics->metrics.vertAdvance;
-
+    hb_position_t advance = metrics->metrics.vertAdvance;
+    ass_cache_dec_ref(metrics);
+    return advance;
 }
 
 static hb_bool_t
 cached_h_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
                 hb_position_t *x, hb_position_t *y, void *user_data)
 {
-    return 1;
+    return true;
 }
 
 static hb_bool_t
@@ -294,14 +302,13 @@ cached_v_origin(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
     GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
-
     if (!metrics)
-        return 0;
+        return false;
 
     *x = metrics->metrics.horiBearingX - metrics->metrics.vertBearingX;
     *y = metrics->metrics.horiBearingY - (-metrics->metrics.vertBearingY);
-
-    return 1;
+    ass_cache_dec_ref(metrics);
+    return true;
 }
 
 static hb_position_t
@@ -311,7 +318,7 @@ get_h_kerning(hb_font_t *font, void *font_data, hb_codepoint_t first,
     FT_Face face = font_data;
     FT_Vector kern;
 
-    if (FT_Get_Kerning (face, first, second, FT_KERNING_DEFAULT, &kern))
+    if (FT_Get_Kerning(face, first, second, FT_KERNING_DEFAULT, &kern))
         return 0;
 
     return kern.x;
@@ -331,16 +338,15 @@ cached_extents(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
     FT_Face face = font_data;
     struct ass_shaper_metrics_data *metrics_priv = user_data;
     GlyphMetricsHashValue *metrics = get_cached_metrics(metrics_priv, face, 0, glyph);
-
     if (!metrics)
-        return 0;
+        return false;
 
     extents->x_bearing = metrics->metrics.horiBearingX;
     extents->y_bearing = metrics->metrics.horiBearingY;
     extents->width     = metrics->metrics.width;
     extents->height    = -metrics->metrics.height;
-
-    return 1;
+    ass_cache_dec_ref(metrics);
+    return true;
 }
 
 static hb_bool_t
@@ -353,15 +359,14 @@ get_contour_point(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
         | FT_LOAD_IGNORE_TRANSFORM;
 
     if (FT_Load_Glyph(face, glyph, load_flags))
-        return 0;
+        return false;
 
     if (point_index >= (unsigned)face->glyph->outline.n_points)
-        return 0;
+        return false;
 
     *x = face->glyph->outline.points[point_index].x;
     *y = face->glyph->outline.points[point_index].y;
-
-    return 1;
+    return true;
 }
 
 /**
@@ -560,6 +565,7 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
             info->next = malloc(sizeof(GlyphInfo));
             if (info->next) {
                 memcpy(info->next, info, sizeof(GlyphInfo));
+                ass_cache_inc_ref(info->font);
                 info = info->next;
                 info->next = NULL;
             }
@@ -965,11 +971,10 @@ FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info)
 }
 
 /**
- * \brief Resolve a Windows font charset number to a suitable
- * base direction. 177 and 178 are Hebrew and Arabic respectively, and
- * they map to RTL. Everything else maps to LTR for compatibility
- * reasons. The special value -1, which is not a legal Windows font charset
- * number, can be used for autodetection.
+ * \brief Resolve a Windows font charset number to a suitable base
+ * direction. Generally, use LTR for compatibility with VSFilter. The
+ * special value -1, which is not a legal Windows font charset number,
+ * can be used for autodetection.
  * \param enc Windows font encoding
  */
 FriBidiParType resolve_base_direction(int enc)
@@ -977,9 +982,6 @@ FriBidiParType resolve_base_direction(int enc)
     switch (enc) {
         case -1:
             return FRIBIDI_PAR_ON;
-        case 177:
-        case 178:
-            return FRIBIDI_PAR_RTL;
         default:
             return FRIBIDI_PAR_LTR;
     }

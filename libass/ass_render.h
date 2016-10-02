@@ -42,8 +42,8 @@
 #include "ass_rasterizer.h"
 
 #define GLYPH_CACHE_MAX 10000
-#define BITMAP_CACHE_MAX_SIZE 500 * 1048576
-#define COMPOSITE_CACHE_MAX_SIZE 500 * 1048576
+#define BITMAP_CACHE_MAX_SIZE 128 * 1048576
+#define COMPOSITE_CACHE_MAX_SIZE 64 * 1048576
 
 #define PARSED_FADE (1<<0)
 #define PARSED_A    (1<<1)
@@ -60,10 +60,11 @@ typedef struct {
     double y;
 } DVector;
 
-typedef struct free_list {
-    void *object;
-    struct free_list *next;
-} FreeList;
+typedef struct {
+    ASS_Image result;
+    CompositeHashValue *source;
+    size_t ref_count;
+} ASS_ImagePriv;
 
 typedef struct {
     int frame_width;
@@ -125,8 +126,10 @@ typedef struct {
 
     int x, y;
     Rectangle rect, rect_o;
-    Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
     size_t n_bm, n_bm_o;
+
+    Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
+    CompositeHashValue *image;
 } CombinedBitmapInfo;
 
 // describes a glyph
@@ -300,7 +303,6 @@ struct ass_renderer {
 
     ASS_Image *images_root;     // rendering result is stored here
     ASS_Image *prev_images_root;
-    int cache_cleared;
 
     EventImages *eimg;          // temporary buffer for sorting rendered events
     int eimg_size;              // allocated buffer size
@@ -327,9 +329,6 @@ struct ass_renderer {
     RasterizerData rasterizer;
 #endif
 
-    FreeList *free_head;
-    FreeList *free_tail;
-
     ASS_Style user_override_style;
 };
 
@@ -351,7 +350,8 @@ typedef struct {
 } Segment;
 
 void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
-void ass_free_images(ASS_Image *img);
+void ass_frame_ref(ASS_Image *img);
+void ass_frame_unref(ASS_Image *img);
 
 // XXX: this is actually in ass.c, includes should be fixed later on
 void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track);

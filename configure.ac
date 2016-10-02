@@ -1,4 +1,4 @@
-AC_INIT(libass, 0.13.2)
+AC_INIT(libass, 0.13.3)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
@@ -78,7 +78,7 @@ AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
         [*darwin*], [
             ASFLAGS="$ASFLAGS -f macho$BITS -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
-        [*linux*|*dragonfly*|*bsd*], [
+        [*linux*|*dragonfly*|*bsd*|*solaris*], [
             ASFLAGS="$ASFLAGS -f elf -DHAVE_ALIGNED_STACK=1" ],
         [*cygwin*|*mingw*], [
             ASFLAGS="$ASFLAGS -f win$BITS"
@@ -227,6 +227,10 @@ AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 # add packages to pkg-config for static linking
 if test "$use_libiconv" = true; then
     AC_DEFINE(CONFIG_ICONV, 1, [use iconv])
+    if test x"$ac_cv_search_libiconv_open" != x"none required" &&
+       test x"$ac_cv_search_iconv_open" != x"none required"; then
+        pkg_libs="${pkg_libs} -liconv"
+    fi
 fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
@@ -243,8 +247,8 @@ if test x$enable_require_system_font_provider != xno &&
    test x$coretext != xtrue
 then
     AC_MSG_ERROR([\
-Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig\
-(Linux, other) is required. If you really want to compile without\
+Either DirectWrite (on Windows), CoreText (on OSX), or Fontconfig \
+(Linux, other) is required. If you really want to compile without \
 a system font provider, add --disable-require-system-font-provider])
 fi
 
