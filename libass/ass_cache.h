@@ -113,6 +113,18 @@ typedef struct
     size_t value_size;
 } CacheDesc;
 
+#pragma push_macro("ass_cache_get")
+#pragma push_macro("ass_cache_commit")
+#pragma push_macro("ass_cache_inc_ref")
+#pragma push_macro("ass_cache_dec_ref")
+#pragma push_macro("ass_cache_cut")
+#pragma push_macro("ass_cache_empty")
+#undef ass_cache_get
+#undef ass_cache_commit
+#undef ass_cache_inc_ref
+#undef ass_cache_dec_ref
+#undef ass_cache_cut
+#undef ass_cache_empty
 Cache *ass_cache_create(const CacheDesc *desc);
 bool ass_cache_get(Cache *cache, void *key, void *value_ptr);
 void *ass_cache_key(void *value);
@@ -129,5 +141,11 @@ Cache *ass_outline_cache_create(void);
 Cache *ass_glyph_metrics_cache_create(void);
 Cache *ass_bitmap_cache_create(void);
 Cache *ass_composite_cache_create(void);
+#pragma pop_macro("ass_cache_get")
+#pragma pop_macro("ass_cache_commit")
+#pragma pop_macro("ass_cache_inc_ref")
+#pragma pop_macro("ass_cache_dec_ref")
+#pragma pop_macro("ass_cache_cut")
+#pragma pop_macro("ass_cache_empty")
 
 #endif                          /* LIBASS_CACHE_H */

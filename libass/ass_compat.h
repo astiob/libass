@@ -26,4 +26,12 @@
 #define inline __inline
 #endif
 
+#define ass_cache_get(...) (fprintf(stderr, "%s:%d: ass_cache_get\n", __FILE__, __LINE__), ass_cache_get(__VA_ARGS__))
+#define ass_cache_commit(...) (fprintf(stderr, "%s:%d: ass_cache_commit\n", __FILE__, __LINE__), ass_cache_commit(__VA_ARGS__))
+
+#define ass_cache_empty(...) (fprintf(stderr, "%s:%d: ", __FILE__, __LINE__), ass_cache_empty(__VA_ARGS__))
+#define ass_cache_cut(...) (fprintf(stderr, "%s:%d: ", __FILE__, __LINE__), ass_cache_cut(__VA_ARGS__))
+#define ass_cache_inc_ref(...) (fprintf(stderr, "%s:%d: ", __FILE__, __LINE__), ass_cache_inc_ref(__VA_ARGS__))
+#define ass_cache_dec_ref(...) (fprintf(stderr, "%s:%d: ", __FILE__, __LINE__), ass_cache_dec_ref(__VA_ARGS__))
+
 #endif                          /* LIBASS_COMPAT_H */

@@ -360,7 +360,10 @@ Cache *ass_cache_create(const CacheDesc *desc)
     return cache;
 }
 
+#pragma push_macro("ass_cache_get")
+#undef ass_cache_get
 bool ass_cache_get(Cache *cache, void *key, void *value_ptr)
+#pragma pop_macro("ass_cache_get")
 {
     char **value = (char **) value_ptr;
     const CacheDesc *desc = cache->desc;
@@ -426,7 +429,10 @@ void *ass_cache_key(void *value)
     return (char *) value + align_cache(item->desc->value_size);
 }
 
+#pragma push_macro("ass_cache_commit")
+#undef ass_cache_commit
 void ass_cache_commit(void *value, size_t item_size)
+#pragma pop_macro("ass_cache_commit")
 {
     CacheItem *item = value_to_item(value);
     assert(!item->size && item_size);
@@ -445,25 +451,52 @@ static inline void destroy_item(const CacheDesc *desc, CacheItem *item)
 {
     assert(item->desc == desc);
     char *value = (char *) item + CACHE_ITEM_SIZE;
+    const char *cache_name = "unknown";
+    if (item->desc->hash_func == font_hash) cache_name = "font";
+    if (item->desc->hash_func == bitmap_hash) cache_name = "bitmap";
+    if (item->desc->hash_func == composite_hash) cache_name = "composite";
+    if (item->desc->hash_func == outline_hash) cache_name = "outline";
+    if (item->desc->hash_func == glyph_metrics_hash) cache_name = "glyph metrics";
+    fprintf(stderr, "destroy_item: %p from %s cache\n", (void *) item, cache_name);
     desc->destruct_func(value + align_cache(desc->value_size), value);
     free(item);
 }
 
+#pragma push_macro("ass_cache_inc_ref")
+#undef ass_cache_inc_ref
 void ass_cache_inc_ref(void *value)
+#pragma pop_macro("ass_cache_inc_ref")
 {
     if (!value)
-        return;
+        return (void) fprintf(stderr, "ass_cache_inc_ref: %p\n", value);
     CacheItem *item = value_to_item(value);
     assert(item->size && item->ref_count);
+    const char *cache_name = "unknown";
+    if (item->desc->hash_func == font_hash) cache_name = "font";
+    if (item->desc->hash_func == bitmap_hash) cache_name = "bitmap";
+    if (item->desc->hash_func == composite_hash) cache_name = "composite";
+    if (item->desc->hash_func == outline_hash) cache_name = "outline";
+    if (item->desc->hash_func == glyph_metrics_hash) cache_name = "glyph metrics";
+    fprintf(stderr, "ass_cache_inc_ref: %p from %s cache currently has %zu references\n", (void *) item, cache_name, item->ref_count);
     item->ref_count++;
 }
 
+#pragma push_macro("ass_cache_dec_ref")
+#undef ass_cache_dec_ref
 void ass_cache_dec_ref(void *value)
+#pragma pop_macro("ass_cache_dec_ref")
 {
     if (!value)
-        return;
+        return (void) fprintf(stderr, "ass_cache_inc_ref: %p\n", value);
     CacheItem *item = value_to_item(value);
     assert(item->size && item->ref_count);
+    const char *cache_name = "unknown";
+    if (item->desc->hash_func == font_hash) cache_name = "font";
+    if (item->desc->hash_func == bitmap_hash) cache_name = "bitmap";
+    if (item->desc->hash_func == composite_hash) cache_name = "composite";
+    if (item->desc->hash_func == outline_hash) cache_name = "outline";
+    if (item->desc->hash_func == glyph_metrics_hash) cache_name = "glyph metrics";
+    fprintf(stderr, "ass_cache_dec_ref: %p from %s cache currently has %zu references\n", (void *) item, cache_name, item->ref_count);
     if (--item->ref_count)
         return;
 
@@ -479,11 +512,22 @@ void ass_cache_dec_ref(void *value)
     destroy_item(item->desc, item);
 }
 
+#pragma push_macro("ass_cache_cut")
+#undef ass_cache_cut
 void ass_cache_cut(Cache *cache, size_t max_size)
+#pragma pop_macro("ass_cache_cut")
 {
-    if (cache->cache_size <= max_size)
-        return;
+    const char *cache_name = "unknown";
+    if (cache->desc->hash_func == font_hash) cache_name = "font";
+    if (cache->desc->hash_func == bitmap_hash) cache_name = "bitmap";
+    if (cache->desc->hash_func == composite_hash) cache_name = "composite";
+    if (cache->desc->hash_func == outline_hash) cache_name = "outline";
+    if (cache->desc->hash_func == glyph_metrics_hash) cache_name = "glyph metrics";
 
+    if (cache->cache_size <= max_size)
+        return (void) fprintf(stderr, "ass_cache_cut: %s cache small enough\n", cache_name);
+
+    fprintf(stderr, "ass_cache_cut: in %s cache", cache_name);
     do {
         CacheItem *item = cache->queue_first;
         if (!item)
@@ -491,6 +535,7 @@ void ass_cache_cut(Cache *cache, size_t max_size)
         assert(item->size);
 
         cache->queue_first = item->queue_next;
+        fprintf(stderr, ", %p has %zu refs", (void *) item, item->ref_count);
         if (--item->ref_count) {
             item->queue_prev = NULL;
             continue;
@@ -504,6 +549,7 @@ void ass_cache_cut(Cache *cache, size_t max_size)
         cache->cache_size -= item->size;
         destroy_item(cache->desc, item);
     } while (cache->cache_size > max_size);
+    fprintf(stderr, "\n");
     if (cache->queue_first)
         cache->queue_first->queue_prev = &cache->queue_first;
     else
@@ -523,15 +569,28 @@ void ass_cache_stats(Cache *cache, size_t *size, unsigned *hits,
         *count = cache->items;
 }
 
+#pragma push_macro("ass_cache_empty")
+#undef ass_cache_empty
 void ass_cache_empty(Cache *cache)
+#pragma pop_macro("ass_cache_empty")
 {
+    const char *cache_name = "unknown";
+    if (cache->desc->hash_func == font_hash) cache_name = "font";
+    if (cache->desc->hash_func == bitmap_hash) cache_name = "bitmap";
+    if (cache->desc->hash_func == composite_hash) cache_name = "composite";
+    if (cache->desc->hash_func == outline_hash) cache_name = "outline";
+    if (cache->desc->hash_func == glyph_metrics_hash) cache_name = "glyph metrics";
+    fprintf(stderr, "ass_cache_empty: in %s cache", cache_name);
+
     for (int i = 0; i < cache->buckets; i++) {
         CacheItem *item = cache->map[i];
         while (item) {
             assert(item->size);
             CacheItem *next = item->next;
+            fprintf(stderr, ", %p has %zu", (void *) item, item->ref_count);
             if (item->queue_prev)
                 item->ref_count--;
+            fprintf(stderr, " (%zu) refs", item->ref_count);
             if (item->ref_count)
                 item->cache = NULL;
             else
@@ -541,6 +600,7 @@ void ass_cache_empty(Cache *cache)
         cache->map[i] = NULL;
     }
 
+    fprintf(stderr, "\n");
     cache->queue_first = NULL;
     cache->queue_last = &cache->queue_first;
     cache->items = cache->hits = cache->misses = cache->cache_size = 0;
