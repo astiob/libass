@@ -268,6 +268,9 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
  */
 char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
 {
+    fprintf(stderr, "%s(%p, %p \"%s\", %p \"%s\", %g)\n",
+            __func__, render_priv, p, p, end, end, pwr);
+
     while (*p != '\\' && p != end)
         ++p;
     if (*p != '\\')
