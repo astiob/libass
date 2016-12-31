@@ -1,10 +1,26 @@
+libass (0.13.5)
+ * Add Justify style override that changes text justification
+   (left/right/center) without affecting event positioning.
+ * Fix ass_set_cache_limits() to affect total bitmap cache size
+   including composite bitmap cache.
+ * Number parsing fixes
+   * Fix illegal read when parsing some numbers in scientific notation
+     with huge exponents.
+   * Correctly evaluate numbers in scientific notation with large exponents.
+   * Correctly evaluate numbers with many leading zeros.
+ * Bug fixes found with fuzzing
+   * Fix a small memory leak in the parser.
+   * Fix illegal read in the parser on specially crafted input with \t tags.
+
 libass (0.13.4)
  * Bug fixes found with fuzzing
-   * Fix memory reallocation in the shaper.
+   * Fix memory reallocation in the shaper. (CVE-2016-7972)
    * Fix two small memory leaks in the parser and test program.
    * Fix illegal read in Gaussian blur coefficient calculations.
+     (CVE-2016-7970)
    * Fix mode 0/3 line wrapping equalization in specific cases which could
      result in illegal reads while laying out and shaping text.
+     (CVE-2016-7969)
 
 libass (0.13.3)
  * Improve compatibility/portablility of build system,

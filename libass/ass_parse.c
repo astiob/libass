@@ -262,7 +262,8 @@ static int parse_vector_clip(ASS_Renderer *render_priv,
 /**
  * \brief Parse style override tag.
  * \param p string to parse
- * \param end end of string to parse, which must be '}' or ')'
+ * \param end end of string to parse, which must be '}', ')', or the first
+ *            of a number of spaces immediately preceding '}' or ')'
  * \param pwr multiplier for some tag effects (comes from \t tags)
  */
 char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
@@ -272,7 +273,8 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
     if (*p != '\\')
         return p;
     ++p;
-    skip_spaces(&p);
+    if (p != end)
+        skip_spaces(&p);
 
     char *q = p;
     while (*q != '(' && *q != '\\' && q != end)
@@ -293,7 +295,8 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
     if (*q == '(') {
         ++q;
         while (1) {
-            skip_spaces(&q);
+            if (q != end)
+                skip_spaces(&q);
 
             // Split on commas. If there is a backslash, ignore any
             // commas following it and lump everything starting from
@@ -315,7 +318,7 @@ char *parse_tag(ASS_Renderer *render_priv, char *p, char *end, double pwr)
                 push_arg(args, &nargs, q, r);
                 q = r;
                 // The closing parenthesis could be missing.
-                if (*q == ')')
+                if (q != end)
                     ++q;
                 break;
             }

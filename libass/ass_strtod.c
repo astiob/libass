@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 1988-1993 The Regents of the University of California.
  * Copyright (c) 1994 Sun Microsystems, Inc.
+ * Copyright (c) 2016 Oleg Oshmyan <chortos@inbox.lv>
  *
  * Permission to use, copy, modify, and distribute this
  * software and its documentation for any purpose and without
@@ -16,11 +17,12 @@
 #include "ass_compat.h"
 
 #include <stdlib.h>
+#include <float.h>
 #include <errno.h>
 #include "ass_string.h"
 
 static
-const int maxExponent = 511;    /* Largest possible base 10 exponent.  Any
+const size_t maxExponent = 511; /* Largest possible base 10 exponent.  Any
                                  * exponent larger than this will already
                                  * produce underflow or overflow, so there's
                                  * no need to worry about additional digits.
@@ -37,6 +39,19 @@ const double powersOf10[] = {   /* Table giving binary powers of 10.  Entry */
     1.0e64,
     1.0e128,
     1.0e256
+};
+
+static
+const double negPowOf10[] = {   /* Table giving negative binary powers */
+    0.1,                        /* of 10.  Entry is 10^-2^i. */
+    0.01,                       /* Used to convert decimal exponents */
+    1.0e-4,                     /* into floating-point numbers. */
+    1.0e-8,
+    1.0e-16,
+    1.0e-32,
+    1.0e-64,
+    1.0e-128,
+    1.0e-256
 };
 
 /*
@@ -78,12 +93,13 @@ ass_strtod(
                              * address here. */
     )
 {
-    int sign, expSign = 0;
-    double fraction, dblExp, *d;
+    int sign, fracExpSign, expSign;
+    double fraction, dblExp;
+    const double *d;
     register const char *p;
     register int c;
-    int exp = 0;            /* Exponent read from "EX" field. */
-    int fracExp = 0;        /* Exponent that derives from the fractional
+    size_t exp = 0;         /* Exponent read from "EX" field. */
+    size_t fracExp;         /* Exponent that derives from the fractional
                              * part.  Under normal circumstatnces, it is
                              * the negative of the number of digits in F.
                              * However, if I is very long, the last digits
@@ -92,9 +108,10 @@ ass_strtod(
                              * unnecessary overflow on I alone).  In this
                              * case, fracExp is incremented one for each
                              * dropped digit. */
-    int mantSize;       /* Number of digits in mantissa. */
-    int decPt;          /* Number of mantissa digits BEFORE decimal
+    size_t mantSize;    /* Number of digits in mantissa. */
+    size_t decPt;       /* Number of mantissa digits BEFORE decimal
                          * point. */
+    size_t leadZeros;   /* Number of leading zeros in mantissa. */
     const char *pExp;       /* Temporarily holds location of exponent
                              * in string. */
 
@@ -122,14 +139,17 @@ ass_strtod(
      */
 
     decPt = -1;
+    leadZeros = -1;
     for (mantSize = 0; ; mantSize += 1)
     {
         c = *p;
         if (!ass_isdigit(c)) {
-            if ((c != '.') || (decPt >= 0)) {
+            if ((c != '.') || (decPt != (size_t) -1)) {
                 break;
             }
             decPt = mantSize;
+        } else if ((c != '0') && (leadZeros == (size_t) -1)) {
+            leadZeros = mantSize;
         }
         p += 1;
     }
@@ -141,17 +161,27 @@ ass_strtod(
      * they can't affect the value anyway.
      */
 
+    if (leadZeros == (size_t) -1) {
+        leadZeros = mantSize;
+    }
     pExp  = p;
-    p -= mantSize;
-    if (decPt < 0) {
+    p -= mantSize - leadZeros;
+    if (decPt == (size_t) -1) {
         decPt = mantSize;
     } else {
         mantSize -= 1;      /* One of the digits was the point. */
+        if (decPt < leadZeros) {
+            leadZeros -= 1;
+        }
     }
-    if (mantSize > 18) {
-        fracExp = decPt - 18;
-        mantSize = 18;
+    if (mantSize - leadZeros > 18) {
+        mantSize = leadZeros + 18;
+    }
+    if (decPt < mantSize) {
+        fracExpSign = 1;
+        fracExp = mantSize - decPt;
     } else {
+        fracExpSign = 0;
         fracExp = decPt - mantSize;
     }
     if (mantSize == 0) {
@@ -159,9 +189,11 @@ ass_strtod(
         p = string;
         goto done;
     } else {
-        int frac1, frac2;
+        int frac1, frac2, m;
+        mantSize -= leadZeros;
+        m = mantSize;
         frac1 = 0;
-        for ( ; mantSize > 9; mantSize -= 1)
+        for ( ; m > 9; m -= 1)
         {
             c = *p;
             p += 1;
@@ -172,7 +204,7 @@ ass_strtod(
             frac1 = 10*frac1 + (c - '0');
         }
         frac2 = 0;
-        for (; mantSize > 0; mantSize -= 1)
+        for (; m > 0; m -= 1)
         {
             c = *p;
             p += 1;
@@ -191,6 +223,14 @@ ass_strtod(
 
     p = pExp;
     if ((*p == 'E') || (*p == 'e')) {
+        size_t expLimit;    /* If exp > expLimit, appending another digit
+                             * to exp is guaranteed to make it too large.
+                             * If exp == expLimit, this may depend on
+                             * the exact digit, but in any case exp with
+                             * the digit appended and fracExp added will
+                             * still fit in size_t, even if it does
+                             * exceed maxExponent. */
+        int expWraparound = 0;
         p += 1;
         if (*p == '-') {
             expSign = 1;
@@ -201,15 +241,38 @@ ass_strtod(
             }
             expSign = 0;
         }
+        if (expSign == fracExpSign) {
+            if (maxExponent < fracExp) {
+                expLimit = 0;
+            } else {
+                expLimit = (maxExponent - fracExp) / 10;
+            }
+        } else {
+            expLimit = fracExp / 10 + (fracExp % 10 + maxExponent) / 10;
+        }
         while (ass_isdigit(*p)) {
+            if ((exp > expLimit) || expWraparound) {
+                do {
+                    p += 1;
+                } while (ass_isdigit(*p));
+                goto expOverflow;
+            } else if (exp > ((size_t) -1 - (*p - '0')) / 10) {
+                expWraparound = 1;
+            }
             exp = exp * 10 + (*p - '0');
             p += 1;
         }
-    }
-    if (expSign) {
-        exp = fracExp - exp;
+        if (expSign == fracExpSign) {
+            exp = fracExp + exp;
+        } else if ((fracExp <= exp) || expWraparound) {
+            exp = exp - fracExp;
+        } else {
+            exp = fracExp - exp;
+            expSign = fracExpSign;
+        }
     } else {
-        exp = fracExp + exp;
+        exp = fracExp;
+        expSign = fracExpSign;
     }
 
     /*
@@ -219,18 +282,39 @@ ass_strtod(
      * fraction.
      */
 
-    if (exp < 0) {
-        expSign = 1;
-        exp = -exp;
+    if (exp > maxExponent) {
+expOverflow:
+        exp = maxExponent;
+        if (fraction != 0.0) {
+            errno = ERANGE;
+        }
+    }
+    /* Prefer positive powers of 10 for increased precision, especially
+     * for small powers that are represented exactly in floating-point. */
+    if ((exp <= DBL_MAX_10_EXP) || !expSign) {
+        d = powersOf10;
     } else {
+        /* The floating-point format supports more negative exponents
+         * than positive, or perhaps the result is a subnormal number. */
+        if (exp > -DBL_MIN_10_EXP) {
+            /* The result might be a valid subnormal number, but the
+             * exponent underflows.  Tweak fraction so that it is below
+             * 1.0 first, so that if the exponent still underflows after
+             * that, the result is sure to underflow as well. */
+            exp -= mantSize;
+            dblExp = 1.0;
+            for (d = powersOf10; mantSize != 0; mantSize >>= 1, d += 1) {
+                if (mantSize & 01) {
+                    dblExp *= *d;
+                }
+            }
+            fraction /= dblExp;
+        }
+        d = negPowOf10;
         expSign = 0;
     }
-    if (exp > maxExponent) {
-        exp = maxExponent;
-        errno = ERANGE;
-    }
     dblExp = 1.0;
-    for (d = (double *) powersOf10; exp != 0; exp >>= 1, d += 1) {
+    for (; exp != 0; exp >>= 1, d += 1) {
         if (exp & 01) {
             dblExp *= *d;
         }

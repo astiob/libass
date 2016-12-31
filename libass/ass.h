@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01304000
+#define LIBASS_VERSION 0x01305000
 
 #ifdef __cplusplus
 extern "C" {
@@ -166,6 +166,10 @@ typedef enum {
      * resolution given by the ASS_Track.
      */
     ASS_OVERRIDE_FULL_STYLE = 1 << 9,
+    /**
+     * On dialogue events override: Justify
+     */
+    ASS_OVERRIDE_BIT_JUSTIFY = 1 << 10,
 } ASS_OverrideBits;
 
 /**
