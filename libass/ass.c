@@ -1370,7 +1370,7 @@ void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track)
             ass_msg(lib, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
         } else if (!track->PlayResY) {
-            track->PlayResY = track->PlayResX * 3 / 4;
+            track->PlayResY = FFMAX(1, track->PlayResX * 3 / 4);
             ass_msg(lib, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
         } else if (!track->PlayResX && track->PlayResY == 1024) {
