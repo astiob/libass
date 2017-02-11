@@ -28,8 +28,8 @@ branches:
     - coverity_scan
 
 before_install:
-  - (sudo apt-get update || brew update)
-  - (sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev yasm || brew install freetype fribidi yasm)
+  - sudo apt-get update || brew update
+  - sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev yasm || brew install freetype fribidi yasm
 script:
   - if [ "$COVERITY_SCAN_BRANCH" != 1 ]; then ./autogen.sh && ./configure && make -j4; fi
 
