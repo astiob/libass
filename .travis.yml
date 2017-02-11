@@ -31,7 +31,7 @@ before_install:
   - (sudo apt-get update || brew update)
   - (sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev yasm || brew install freetype fribidi yasm) && ./autogen.sh && ./configure
 script:
-  - make -j4
+  - if [ "$COVERITY_SCAN_BRANCH" != 1 ]; then make -j4; fi
 
 notifications:
   email: false
