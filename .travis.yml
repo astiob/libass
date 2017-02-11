@@ -29,9 +29,9 @@ branches:
 
 before_install:
   - (sudo apt-get update || brew update)
-  - (sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev yasm || brew install freetype fribidi yasm) && ./autogen.sh && ./configure
+  - (sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libfribidi-dev libharfbuzz-dev yasm || brew install freetype fribidi yasm)
 script:
-  - if [ "$COVERITY_SCAN_BRANCH" != 1 ]; then make -j4; fi
+  - if [ "$COVERITY_SCAN_BRANCH" != 1 ]; then ./autogen.sh && ./configure && make -j4; fi
 
 notifications:
   email: false
@@ -47,6 +47,6 @@ addons:
       name: "libass/libass"
       description: "Build submitted via Travis CI"
     notification_email: none@example.com
-    build_command_prepend: "./configure"
+    build_command_prepend: "./autogen.sh && ./configure"
     build_command:   "make -j4"
     branch_pattern: master|coverity_scan
