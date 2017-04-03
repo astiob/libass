@@ -83,7 +83,12 @@
 %endif
 
 ; Always use long nops (reduces 0x90 spam in disassembly on x86_32)
+%ifndef __NASM_VER__
 CPU amdnop
+%else
+%use smartalign
+ALIGNMODE k7
+%endif
 
 ; Macros to eliminate most code duplication between x86_32 and x86_64:
 ; Currently this works only for leaf functions which load all their arguments
@@ -745,7 +750,6 @@ SECTION .note.GNU-stack noalloc noexec nowrite progbits
 ; All subsequent functions (up to the next INIT_CPUFLAGS) is built for the specified cpu.
 ; You shouldn't need to invoke this macro directly, it's a subroutine for INIT_MMX &co.
 %macro INIT_CPUFLAGS 0-2
-    CPU amdnop
     %if %0 >= 1
         %xdefine cpuname %1
         %assign cpuflags cpuflags_%1
