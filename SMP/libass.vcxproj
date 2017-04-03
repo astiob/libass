@@ -240,7 +240,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\vsyasm.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\yasm.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -415,7 +415,9 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -472,7 +474,9 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -532,7 +536,9 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -592,7 +598,9 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -651,7 +659,9 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -710,7 +720,9 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -782,7 +794,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -854,7 +867,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -926,7 +940,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -998,7 +1013,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1070,7 +1086,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1142,7 +1159,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(Defines)</Defines>
+      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1213,7 +1231,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1284,7 +1303,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <Defines>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(Defines)</Defines>
+      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1301,6 +1321,6 @@ del /f /q $(OutDir)\licenses\libass.txt
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\vsyasm.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\yasm.targets" />
   </ImportGroup>
 </Project>
