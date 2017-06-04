@@ -406,25 +406,17 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
     b_y1 = bm->h;
 
     tmp = dst_x - clip_x0;
-    if (tmp < 0) {
+    if (tmp < 0)
         b_x0 = -tmp;
-        render_priv->state.has_clips = 1;
-    }
     tmp = dst_y - clip_y0;
-    if (tmp < 0) {
+    if (tmp < 0)
         b_y0 = -tmp;
-        render_priv->state.has_clips = 1;
-    }
     tmp = clip_x1 - dst_x - bm->w;
-    if (tmp < 0) {
+    if (tmp < 0)
         b_x1 = bm->w + tmp;
-        render_priv->state.has_clips = 1;
-    }
     tmp = clip_y1 - dst_y - bm->h;
-    if (tmp < 0) {
+    if (tmp < 0)
         b_y1 = bm->h + tmp;
-        render_priv->state.has_clips = 1;
-    }
 
     if ((b_y0 >= b_y1) || (b_x0 >= b_x1))
         return tail;
@@ -522,8 +514,6 @@ static void blend_vector_clip(ASS_Renderer *render_priv,
         int bx, by, bw, bh, bs;
         int aleft, atop, bleft, btop;
         unsigned char *abuffer, *bbuffer, *nbuffer;
-
-        render_priv->state.has_clips = 1;
 
         abuffer = cur->bitmap;
         bbuffer = clip_bm->buffer;
@@ -882,7 +872,6 @@ init_render_context(ASS_Renderer *render_priv, ASS_Event *event)
 {
     render_priv->state.event = event;
     render_priv->state.parsed_tags = 0;
-    render_priv->state.has_clips = 0;
     render_priv->state.evt_type = EVENT_NORMAL;
 
     reset_render_context(render_priv, NULL);
@@ -1095,8 +1084,8 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         outline_key->type = OUTLINE_DRAWING;
         key->scale_x = double_to_d16(info->scale_x);
         key->scale_y = double_to_d16(info->scale_y);
-        key->outline.x = double_to_d16(info->border_x);
-        key->outline.y = double_to_d16(info->border_y);
+        key->outline.x = double_to_d6(info->border_x * priv->border_scale);
+        key->outline.y = double_to_d6(info->border_y * priv->border_scale);
         key->border_style = info->border_style;
         // hpacing only matters for opaque box borders (see draw_opaque_box),
         // so for normal borders, maximize cache utility by ignoring it
@@ -1117,8 +1106,8 @@ fill_glyph_hash(ASS_Renderer *priv, OutlineHashKey *outline_key,
         key->italic = info->italic;
         key->scale_x = double_to_d16(info->scale_x);
         key->scale_y = double_to_d16(info->scale_y);
-        key->outline.x = double_to_d16(info->border_x);
-        key->outline.y = double_to_d16(info->border_y);
+        key->outline.x = double_to_d6(info->border_x * priv->border_scale);
+        key->outline.y = double_to_d6(info->border_y * priv->border_scale);
         key->flags = info->flags;
         key->border_style = info->border_style;
         key->hspacing =
@@ -2413,15 +2402,27 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
 static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 {
-    void *nbuffer = ass_aligned_alloc(1, event_images->width * event_images->height, false);
+    double size_x = render_priv->state.shadow_x > 0 ?
+                    render_priv->state.shadow_x * render_priv->border_scale : 0;
+    double size_y = render_priv->state.shadow_y > 0 ?
+                    render_priv->state.shadow_y * render_priv->border_scale : 0;
+    int left    = event_images->left - size_x;
+    int top     = event_images->top  - size_y;
+    int right   = event_images->left + event_images->width  + size_x;
+    int bottom  = event_images->top  + event_images->height + size_y;
+    left        = FFMINMAX(left,   0, render_priv->width);
+    top         = FFMINMAX(top,    0, render_priv->height);
+    right       = FFMINMAX(right,  0, render_priv->width);
+    bottom      = FFMINMAX(bottom, 0, render_priv->height);
+    int w = right - left;
+    int h = bottom - top;
+    if (w < 1 || h < 1)
+        return;
+    void *nbuffer = ass_aligned_alloc(1, w * h, false);
     if (!nbuffer)
         return;
-    memset(nbuffer, 0xFF, event_images->width * event_images->height);
-    ASS_Image *img = my_draw_bitmap(nbuffer, event_images->width,
-                                    event_images->height,
-                                    event_images->width,
-                                    event_images->left,
-                                    event_images->top,
+    memset(nbuffer, 0xFF, w * h);
+    ASS_Image *img = my_draw_bitmap(nbuffer, w, h, w, left, top,
                                     render_priv->state.c[3], NULL);
     if (img) {
         img->next = event_images->imgs;
@@ -2944,9 +2945,6 @@ static int ass_detect_change(ASS_Renderer *priv)
 {
     ASS_Image *img, *img2;
     int diff;
-
-    if (priv->state.has_clips)
-        return 2;
 
     img = priv->prev_images_root;
     img2 = priv->images_root;

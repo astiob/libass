@@ -232,22 +232,8 @@ static long long string2timecode(ASS_Library *library, char *p)
         ass_msg(library, MSGL_WARN, "Bad timestamp");
         return 0;
     }
-    tm = ((h * 60LL + m) * 60 + s) * 1000 + ms * 10;
+    tm = ((h * 60LL + m) * 60 + s) * 1000 + ms * 10LL;
     return tm;
-}
-
-/**
- * \brief converts numpad-style align to align.
- */
-static int numpad2align(int val)
-{
-    int res, v;
-    v = (val - 1) / 3;          // 0, 1 or 2 for vertical alignment
-    if (v != 0)
-        v = 3 - v;
-    res = ((val - 1) % 3) + 1;  // horizontal alignment
-    res += v * 4;
-    return res;
 }
 
 #define NEXT(str,token) \
@@ -673,24 +659,18 @@ static int process_events_line(ASS_Track *track, char *str)
     return 0;
 }
 
-// Copied from mkvtoolnix
-static unsigned char *decode_chars(unsigned char c1, unsigned char c2,
-                                   unsigned char c3, unsigned char c4,
-                                   unsigned char *dst, int cnt)
+static unsigned char *decode_chars(const unsigned char *src,
+                                   unsigned char *dst, int cnt_in)
 {
-    uint32_t value;
-    unsigned char bytes[3];
-    int i;
+    uint32_t value = 0;
+    for (int i = 0; i < cnt_in; i++)
+        value |= (uint32_t) ((src[i] - 33u) & 63) << 6 * (3 - i);
 
-    value =
-        ((c1 - 33) << 18) + ((c2 - 33) << 12) + ((c3 - 33) << 6) + (c4 -
-                                                                    33);
-    bytes[2] = value & 0xff;
-    bytes[1] = (value & 0xff00) >> 8;
-    bytes[0] = (value & 0xff0000) >> 16;
-
-    for (i = 0; i < cnt; ++i)
-        *dst++ = bytes[i];
+    *dst++ = value >> 16;
+    if (cnt_in >= 3)
+        *dst++ = value >> 8 & 0xff;
+    if (cnt_in >= 4)
+        *dst++ = value & 0xff;
     return dst;
 }
 
@@ -710,21 +690,21 @@ static int decode_font(ASS_Track *track)
         ass_msg(track->library, MSGL_ERR, "Bad encoded data size");
         goto error_decode_font;
     }
-    buf = malloc(size / 4 * 3 + 2);
+    buf = malloc(size / 4 * 3 + FFMAX(size % 4 - 1, 0));
     if (!buf)
         goto error_decode_font;
     q = buf;
     for (i = 0, p = (unsigned char *) track->parser_priv->fontdata;
          i < size / 4; i++, p += 4) {
-        q = decode_chars(p[0], p[1], p[2], p[3], q, 3);
+        q = decode_chars(p, q, 4);
     }
     if (size % 4 == 2) {
-        q = decode_chars(p[0], p[1], 0, 0, q, 1);
+        q = decode_chars(p, q, 2);
     } else if (size % 4 == 3) {
-        q = decode_chars(p[0], p[1], p[2], 0, q, 2);
+        q = decode_chars(p, q, 3);
     }
     dsize = q - buf;
-    assert(dsize <= size / 4 * 3 + 2);
+    assert(dsize == size / 4 * 3 + FFMAX(size % 4 - 1, 0));
 
     if (track->library->extract_fonts) {
         ass_add_font(track->library, track->parser_priv->fontname,
@@ -764,14 +744,9 @@ static int process_fonts_line(ASS_Track *track, char *str)
     }
 
     len = strlen(str);
-    if (len > 80) {
-        ass_msg(track->library, MSGL_WARN, "Font line too long: %d, %s",
-                len, str);
-        return 0;
-    }
     if (track->parser_priv->fontdata_used + len >
         track->parser_priv->fontdata_size) {
-        track->parser_priv->fontdata_size += 100 * 1024;
+        track->parser_priv->fontdata_size += FFMAX(len, 100 * 1024);
         track->parser_priv->fontdata =
             realloc(track->parser_priv->fontdata,
                     track->parser_priv->fontdata_size);
@@ -1357,28 +1332,28 @@ ASS_Track *ass_new_track(ASS_Library *library)
  */
 void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track)
 {
-    if (track->PlayResX && track->PlayResY)
+    if (track->PlayResX > 0 && track->PlayResY > 0)
         return;
-    if (!track->PlayResX && !track->PlayResY) {
+    if (track->PlayResX <= 0 && track->PlayResY <= 0) {
         ass_msg(lib, MSGL_WARN,
                "Neither PlayResX nor PlayResY defined. Assuming 384x288");
         track->PlayResX = 384;
         track->PlayResY = 288;
     } else {
-        if (!track->PlayResY && track->PlayResX == 1280) {
+        if (track->PlayResY <= 0 && track->PlayResX == 1280) {
             track->PlayResY = 1024;
             ass_msg(lib, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
-        } else if (!track->PlayResY) {
-            track->PlayResY = track->PlayResX * 3 / 4;
+        } else if (track->PlayResY <= 0) {
+            track->PlayResY = FFMAX(1, track->PlayResX * 3 / 4);
             ass_msg(lib, MSGL_WARN,
                    "PlayResY undefined, setting to %d", track->PlayResY);
-        } else if (!track->PlayResX && track->PlayResY == 1024) {
+        } else if (track->PlayResX <= 0 && track->PlayResY == 1024) {
             track->PlayResX = 1280;
             ass_msg(lib, MSGL_WARN,
                    "PlayResX undefined, setting to %d", track->PlayResX);
-        } else if (!track->PlayResX) {
-            track->PlayResX = track->PlayResY * 4 / 3;
+        } else if (track->PlayResX <= 0) {
+            track->PlayResX = FFMAX(1, track->PlayResY * 4 / 3);
             ass_msg(lib, MSGL_WARN,
                    "PlayResX undefined, setting to %d", track->PlayResX);
         }
