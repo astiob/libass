@@ -393,10 +393,10 @@
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -404,8 +404,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -420,8 +420,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -452,10 +452,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -463,8 +463,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -479,8 +479,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -514,10 +514,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -525,8 +525,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -541,8 +541,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -576,10 +576,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -587,8 +587,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -603,8 +603,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -637,10 +637,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -648,8 +648,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -664,8 +664,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -698,10 +698,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -709,8 +709,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -725,8 +725,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -768,10 +768,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -779,8 +779,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -794,8 +794,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -837,10 +837,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -848,8 +848,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -863,8 +863,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -906,10 +906,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -917,8 +917,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -932,8 +932,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -975,10 +975,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <AdditionalOptions>/IGNORE:4006,4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -986,8 +986,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1001,8 +1001,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -1044,10 +1044,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -1055,8 +1055,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1070,8 +1070,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -1113,10 +1113,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -1124,8 +1124,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1139,8 +1139,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -1181,10 +1181,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -1192,8 +1192,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1207,8 +1207,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
@@ -1249,10 +1249,10 @@ del /f /q $(OutDir)\licenses\libass.txt
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\ass
-copy ..\libass\ass.h $(OutDir)\include\ass
-copy ..\libass\ass_types.h $(OutDir)\include\ass
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\ass
+copy ..\libass\ass.h "$(OutDir)"\include\ass
+copy ..\libass\ass_types.h "$(OutDir)"\include\ass
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
     </PostBuildEvent>
@@ -1260,8 +1260,8 @@ copy ..\COPYING $(OutDir)\licenses\libass.txt</Command>
       <Command>if exist ..\config.h (
 del ..\config.h
 )
-if exist $(OutDir)\include\ass (
-rd /s /q $(OutDir)\include\ass
+if exist "$(OutDir)"\include\ass (
+rd /s /q "$(OutDir)"\include\ass
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1275,8 +1275,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\ass (
-rmdir /s /q $(OutDir)\include\ass
+      <Command>if exist "$(OutDir)"\include\ass (
+rmdir /s /q "$(OutDir)"\include\ass
 )
 if exist $(OutDir)\licenses\libass.txt (
 del /f /q $(OutDir)\licenses\libass.txt
