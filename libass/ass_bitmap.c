@@ -31,6 +31,7 @@
 #include FT_OUTLINE_H
 
 #include "ass_utils.h"
+#include "ass_outline.h"
 #include "ass_bitmap.h"
 #include "ass_render.h"
 
@@ -185,35 +186,29 @@ Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src)
     return dst;
 }
 
-#if CONFIG_RASTERIZER
-
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline, int bord)
+                          ASS_Outline *outline1, ASS_Outline *outline2,
+                          int bord)
 {
     RasterizerData *rst = &render_priv->rasterizer;
-    if (!rasterizer_set_outline(rst, outline)) {
+    if (outline1 && !rasterizer_set_outline(rst, outline1, false)) {
+        ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
+        return NULL;
+    }
+    if (outline2 && !rasterizer_set_outline(rst, outline2, !!outline1)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
         return NULL;
     }
 
     if (bord < 0 || bord > INT_MAX / 2)
         return NULL;
-
-    if (rst->x_min >= rst->x_max || rst->y_min >= rst->y_max) {
-        Bitmap *bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord, true);
-        if (!bm)
-            return NULL;
-        bm->left = bm->top = -bord;
-        return bm;
-    }
-
-    if (rst->x_max > INT_MAX - 63 || rst->y_max > INT_MAX - 63)
+    if (rst->bbox.x_max > INT_MAX - 63 || rst->bbox.y_max > INT_MAX - 63)
         return NULL;
 
-    int x_min = rst->x_min >> 6;
-    int y_min = rst->y_min >> 6;
-    int x_max = (rst->x_max + 63) >> 6;
-    int y_max = (rst->y_max + 63) >> 6;
+    int x_min = rst->bbox.x_min >> 6;
+    int y_min = rst->bbox.y_min >> 6;
+    int x_max = (rst->bbox.x_max + 63) >> 6;
+    int y_max = (rst->bbox.y_max + 63) >> 6;
     int w = x_max - x_min;
     int h = y_max - y_min;
 
@@ -244,109 +239,6 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
 
     return bm;
 }
-
-#else
-
-static Bitmap *outline_to_bitmap_ft(ASS_Renderer *render_priv,
-                                    FT_Outline *outline, int bord)
-{
-    Bitmap *bm;
-    int w, h;
-    int error;
-    FT_BBox bbox;
-    FT_Bitmap bitmap;
-
-    FT_Outline_Get_CBox(outline, &bbox);
-    if (bbox.xMin >= bbox.xMax || bbox.yMin >= bbox.yMax) {
-        bm = alloc_bitmap(render_priv->engine, 2 * bord, 2 * bord, true);
-        if (!bm)
-            return NULL;
-        bm->left = bm->top = -bord;
-        return bm;
-    }
-
-    // move glyph to origin (0, 0)
-    bbox.xMin &= ~63;
-    bbox.yMin &= ~63;
-    FT_Outline_Translate(outline, -bbox.xMin, -bbox.yMin);
-    if (bbox.xMax > INT_MAX - 63 || bbox.yMax > INT_MAX - 63)
-        return NULL;
-    // bitmap size
-    bbox.xMax = (bbox.xMax + 63) & ~63;
-    bbox.yMax = (bbox.yMax + 63) & ~63;
-    w = (bbox.xMax - bbox.xMin) >> 6;
-    h = (bbox.yMax - bbox.yMin) >> 6;
-    // pen offset
-    bbox.xMin >>= 6;
-    bbox.yMax >>= 6;
-
-    if (w < 0 || h < 0 ||
-        w > INT_MAX - 2 * bord || h > INT_MAX - 2 * bord) {
-        ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
-                w, h);
-        return NULL;
-    }
-
-    // allocate and set up bitmap
-    bm = alloc_bitmap(render_priv->engine, w + 2 * bord, h + 2 * bord, true);
-    if (!bm)
-        return NULL;
-    bm->left = bbox.xMin - bord;
-    bm->top = -bbox.yMax - bord;
-    bitmap.width = w;
-    bitmap.rows = h;
-    bitmap.pitch = bm->stride;
-    bitmap.buffer = bm->buffer + bord + bm->stride * bord;
-    bitmap.num_grays = 256;
-    bitmap.pixel_mode = FT_PIXEL_MODE_GRAY;
-
-    // render into target bitmap
-    if ((error = FT_Outline_Get_Bitmap(render_priv->ftlibrary, outline, &bitmap))) {
-        ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph: %d\n", error);
-        ass_free_bitmap(bm);
-        return NULL;
-    }
-
-    return bm;
-}
-
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline, int bord)
-{
-    size_t n_points = outline->n_points;
-    if (n_points > SHRT_MAX) {
-        ass_msg(render_priv->library, MSGL_WARN, "Too many outline points: %d",
-                outline->n_points);
-        n_points = SHRT_MAX;
-    }
-
-    size_t n_contours = FFMIN(outline->n_contours, SHRT_MAX);
-    short contours_small[EFFICIENT_CONTOUR_COUNT];
-    short *contours = contours_small;
-    short *contours_large = NULL;
-    if (n_contours > EFFICIENT_CONTOUR_COUNT) {
-        contours_large = malloc(n_contours * sizeof(short));
-        if (!contours_large)
-            return NULL;
-        contours = contours_large;
-    }
-    for (size_t i = 0; i < n_contours; ++i)
-        contours[i] = FFMIN(outline->contours[i], n_points - 1);
-
-    FT_Outline ftol;
-    ftol.n_points = n_points;
-    ftol.n_contours = n_contours;
-    ftol.points = outline->points;
-    ftol.tags = outline->tags;
-    ftol.contours = contours;
-    ftol.flags = 0;
-
-    Bitmap *bm = outline_to_bitmap_ft(render_priv, &ftol, bord);
-    free(contours_large);
-    return bm;
-}
-
-#endif
 
 /**
  * \brief fix outline bitmap
@@ -542,27 +434,34 @@ int be_padding(int be)
     return FFMAX(128 - be, 0);
 }
 
-int outline_to_bitmap2(ASS_Renderer *render_priv,
-                       ASS_Outline *outline, ASS_Outline *border,
-                       Bitmap **bm_g, Bitmap **bm_o)
+bool outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
+                        ASS_Outline *border1, ASS_Outline *border2,
+                        Bitmap **bm_g, Bitmap **bm_o)
 {
     assert(bm_g && bm_o);
-
     *bm_g = *bm_o = NULL;
 
-    if (outline)
-        *bm_g = outline_to_bitmap(render_priv, outline, 1);
-    if (!*bm_g)
-        return 1;
+    if (outline && !outline->n_points)
+        outline = NULL;
+    if (border1 && !border1->n_points)
+        border1 = NULL;
+    if (border2 && !border2->n_points)
+        border2 = NULL;
 
-    if (border) {
-        *bm_o = outline_to_bitmap(render_priv, border, 1);
+    if (outline) {
+        *bm_g = outline_to_bitmap(render_priv, outline, NULL, 1);
+        if (!*bm_g)
+            return false;
+    }
+
+    if (border1 || border2) {
+        *bm_o = outline_to_bitmap(render_priv, border1, border2, 1);
         if (!*bm_o) {
-            return 1;
+            return false;
         }
     }
 
-    return 0;
+    return true;
 }
 
 /**

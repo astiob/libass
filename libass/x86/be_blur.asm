@@ -18,7 +18,7 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%include "x86inc.asm"
+%include "x86/x86inc.asm"
 
 SECTION_RODATA 32
 low_word_zero: dd 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
@@ -82,8 +82,8 @@ cglobal be_blur, 5,15,9
     movzx r10, byte [r7] ; temp1 = src[0];
     movzx r11, byte [r7 + 1] ; temp2 = src[1];
     add r10, r11; temp1 += temp2
-    movd xmm0, r10d; __m128i old_pix_128 = temp2;
-    movd xmm1, r11d; __m128i old_sum_128 = temp1;
+    movd xm0, r10d; __m128i old_pix_128 = temp2;
+    movd xm1, r11d; __m128i old_sum_128 = temp1;
 .width_loop:
     movq xmm2, [r7 + r6]; __m128i new_pix = (src+x);
     punpcklbw xmm2, xmm6 ; new_pix = _mm_unpacklo_epi8(new_pix, temp3);

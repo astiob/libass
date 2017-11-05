@@ -22,6 +22,7 @@
 
 #include "ass.h"
 #include "ass_font.h"
+#include "ass_outline.h"
 #include "ass_bitmap.h"
 
 typedef struct cache Cache;
@@ -29,6 +30,7 @@ typedef struct cache Cache;
 // cache values
 
 typedef struct {
+    bool valid;
     Bitmap *bm;               // the actual bitmaps
     Bitmap *bm_o;
 } BitmapHashValue;
@@ -40,10 +42,11 @@ typedef struct {
 } CompositeHashValue;
 
 typedef struct {
-    ASS_Outline *outline;
-    ASS_Outline *border;
-    FT_BBox bbox_scaled;        // bbox after scaling, but before rotation
-    FT_Vector advance;          // 26.6, advance distance to the next outline in line
+    bool valid;
+    ASS_Outline outline;
+    ASS_Outline border[2];
+    ASS_Rect bbox_scaled;       // bbox after scaling, but before rotation
+    ASS_Vector advance;         // 26.6, advance distance to the next outline in line
     int asc, desc;              // ascender/descender
 } OutlineHashValue;
 

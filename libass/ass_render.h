@@ -23,7 +23,6 @@
 #include <inttypes.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include FT_STROKER_H
 #include FT_GLYPH_H
 #include FT_SYNTHESIS_H
 #ifdef CONFIG_HARFBUZZ
@@ -49,18 +48,6 @@
 
 #define PARSED_FADE (1<<0)
 #define PARSED_A    (1<<1)
-
-typedef struct {
-    double xMin;
-    double xMax;
-    double yMin;
-    double yMax;
-} DBBox;
-
-typedef struct {
-    double x;
-    double y;
-} DVector;
 
 typedef struct {
     ASS_Image result;
@@ -107,11 +94,6 @@ typedef enum {
     EF_KARAOKE_KO
 } Effect;
 
-typedef struct
-{
-    int x_min, y_min, x_max, y_max;
-} Rectangle;
-
 // describes a combined bitmap
 typedef struct {
     FilterDesc filter;
@@ -127,7 +109,7 @@ typedef struct {
     BitmapRef *bitmaps;
 
     int x, y;
-    Rectangle rect, rect_o;
+    ASS_Rect rect, rect_o;
     size_t n_bm, n_bm_o;
 
     Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
@@ -150,14 +132,14 @@ typedef struct glyph_info {
     double font_size;
     ASS_Drawing *drawing;
     ASS_Outline *outline;
-    ASS_Outline *border;
-    FT_BBox bbox;
-    FT_Vector pos;
-    FT_Vector offset;
+    ASS_Outline *border[2];
+    ASS_Rect bbox;
+    ASS_Vector pos;
+    ASS_Vector offset;
     char linebreak;             // the first (leading) glyph of some line ?
     uint32_t c[4];              // colors
-    FT_Vector advance;          // 26.6
-    FT_Vector cluster_advance;
+    ASS_Vector advance;         // 26.6
+    ASS_Vector cluster_advance;
     char effect;                // the first (leading) glyph of some effect ?
     Effect effect_type;
     int effect_timing;          // time duration of current karaoke word
@@ -218,8 +200,6 @@ typedef struct {
     double font_size;
     int flags;                  // decoration flags (underline/strike-through)
 
-    FT_Stroker stroker;
-    int stroker_radius;         // last stroker radius, for caching stroker objects
     int alignment;              // alignment overrides go here; if zero, style value will be used
     int justify;                // justify instructions
     double frx, fry, frz;
@@ -327,9 +307,7 @@ struct ass_renderer {
     CacheStore cache;
 
     const BitmapEngine *engine;
-#if CONFIG_RASTERIZER
     RasterizerData rasterizer;
-#endif
 
     ASS_Style user_override_style;
 };

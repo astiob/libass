@@ -18,7 +18,7 @@
 ;* OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ;******************************************************************************
 
-%include "utils.asm"
+%include "x86/utils.asm"
 
 SECTION_RODATA 32
 

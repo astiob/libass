@@ -24,6 +24,7 @@
 #include FT_GLYPH_H
 
 #include "ass.h"
+#include "ass_outline.h"
 
 
 struct segment;
@@ -62,12 +63,10 @@ typedef struct {
     int align_order;  // log2(alignment)
 
     // rasterizer functions
-#if CONFIG_RASTERIZER
     int tile_order;  // log2(tile_size)
     FillSolidTileFunc fill_solid;
     FillHalfplaneTileFunc fill_halfplane;
     FillGenericTileFunc fill_generic;
-#endif
 
     // blend functions
     BitmapBlendFunc add_bitmaps, sub_bitmaps;
@@ -91,16 +90,6 @@ extern const BitmapEngine ass_bitmap_engine_avx2;
 
 
 typedef struct {
-    size_t n_contours, max_contours;
-    size_t *contours;
-    size_t n_points, max_points;
-    FT_Vector *points;
-    char *tags;
-} ASS_Outline;
-
-#define EFFICIENT_CONTOUR_COUNT 8
-
-typedef struct {
     int left, top;
     int w, h;                   // width, height
     int stride;
@@ -113,7 +102,8 @@ Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src);
 void ass_free_bitmap(Bitmap *bm);
 
 Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline, int bord);
+                          ASS_Outline *outline1, ASS_Outline *outline2,
+                          int bord);
 
 void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
                     double blur_radius, Bitmap *bm_g, Bitmap *bm_o);
@@ -121,13 +111,14 @@ void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
 /**
  * \brief perform glyph rendering
  * \param outline original glyph
- * \param border "border" glyph, produced from outline by FreeType's glyph stroker
+ * \param border1 inside "border" outline, produced by stroker
+ * \param border2 outside "border" outline, produced by stroker
  * \param bm_g out: pointer to the bitmap of original glyph is returned here
  * \param bm_o out: pointer to the bitmap of border glyph is returned here
  */
-int outline_to_bitmap2(ASS_Renderer *render_priv,
-                       ASS_Outline *outline, ASS_Outline *border,
-                       Bitmap **bm_g, Bitmap **bm_o);
+bool outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
+                        ASS_Outline *border1, ASS_Outline *border2,
+                        Bitmap **bm_g, Bitmap **bm_o);
 
 int be_padding(int be);
 void be_blur_pre(uint8_t *buf, intptr_t w,

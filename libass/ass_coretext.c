@@ -20,7 +20,12 @@
 #include "ass_compat.h"
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
 #include <CoreText/CoreText.h>
+#else
+#include <ApplicationServices/ApplicationServices.h>
+#endif
 
 #include "ass_coretext.h"
 
@@ -232,7 +237,7 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
 static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
                         char *name)
 {
-    const size_t attributes_n = 3;
+    enum { attributes_n = 3 };
     CTFontDescriptorRef ctdescrs[attributes_n];
     CFMutableDictionaryRef cfattrs[attributes_n];
     CFStringRef attributes[attributes_n] = {

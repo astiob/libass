@@ -1,4 +1,4 @@
-AC_INIT(libass, 0.13.7)
+AC_INIT(libass, 0.14.0)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
@@ -49,8 +49,6 @@ AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
     [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
-AC_ARG_ENABLE([rasterizer], AS_HELP_STRING([--disable-rasterizer],
-    [disable internal rasterizer @<:@default=enabled@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
     [use larger tiles in the rasterizer (better performance, slightly worse quality) @<:@default=disabled@:>@]))
 
@@ -58,43 +56,47 @@ AS_IF([test x$enable_asm != xno], [
     AS_CASE([$host],
         [i?86-*], [
             INTEL=true
-            AS=yasm
+            AS=nasm
             X86=true
             BITS=32
-            ASFLAGS="$ASFLAGS -DARCH_X86_64=0 -m x86" ],
+            BITTYPE=32
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=0" ],
         [x86_64-*-gnux32|amd64-*-gnux32], [
-            AS=yasm
+            AS=nasm
             INTEL=true
             X64=true
             BITS=64
-            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m x32" ],
+            BITTYPE=x32
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -DPIC" ],
         [x86_64-*|amd64-*], [
-            AS=yasm
+            AS=nasm
             INTEL=true
             X64=true
             BITS=64
-            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -m amd64" ],
+            BITTYPE=64
+            ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -DPIC" ],
         )
-    AS_CASE([$host],
-        [*darwin*], [
-            ASFLAGS="$ASFLAGS -f macho$BITS -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
-        [*linux*|*dragonfly*|*bsd*|*solaris*], [
-            ASFLAGS="$ASFLAGS -f elf -DHAVE_ALIGNED_STACK=1" ],
-        [*cygwin*|*mingw*], [
-            ASFLAGS="$ASFLAGS -f win$BITS"
-            AS_IF([test x$BITS = x64], [
-                ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
-            ], [
-                ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
-            ])
-        ])
     AS_IF([test x$INTEL = xtrue], [
-        AC_CHECK_PROG([yasm_check], [$AS], [yes])
-        AS_IF([test x$yasm_check != xyes], [
-            AC_MSG_WARN(yasm was not found; ASM functions are disabled.)
-            AC_MSG_WARN(Install yasm for a significantly faster libass build.)
+        AC_CHECK_PROG([nasm_check], [$AS], [yes])
+        AS_IF([test x$nasm_check != xyes], [
+            AC_MSG_WARN(nasm was not found; ASM functions are disabled.)
+            AC_MSG_WARN(Install nasm for a significantly faster libass build.)
             enable_asm=no
         ], [
+            AS_CASE([$host],
+                [*darwin*], [
+                    ASFLAGS="$ASFLAGS -f macho$BITTYPE -DPREFIX -DHAVE_ALIGNED_STACK=1" ],
+                [*linux*|*dragonfly*|*bsd*|*solaris*], [
+                    ASFLAGS="$ASFLAGS -f elf$BITTYPE -DHAVE_ALIGNED_STACK=1" ],
+                [*cygwin*|*mingw*], [
+                    ASFLAGS="$ASFLAGS -f win$BITTYPE"
+                    AS_IF([test x$BITS = x64], [
+                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=1"
+                    ], [
+                        ASFLAGS="$ASFLAGS -DHAVE_ALIGNED_STACK=0 -DPREFIX"
+                    ])
+                ])
+            ASFLAGS="$ASFLAGS -DHAVE_CPUNOP=0 -Dprivate_prefix=ass"
             AC_MSG_CHECKING([if $AS supports vpmovzxwd])
             echo "vpmovzxwd ymm0, xmm0" > conftest.asm
             AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
@@ -102,8 +104,8 @@ AS_IF([test x$enable_asm != xno], [
             ], [
                 AC_MSG_RESULT([no])
                 VER=`($AS --version || echo no assembler) 2>/dev/null | head -n 1`
-                AC_MSG_WARN([yasm is too old (found $VER); ASM functions are disabled.])
-                AC_MSG_WARN([Install yasm-1.2.0 or later for a significantly faster libass build.])
+                AC_MSG_WARN([nasm is too old (found $VER); ASM functions are disabled.])
+                AC_MSG_WARN([Install nasm-2.10 or later for a significantly faster libass build.])
                 enable_asm=no
             ])
             rm conftest.asm conftest.o > /dev/null 2>&1
@@ -122,13 +124,6 @@ AM_CONDITIONAL([X64], [test x$X64 = xtrue])
 AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
     [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
-    )
-
-AM_CONDITIONAL([RASTERIZER], [test x$enable_rasterizer != xno])
-
-AM_COND_IF([RASTERIZER],
-    [AC_DEFINE(CONFIG_RASTERIZER, 1, [rasterizer enabled])],
-    [AC_DEFINE(CONFIG_RASTERIZER, 0, [rasterizer enabled])]
     )
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test x$enable_large_tiles = xyes])
@@ -159,26 +154,36 @@ PKG_CHECK_MODULES([FONTCONFIG], fontconfig >= 2.10.92, [
 	fontconfig=true
     ], [fontconfig=false])
 fi
+AM_CONDITIONAL([FONTCONFIG], [test x$fontconfig = xtrue])
 
 if test x$enable_coretext != xno; then
-OLDLIBS="$LIBS"
-# Linking to CoreText directly only works from Mountain Lion and iOS6. In
-# earlier OS releases CoreText was part of the ApplicationServices umbrella
-# framework.
-LIBS="$LIBS -framework CoreText -framework CoreFoundation -framework CoreGraphics"
+# Linking to CoreText directly only works from Mountain Lion and iOS.
+# In earlier OS X releases CoreText was part of the ApplicationServices
+# umbrella framework.
 AC_MSG_CHECKING([for CORETEXT])
-AC_LINK_IFELSE([
+AC_COMPILE_IFELSE([
   AC_LANG_PROGRAM(
-    [[#include <CoreText/CoreText.h>]],
-    [[CTFontCreateWithFontDescriptor(NULL, 0.0, NULL);]],)
+    [[#include <ApplicationServices/ApplicationServices.h>]],
+    [[CTFontDescriptorCopyAttribute(NULL, kCTFontURLAttribute);]])
   ], [
-    AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText in System library])
+    LIBS="$LIBS -framework ApplicationServices -framework CoreFoundation"
+    AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText in ApplicationServices framework])
     coretext=true
     AC_MSG_RESULT([yes])
   ], [
-    LIBS="$OLDLIBS"
-    coretext=false
-    AC_MSG_RESULT([no])
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM(
+        [[#include <CoreText/CoreText.h>]],
+        [[CTFontDescriptorCopyAttribute(NULL, kCTFontURLAttribute);]])
+      ], [
+        LIBS="$LIBS -framework CoreText -framework CoreFoundation"
+        AC_DEFINE(CONFIG_CORETEXT, 1, [found CoreText framework])
+        coretext=true
+        AC_MSG_RESULT([yes])
+      ], [
+        coretext=false
+        AC_MSG_RESULT([no])
+      ])
   ])
 fi
 AM_CONDITIONAL([CORETEXT], [test x$coretext = xtrue])
