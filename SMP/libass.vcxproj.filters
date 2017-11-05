@@ -90,6 +90,9 @@
     <ClInclude Include="..\libass\ass_directwrite.h">
       <Filter>Header Files\libass</Filter>
     </ClInclude>
+    <ClInclude Include="..\libass\ass_outline.h">
+      <Filter>Header Files\libass</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\libass\ass_fontconfig.c">
@@ -149,6 +152,9 @@
     <ClCompile Include="..\libass\ass_directwrite.c">
       <Filter>Source Files\libass</Filter>
     </ClCompile>
+    <ClCompile Include="..\libass\ass_outline.c">
+      <Filter>Source Files\libass</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="libass.def">
@@ -172,6 +178,9 @@
       <Filter>Source Files\libass\x86</Filter>
     </YASM>
     <YASM Include="..\libass\x86\blur.asm">
+      <Filter>Source Files\libass\x86</Filter>
+    </YASM>
+    <YASM Include="..\libass\x86\gaussian.asm">
       <Filter>Source Files\libass\x86</Filter>
     </YASM>
   </ItemGroup>

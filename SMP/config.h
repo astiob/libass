@@ -8,16 +8,16 @@
 /* found DirectWrite */
 #define CONFIG_DIRECTWRITE 1
 
-/* found fontconfig via pkg-config */
+/* found fontconfig */
 #define CONFIG_FONTCONFIG 1
 
-/* found freetype2 via pkg-config */
+/* found freetype2 */
 #define CONFIG_FREETYPE 1
 
-/* found fribidi via pkg-config */
+/* found fribidi */
 #define CONFIG_FRIBIDI 1
 
-/* found harfbuzz-ng via pkg-config */
+/* found harfbuzz-ng */
 #define CONFIG_HARFBUZZ 1
 
 /* use iconv */
@@ -26,11 +26,8 @@
 /* use small tiles */
 /* #undef CONFIG_LARGE_TILES */
 
-/* found libpng via pkg-config */
+/* found libpng */
 /* #undef CONFIG_LIBPNG */
-
-/* rasterizer enabled */
-#define CONFIG_RASTERIZER 1
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 /* #undef HAVE_DLFCN_H */

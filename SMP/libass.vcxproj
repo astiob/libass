@@ -71,6 +71,7 @@
     <ClInclude Include="..\libass\ass_fontselect.h" />
     <ClInclude Include="..\libass\ass_func_template.h" />
     <ClInclude Include="..\libass\ass_library.h" />
+    <ClInclude Include="..\libass\ass_outline.h" />
     <ClInclude Include="..\libass\ass_parse.h" />
     <ClInclude Include="..\libass\ass_rasterizer.h" />
     <ClInclude Include="..\libass\ass_render.h" />
@@ -93,6 +94,7 @@
     <ClCompile Include="..\libass\ass_fontconfig.c" />
     <ClCompile Include="..\libass\ass_fontselect.c" />
     <ClCompile Include="..\libass\ass_library.c" />
+    <ClCompile Include="..\libass\ass_outline.c" />
     <ClCompile Include="..\libass\ass_parse.c" />
     <ClCompile Include="..\libass\ass_rasterizer.c" />
     <ClCompile Include="..\libass\ass_rasterizer_c.c" />
@@ -113,6 +115,7 @@
     <YASM Include="..\libass\x86\blend_bitmaps.asm" />
     <YASM Include="..\libass\x86\blur.asm" />
     <YASM Include="..\libass\x86\cpuid.asm" />
+    <YASM Include="..\libass\x86\gaussian.asm" />
     <YASM Include="..\libass\x86\rasterizer.asm" />
     <YASM Include="..\libass\x86\utils.asm" />
   </ItemGroup>
@@ -381,9 +384,6 @@
       <ProgramDataBaseFileName>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDataBaseFileName>
       <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
     <Lib>
       <TargetMachine>MachineX86</TargetMachine>
       <SubSystem>Windows</SubSystem>
@@ -411,8 +411,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
@@ -440,9 +440,6 @@ del /f /q $(OutDir)\licenses\libass.txt
       <ProgramDataBaseFileName>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDataBaseFileName>
       <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
     <Lib>
       <TargetMachine>MachineX64</TargetMachine>
       <SubSystem>Windows</SubSystem>
@@ -470,8 +467,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
@@ -532,8 +529,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
@@ -594,8 +591,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
@@ -655,8 +652,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
@@ -716,8 +713,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
@@ -752,15 +749,8 @@ del /f /q $(OutDir)\licenses\libass.txt
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
       <ProgramDataBaseFileName>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-    </Link>
     <Lib>
       <TargetMachine>MachineX86</TargetMachine>
-    </Lib>
-    <Lib>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x86\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -786,8 +776,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -821,15 +811,8 @@ del /f /q $(OutDir)\licenses\libass.txt
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
       <ProgramDataBaseFileName>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-    </Link>
     <Lib>
       <TargetMachine>MachineX86</TargetMachine>
-    </Lib>
-    <Lib>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x86\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\x86\;$(ProjectDir)\..\..\prebuilt\lib\x86\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -855,8 +838,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -890,15 +873,8 @@ del /f /q $(OutDir)\licenses\libass.txt
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
       <ProgramDataBaseFileName>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-    </Link>
     <Lib>
       <TargetMachine>MachineX64</TargetMachine>
-    </Lib>
-    <Lib>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x64\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -924,8 +900,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -959,15 +935,8 @@ del /f /q $(OutDir)\licenses\libass.txt
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
       <ProgramDataBaseFileName>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDataBaseFileName>
     </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-    </Link>
     <Lib>
       <TargetMachine>MachineX64</TargetMachine>
-    </Lib>
-    <Lib>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\x64\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>$(OutDir)\lib\x64\;$(ProjectDir)\..\..\prebuilt\lib\x64\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -993,8 +962,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1062,8 +1031,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1131,8 +1100,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1199,8 +1168,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1267,8 +1236,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <PreprocessorDefinitions>WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <IncludePaths>$(ProjectDir)\..\libass\x86;%(IncludePaths)</IncludePaths>
+      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
