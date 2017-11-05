@@ -518,7 +518,11 @@ static bool draw_arc(StrokerState *str, ASS_Vector pt,
                      ASS_DVector normal0, ASS_DVector normal1, double c, int dir)
 {
     const int max_subdiv = 15;
+#if defined(_MSC_VER) && (_MSC_VER <= 1911)
+    double * mul = (double *)_alloca((max_subdiv + 1) * sizeof(double));
+#else
     double mul[max_subdiv + 1];
+#endif
 
     ASS_DVector center;
     bool small_angle = true;
@@ -554,7 +558,12 @@ static bool draw_arc(StrokerState *str, ASS_Vector pt,
 static bool draw_circle(StrokerState *str, ASS_Vector pt, int dir)
 {
     const int max_subdiv = 15;
-    double mul[max_subdiv + 1], c = 0;
+#if defined(_MSC_VER) && (_MSC_VER <= 1911)
+    double * mul = (double *)_alloca((max_subdiv + 1) * sizeof(double));
+#else
+    double mul[max_subdiv + 1];
+#endif
+    double c = 0;
 
     int pos = max_subdiv;
     while (c < str->split_cos && pos) {
