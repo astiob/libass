@@ -940,6 +940,12 @@ static void draw_opaque_box(ASS_Renderer *render_priv, GlyphInfo *info,
         { .x = -sx,         .y = desc + sy },
     };
 
+    fprintf(stderr, "(%ld,%ld) (%ld,%ld) (%ld,%ld) (%ld,%ld)\n",
+            (long) points[0].x, (long) points[0].y,
+            (long) points[1].x, (long) points[1].y,
+            (long) points[2].x, (long) points[2].y,
+            (long) points[3].x, (long) points[3].y);
+
     const char segments[4] = {
         OUTLINE_LINE_SEGMENT,
         OUTLINE_LINE_SEGMENT,
@@ -1084,6 +1090,7 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             draw_opaque_box(priv, info, val->asc, val->desc, &val->border[0], advance,
                             double_to_d6(info->border_x * priv->border_scale),
                             double_to_d6(info->border_y * priv->border_scale));
+            fprintf(stderr, "drawing? %d advance.x == %ld border[0] == %p\n", !!info->drawing, (long) advance.x, &val->border[0]);
 
         } else if (val->outline.n_points && (info->border_x > 0 || info->border_y > 0)
                 && double_to_d6(info->scale_x) && double_to_d6(info->scale_y)) {
@@ -1255,6 +1262,13 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     // PAR correction scaling + subpixel shift
     for (int i = 0; i < n_outlines; i++)
         outline_adjust(&outline[i], scale_x, key->advance.x, key->advance.y);
+
+    for (int i = 0; i < n_outlines; i++) {
+        for (size_t j = 0; j < outline[i].n_points; j++) {
+            fprintf(stderr, "(%ld,%ld) ", (long) outline[i].points[j].x, (long) outline[i].points[j].y);
+        }
+        fprintf(stderr, "\n");
+    }
 
     // render glyph
     val->valid = outline_to_bitmap2(render_priv,
