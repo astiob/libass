@@ -1235,7 +1235,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
     }
 
     const int n_outlines = 3;
-#if defined(_MSC_VER) && (_MSC_VER <= 1912)
+#if defined(_MSC_VER) && (_MSC_VER <= 1913)
     ASS_Outline * outline = (ASS_Outline *)_alloca(n_outlines * sizeof(ASS_Outline));
 #else
     ASS_Outline outline[n_outlines];
