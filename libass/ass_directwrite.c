@@ -22,12 +22,15 @@
 
 #include <initguid.h>
 #include <ole2.h>
-#include <shobjidl.h>
 
 #include "dwrite_c.h"
 
 #include "ass_directwrite.h"
 #include "ass_utils.h"
+
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+#define WINRT
+#endif
 
 #define NAME_MAX_LENGTH 256
 #define FALLBACK_DEFAULT_FONT L"Arial"
@@ -48,7 +51,9 @@ typedef struct {
 } FontPrivate;
 
 typedef struct {
+#ifndef WINRT
     HMODULE directwrite_lib;
+#endif
     IDWriteFactory *factory;
 } ProviderPrivate;
 
@@ -390,7 +395,9 @@ static void destroy_provider(void *priv)
 {
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
     provider_priv->factory->lpVtbl->Release(provider_priv->factory);
+#ifndef WINRT
     FreeLibrary(provider_priv->directwrite_lib);
+#endif
     free(provider_priv);
 }
 
@@ -757,6 +764,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
     DWriteCreateFactoryFn DWriteCreateFactoryPtr = NULL;
     ProviderPrivate *priv = NULL;
 
+#ifdef WINRT
+    DWriteCreateFactoryPtr = DWriteCreateFactory;
+#else
     HMODULE directwrite_lib = LoadLibraryW(L"Dwrite.dll");
     if (!directwrite_lib)
         goto cleanup;
@@ -765,6 +775,7 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
                                                                    "DWriteCreateFactory");
     if (!DWriteCreateFactoryPtr)
         goto cleanup;
+#endif
 
     hr = DWriteCreateFactoryPtr(DWRITE_FACTORY_TYPE_SHARED,
                                 &IID_IDWriteFactory,
@@ -779,7 +790,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
     if (!priv)
         goto cleanup;
 
+#ifndef WINRT
     priv->directwrite_lib = directwrite_lib;
+#endif
     priv->factory = dwFactory;
     provider = ass_font_provider_new(selector, &directwrite_callbacks, priv);
     if (!provider)
@@ -793,8 +806,10 @@ cleanup:
     free(priv);
     if (dwFactory)
         dwFactory->lpVtbl->Release(dwFactory);
+#ifndef WINRT
     if (directwrite_lib)
         FreeLibrary(directwrite_lib);
+#endif
 
     return NULL;
 }
