@@ -1,0 +1,159 @@
+diff --git a/libass/ass_compat.h b/libass/ass_compat.h
+index dc3395e..cd61930 100644
+--- a/libass/ass_compat.h
++++ b/libass/ass_compat.h
+@@ -24,6 +24,10 @@
+ #define _CRT_SECURE_NO_WARNINGS
+ #define _USE_MATH_DEFINES
+ #define inline __inline
++#include <crtversion.h>
++#if _VC_CRT_MAJOR_VERSION < 14
++#define snprintf _snprintf
++#endif
+ #endif
+ 
+ #endif                          /* LIBASS_COMPAT_H */
+diff --git a/libass/ass_directwrite.c b/libass/ass_directwrite.c
+index d15cbcd..d6f46e0 100644
+--- a/libass/ass_directwrite.c
++++ b/libass/ass_directwrite.c
+@@ -22,13 +22,16 @@
+ 
+ #include <initguid.h>
+ #include <ole2.h>
+-#include <shobjidl.h>
+ 
+ #include "dwrite_c.h"
+ 
+ #include "ass_directwrite.h"
+ #include "ass_utils.h"
+ 
++#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
++#define WINRT
++#endif
++
+ #define NAME_MAX_LENGTH 256
+ #define FALLBACK_DEFAULT_FONT L"Arial"
+ 
+@@ -48,7 +51,9 @@ typedef struct {
+ } FontPrivate;
+ 
+ typedef struct {
++#ifndef WINRT
+     HMODULE directwrite_lib;
++#endif
+     IDWriteFactory *factory;
+ } ProviderPrivate;
+ 
+@@ -390,7 +395,9 @@ static void destroy_provider(void *priv)
+ {
+     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
+     provider_priv->factory->lpVtbl->Release(provider_priv->factory);
++#ifndef WINRT
+     FreeLibrary(provider_priv->directwrite_lib);
++#endif
+     free(provider_priv);
+ }
+ 
+@@ -757,6 +764,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
+     DWriteCreateFactoryFn DWriteCreateFactoryPtr = NULL;
+     ProviderPrivate *priv = NULL;
+ 
++#ifdef WINRT
++    DWriteCreateFactoryPtr = DWriteCreateFactory;
++#else
+     HMODULE directwrite_lib = LoadLibraryW(L"Dwrite.dll");
+     if (!directwrite_lib)
+         goto cleanup;
+@@ -765,6 +775,7 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
+                                                                    "DWriteCreateFactory");
+     if (!DWriteCreateFactoryPtr)
+         goto cleanup;
++#endif
+ 
+     hr = DWriteCreateFactoryPtr(DWRITE_FACTORY_TYPE_SHARED,
+                                 &IID_IDWriteFactory,
+@@ -779,7 +790,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
+     if (!priv)
+         goto cleanup;
+ 
++#ifndef WINRT
+     priv->directwrite_lib = directwrite_lib;
++#endif
+     priv->factory = dwFactory;
+     provider = ass_font_provider_new(selector, &directwrite_callbacks, priv);
+     if (!provider)
+@@ -793,8 +806,10 @@ cleanup:
+     free(priv);
+     if (dwFactory)
+         dwFactory->lpVtbl->Release(dwFactory);
++#ifndef WINRT
+     if (directwrite_lib)
+         FreeLibrary(directwrite_lib);
++#endif
+ 
+     return NULL;
+ }
+diff --git a/libass/ass_outline.c b/libass/ass_outline.c
+index 74b791c..89cc265 100644
+--- a/libass/ass_outline.c
++++ b/libass/ass_outline.c
+@@ -518,7 +518,11 @@ static bool draw_arc(StrokerState *str, ASS_Vector pt,
+                      ASS_DVector normal0, ASS_DVector normal1, double c, int dir)
+ {
+     const int max_subdiv = 15;
++#if defined(_MSC_VER)
++    double * mul = (double *)_alloca((max_subdiv + 1) * sizeof(double));
++#else
+     double mul[max_subdiv + 1];
++#endif
+ 
+     ASS_DVector center;
+     bool small_angle = true;
+@@ -554,7 +558,12 @@ static bool draw_arc(StrokerState *str, ASS_Vector pt,
+ static bool draw_circle(StrokerState *str, ASS_Vector pt, int dir)
+ {
+     const int max_subdiv = 15;
+-    double mul[max_subdiv + 1], c = 0;
++#if defined(_MSC_VER)
++    double * mul = (double *)_alloca((max_subdiv + 1) * sizeof(double));
++#else
++    double mul[max_subdiv + 1];
++#endif
++    double c = 0;
+ 
+     int pos = max_subdiv;
+     while (c < str->split_cos && pos) {
+diff --git a/libass/ass_render.c b/libass/ass_render.c
+index be76f76..5f0e804 100644
+--- a/libass/ass_render.c
++++ b/libass/ass_render.c
+@@ -1235,7 +1235,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info)
+     }
+ 
+     const int n_outlines = 3;
++#if defined(_MSC_VER)
++    ASS_Outline * outline = (ASS_Outline *)_alloca(n_outlines * sizeof(ASS_Outline));
++#else
+     ASS_Outline outline[n_outlines];
++#endif
+     outline_copy(&outline[0], info->outline);
+     outline_copy(&outline[1], info->border[0]);
+     outline_copy(&outline[2], info->border[1]);
+diff --git a/libass/dwrite_c.h b/libass/dwrite_c.h
+index c902525..eea341b 100644
+--- a/libass/dwrite_c.h
++++ b/libass/dwrite_c.h
+@@ -142,6 +142,12 @@ typedef struct DWRITE_TEXT_RANGE {
+ typedef struct DWRITE_TRIMMING DWRITE_TRIMMING;
+ typedef struct DWRITE_UNDERLINE DWRITE_UNDERLINE;
+ 
++DWRITEAPI HRESULT WINAPI DWriteCreateFactory(
++  DWRITE_FACTORY_TYPE factoryType,
++  REFIID iid,
++  IUnknown **factory
++);
++
+ #ifndef __MINGW_DEF_ARG_VAL
+ #ifdef __cplusplus
+ #define __MINGW_DEF_ARG_VAL(x) = x
