@@ -370,13 +370,15 @@ void be_blur_post(uint8_t *buf, intptr_t w, intptr_t h, intptr_t stride)
  */
 int be_padding(int be)
 {
+    if (be <= 0)
+        return 0;
     if (be <= 3)
-        return be;
+        return be + 1;
     if (be <= 7)
-        return 4;
-    if (be <= 123)
         return 5;
-    return FFMAX(128 - be, 0);
+    if (be <= 123)
+        return 6;
+    return FFMAX(128 - be, 0) + 2;
 }
 
 /**
