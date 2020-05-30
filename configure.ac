@@ -229,7 +229,7 @@ AS_IF([test x$enable_asm != xno], [
                     )
                 ]
             )
-            ASFLAGS="$ASFLAGS -DHAVE_CPUNOP=0 -Dprivate_prefix=ass"
+            ASFLAGS="$ASFLAGS -DHAVE_CPUNOP=0"
             AC_MSG_CHECKING([if $AS supports vpmovzxwd])
             echo "vpmovzxwd ymm0, xmm0" > conftest.asm
             AS_IF([$AS conftest.asm $ASFLAGS -o conftest.o >conftest.log 2>&1], [
