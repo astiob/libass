@@ -1,5 +1,6 @@
 AC_INIT(libass, 0.15.0)
 AM_INIT_AUTOMAKE([foreign])
+AM_EXTRA_RECURSIVE_TARGETS([bench])
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
 define([AC_LIBTOOL_LANG_F77_CONFIG], [:])
@@ -289,5 +290,5 @@ AM_COND_IF([ENABLE_LARGE_TILES],
 ## Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile compare/Makefile profile/Makefile libass.pc])
+AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile compare/Makefile profile/Makefile checkasm/Makefile libass.pc])
 AC_OUTPUT

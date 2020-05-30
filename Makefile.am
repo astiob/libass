@@ -16,5 +16,4 @@ if ENABLE_PROFILE
     profile = profile
 endif
 
-SUBDIRS = libass $(test) $(compare) $(profile)
-
+SUBDIRS = libass $(test) $(compare) $(profile) checkasm

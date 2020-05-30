@@ -24,14 +24,16 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "tests/checkasm/checkasm.h"
+
+#include "checkasm.h"
 
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "src/cpu.h"
+#include "ass_cpu.h"
+#include "ass_utils.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -67,27 +69,10 @@ static unsigned get_seed(void) {
 /* List of tests to invoke */
 static const struct {
     const char *name;
-    void (*func)(void);
+    void (*func)(const BitmapEngine*);
 } tests[] = {
-    { "msac", checkasm_check_msac },
-#if CONFIG_8BPC
-    { "cdef_8bpc", checkasm_check_cdef_8bpc },
-    { "filmgrain_8bpc", checkasm_check_filmgrain_8bpc },
-    { "ipred_8bpc", checkasm_check_ipred_8bpc },
-    { "itx_8bpc", checkasm_check_itx_8bpc },
-    { "loopfilter_8bpc", checkasm_check_loopfilter_8bpc },
-    { "looprestoration_8bpc", checkasm_check_looprestoration_8bpc },
-    { "mc_8bpc", checkasm_check_mc_8bpc },
-#endif
-#if CONFIG_16BPC
-    { "cdef_16bpc", checkasm_check_cdef_16bpc },
-    { "filmgrain_16bpc", checkasm_check_filmgrain_16bpc },
-    { "ipred_16bpc", checkasm_check_ipred_16bpc },
-    { "itx_16bpc", checkasm_check_itx_16bpc },
-    { "loopfilter_16bpc", checkasm_check_loopfilter_16bpc },
-    { "looprestoration_16bpc", checkasm_check_looprestoration_16bpc },
-    { "mc_16bpc", checkasm_check_mc_16bpc },
-#endif
+    { "blend_bitmaps", checkasm_check_blend_bitmaps },
+    { "be_blur", checkasm_check_be_blur },
     { 0 }
 };
 
@@ -97,16 +82,9 @@ static const struct {
     const char *suffix;
     unsigned flag;
 } cpus[] = {
-#if ARCH_X86
-    { "SSE2",               "sse2",      DAV1D_X86_CPU_FLAG_SSE2 },
-    { "SSSE3",              "ssse3",     DAV1D_X86_CPU_FLAG_SSSE3 },
-    { "SSE4.1",             "sse4",      DAV1D_X86_CPU_FLAG_SSE41 },
-    { "AVX2",               "avx2",      DAV1D_X86_CPU_FLAG_AVX2 },
-    { "AVX-512 (Ice Lake)", "avx512icl", DAV1D_X86_CPU_FLAG_AVX512ICL },
-#elif ARCH_AARCH64 || ARCH_ARM
-    { "NEON",               "neon",      DAV1D_ARM_CPU_FLAG_NEON },
-#elif ARCH_PPC64LE
-    { "VSX",                "vsx",       DAV1D_PPC_CPU_FLAG_VSX },
+#if (defined(__i386__) || defined(__x86_64__))
+    { "SSE2",               "sse2",      ASS_CPU_FLAG_X86_SSE2 },
+    { "AVX2",               "avx2",      ASS_CPU_FLAG_X86_AVX2 },
 #endif
     { 0 }
 };
@@ -146,9 +124,10 @@ static struct {
     int bench_c;
     int verbose;
     int function_listing;
-#if ARCH_X86_64
+#if (defined(__i386__) || defined(__x86_64__))
     void (*simd_warmup)(void);
 #endif
+    ASS_Library *library;
 } state;
 
 /* float compare support code */
@@ -494,18 +473,26 @@ static void check_cpu_flag(const char *const name, unsigned flag) {
     const unsigned old_cpu_flag = state.cpu_flag;
 
     flag |= old_cpu_flag;
-    dav1d_set_cpu_flags_mask(flag);
-    state.cpu_flag = dav1d_get_cpu_flags();
+    ass_set_cpu_flags_mask(flag);
+    state.cpu_flag = ass_get_cpu_flags();
 
     if (!flag || state.cpu_flag != old_cpu_flag) {
+        ASS_Renderer *renderer = ass_renderer_init(state.library);
+        if (!renderer) {
+            fprintf(stderr, "checkasm: ass_renderer_init failed\n");
+            exit(1);
+        }
+
         state.cpu_flag_name = name;
         for (int i = 0; tests[i].func; i++) {
             if (state.test_name && strcmp(tests[i].name, state.test_name))
                 continue;
             xor128_srand(state.seed);
             state.current_test_name = tests[i].name;
-            tests[i].func();
+            tests[i].func(renderer->engine);
         }
+
+        ass_renderer_done(renderer);
     }
 }
 
@@ -517,10 +504,22 @@ static void print_cpu_name(void) {
     }
 }
 
+static void ignore_msg(int level, const char *fmt, va_list va, void *data)
+{
+    return;
+}
+
 int main(int argc, char *argv[]) {
     (void)func_new, (void)func_ref;
     state.seed = get_seed();
     int ret = 0;
+    state.library = ass_library_init();
+    if (!state.library) {
+        fprintf(stderr, "checkasm: ass_library_init failed\n");
+        exit(1);
+    }
+
+    ass_set_message_cb(state.library, &ignore_msg, NULL);
 
     while (argc > 1) {
         if (!strncmp(argv[1], "--help", 6)) {
@@ -566,17 +565,15 @@ int main(int argc, char *argv[]) {
         argv++;
     }
 
-    dav1d_init_cpu();
-
     if (!state.function_listing) {
         fprintf(stderr, "checkasm: using random seed %u\n", state.seed);
-#if ARCH_X86_64
+#if defined(__x86_64__)
         void checkasm_warmup_avx2(void);
         void checkasm_warmup_avx512(void);
-        const unsigned cpu_flags = dav1d_get_cpu_flags();
-        if (cpu_flags & DAV1D_X86_CPU_FLAG_AVX512ICL)
+        const unsigned cpu_flags = ass_get_cpu_flags();
+        if (cpu_flags & ASS_CPU_FLAG_X86_AVX512ICL)
             state.simd_warmup = checkasm_warmup_avx512;
-        else if (cpu_flags & DAV1D_X86_CPU_FLAG_AVX2)
+        else if (cpu_flags & ASS_CPU_FLAG_X86_AVX2)
             state.simd_warmup = checkasm_warmup_avx2;
         checkasm_simd_warmup();
 #endif
@@ -710,7 +707,7 @@ void checkasm_report(const char *const name, ...) {
         va_start(arg, name);
         pad_length -= vfprintf(stderr, name, arg);
         va_end(arg);
-        fprintf(stderr, "%*c", imax(pad_length, 0) + 2, '[');
+        fprintf(stderr, "%*c", FFMAX(pad_length, 0) + 2, '[');
 
         if (state.num_failed == prev_failed)
             color_printf(COLOR_GREEN, "OK");
@@ -788,7 +785,7 @@ DEF_CHECKASM_CHECK_FUNC(uint16_t, "%04x")
 DEF_CHECKASM_CHECK_FUNC(int16_t,  "%6d")
 DEF_CHECKASM_CHECK_FUNC(int32_t,  "%9d")
 
-#if ARCH_X86_64
+#if defined(__x86_64__)
 void checkasm_simd_warmup(void)
 {
     if (state.simd_warmup)
