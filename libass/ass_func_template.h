@@ -109,16 +109,16 @@ const BitmapEngine DECORATE(bitmap_engine) = {
 #endif
 
     .add_bitmaps = DECORATE(add_bitmaps),
-#ifdef __x86_64__
-    .sub_bitmaps = DECORATE(sub_bitmaps),
-    .mul_bitmaps = DECORATE(mul_bitmaps),
+#if defined(__x86_64__) && (ENGINE_FLAGS & ASS_CPU_FLAG_X86_SSE2)
+    .sub_bitmaps = DECORATE_SUFFIX(sub_bitmaps, sse2),
+    .mul_bitmaps = DECORATE_SUFFIX(mul_bitmaps, sse2),
 #else
     .sub_bitmaps = ass_sub_bitmaps_c,
     .mul_bitmaps = ass_mul_bitmaps_c,
 #endif
 
-#ifdef __x86_64__
-    .be_blur = DECORATE(be_blur),
+#if defined(__x86_64__) && (ENGINE_FLAGS & ASS_CPU_FLAG_X86_SSE2)
+    .be_blur = DECORATE_SUFFIX(be_blur, sse2),
 #else
     .be_blur = ass_be_blur_c,
 #endif
