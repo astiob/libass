@@ -30,6 +30,7 @@
 #include FT_GLYPH_H
 #include FT_OUTLINE_H
 
+#include "ass_cpu.h"
 #include "ass_utils.h"
 #include "ass_outline.h"
 #include "ass_bitmap.h"
@@ -37,24 +38,30 @@
 
 
 #define ALIGN           C_ALIGN_ORDER
-#define DECORATE(func)  ass_##func##_c
+#define ENGINE_FLAGS    ASS_CPU_FLAG_NONE
+#define ENGINE_SUFFIX   c
 #include "ass_func_template.h"
 #undef ALIGN
-#undef DECORATE
+#undef ENGINE_FLAGS
+#undef ENGINE_SUFFIX
 
 #if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
 
 #define ALIGN           4
-#define DECORATE(func)  ass_##func##_sse2
+#define ENGINE_FLAGS    ASS_CPU_FLAG_X86_SSE2
+#define ENGINE_SUFFIX   sse2
 #include "ass_func_template.h"
 #undef ALIGN
-#undef DECORATE
+#undef ENGINE_FLAGS
+#undef ENGINE_SUFFIX
 
 #define ALIGN           5
-#define DECORATE(func)  ass_##func##_avx2
+#define ENGINE_FLAGS    (ASS_CPU_FLAG_X86_SSE2 | ASS_CPU_FLAG_X86_AVX2)
+#define ENGINE_SUFFIX   avx2
 #include "ass_func_template.h"
 #undef ALIGN
-#undef DECORATE
+#undef ENGINE_FLAGS
+#undef ENGINE_SUFFIX
 
 #endif
 

@@ -16,7 +16,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-
+#define DECORATE_SUFFIX2(name, suffix) ass_##name##_##suffix
+#define DECORATE_SUFFIX(name, suffix) DECORATE_SUFFIX2(name, suffix)
+#define DECORATE(name) DECORATE_SUFFIX(name, ENGINE_SUFFIX)
 
 void DECORATE(fill_solid_tile16)(uint8_t *buf, ptrdiff_t stride, int set);
 void DECORATE(fill_solid_tile32)(uint8_t *buf, ptrdiff_t stride, int set);
@@ -92,6 +94,8 @@ void DECORATE(blur8_vert)(int16_t *dst, const int16_t *src,
 const BitmapEngine DECORATE(bitmap_engine) = {
     .align_order = ALIGN,
 
+    .cpu_flags = ENGINE_FLAGS,
+
 #if CONFIG_LARGE_TILES
     .tile_order = 5,
     .fill_solid = DECORATE(fill_solid_tile32),
@@ -128,3 +132,7 @@ const BitmapEngine DECORATE(bitmap_engine) = {
     .blur_horz = { DECORATE(blur4_horz), DECORATE(blur5_horz), DECORATE(blur6_horz), DECORATE(blur7_horz), DECORATE(blur8_horz) },
     .blur_vert = { DECORATE(blur4_vert), DECORATE(blur5_vert), DECORATE(blur6_vert), DECORATE(blur7_vert), DECORATE(blur8_vert) },
 };
+
+#undef DECORATE_SUFFIX2
+#undef DECORATE_SUFFIX
+#undef DECORATE
