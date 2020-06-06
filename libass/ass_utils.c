@@ -474,7 +474,8 @@ int lookup_style(ASS_Track *track, char *name)
     i = track->default_style;
     ass_msg(track->library, MSGL_WARN,
             "[%p]: Warning: no style named '%s' found, using '%s'",
-            track, name, track->styles[i].Name);
+            track, name,
+            track->styles[i].Name ? track->styles[i].Name : "null");
     return i;
 }
 

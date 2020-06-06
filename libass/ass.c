@@ -641,6 +641,8 @@ static int process_styles_line(ASS_Track *track, char *str)
         skip_spaces(&p);
         free(track->style_format);
         track->style_format = strdup(p);
+        if (!track->style_format)
+            return 1;
         ass_msg(track->library, MSGL_DBG2, "Style format: %s",
                track->style_format);
         if (track->track_type == TRACK_TYPE_ASS)
@@ -782,7 +784,8 @@ static int process_events_line(ASS_Track *track, char *str)
         skip_spaces(&p);
         free(track->event_format);
         track->event_format = strdup(p);
-        ass_msg(track->library, MSGL_DBG2, "Event format: %s", track->event_format);
+        ass_msg(track->library, MSGL_DBG2, "Event format: %s",
+                track->event_format ? track->event_format : "null");
         if (track->track_type == TRACK_TYPE_ASS)
             custom_format_line_compatibility(track, p, ass_event_format);
         else
@@ -900,7 +903,7 @@ static int process_fonts_line(ASS_Track *track, char *str)
         }
         track->parser_priv->fontname = strdup(p);
         ass_msg(track->library, MSGL_V, "Fontname: %s",
-               track->parser_priv->fontname);
+                track->parser_priv->fontname ? track->parser_priv->fontname : "null");
         return 0;
     }
 
@@ -950,7 +953,8 @@ static int process_line(ASS_Track *track, char *str)
             process_info_line(track, str);
             break;
         case PST_STYLES:
-            process_styles_line(track, str);
+            if (process_styles_line(track, str) != 0)
+                ass_nomem_log(track->library, true, "Alloc fails in process_styles_line!");
             break;
         case PST_EVENTS:
             if (process_events_line(track, str) != 0)
