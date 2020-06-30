@@ -780,15 +780,18 @@ static int process_events_line(ASS_Track *track, char *str)
         int eid;
         ASS_Event *event;
 
+        // We can't parse events without event_format
+        if (!track->event_format) {
+            event_format_fallback(track);
+            if (!track->event_format)
+                return 1;
+        }
+
         str += 9;
         skip_spaces(&str);
 
         eid = ass_alloc_event(track);
         event = track->events + eid;
-
-        // We can't parse events with event_format
-        if (!track->event_format)
-            event_format_fallback(track);
 
         process_event_tail(track, event, str, 0);
     } else {
@@ -925,7 +928,8 @@ static int process_line(ASS_Track *track, char *str)
             process_styles_line(track, str);
             break;
         case PST_EVENTS:
-            process_events_line(track, str);
+            if (process_events_line(track, str) != 0)
+                ass_nomem_log(track->library, true, "Alloc fails in process_events_line!");
             break;
         case PST_FONTS:
             process_fonts_line(track, str);
