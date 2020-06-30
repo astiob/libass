@@ -485,9 +485,12 @@ static int process_style(ASS_Track *track, char *str)
             track->style_format = strdup(ssa_style_format);
         else
             track->style_format = strdup(ass_style_format);
+        if (!track->style_format)
+            return 1;
     }
 
     q = format = strdup(track->style_format);
+    if (!q) return 1;
 
     // Add default style first
     if (track->n_styles == 0) {
@@ -514,8 +517,6 @@ static int process_style(ASS_Track *track, char *str)
 
         PARSE_START
             STARREDSTRVAL(Name)
-            if (strcmp(target->Name, "Default") == 0)
-                track->default_style = sid;
             STRVAL(FontName)
             COLORVAL(PrimaryColour)
             COLORVAL(SecondaryColour)
@@ -551,6 +552,7 @@ static int process_style(ASS_Track *track, char *str)
             FPVAL(Shadow)
         PARSE_END
     }
+    free(format);
     style->ScaleX = FFMAX(style->ScaleX, 0.) / 100.;
     style->ScaleY = FFMAX(style->ScaleY, 0.) / 100.;
     style->Spacing = FFMAX(style->Spacing, 0.);
@@ -564,7 +566,13 @@ static int process_style(ASS_Track *track, char *str)
         style->Name = strdup("Default");
     if (!style->FontName)
         style->FontName = strdup("Arial");
-    free(format);
+    if (!style->Name || !style->FontName) {
+        ass_free_style(track, sid);
+        track->n_styles--;
+        return 1;
+    }
+    if (strcmp(target->Name, "Default") == 0)
+        track->default_style = sid;
     return 0;
 
 }
@@ -632,7 +640,10 @@ static int process_styles_line(ASS_Track *track, char *str)
     } else if (!strncmp(str, "Style:", 6)) {
         char *p = str + 6;
         skip_spaces(&p);
-        process_style(track, p);
+        if (process_style(track, p) != 0) {
+            ass_nomem_log(track->library, true, "Alloc fail in process_style!");
+            return 1;
+        }
     }
     return 0;
 }
