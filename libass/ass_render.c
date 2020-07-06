@@ -669,9 +669,9 @@ static void blend_vector_clip(ASS_Renderer *render_priv, ASS_Image *head)
     ol_key.u.drawing.text = render_priv->state.clip_drawing_text;
 
     double m[3][3] = {{0}};
-    double w = render_priv->font_scale / (1 << (render_priv->state.clip_drawing_scale - 1));
-    m[0][0] = render_priv->font_scale_x * w;
-    m[1][1] = w;
+    double w = 1.0 / (1 << (render_priv->state.clip_drawing_scale - 1));
+    m[0][0] = render_priv->screen_scale_x * w;
+    m[1][1] = render_priv->screen_scale_y * w;
     m[2][2] = 1;
 
     m[0][2] = int_to_d6(render_priv->settings.left_margin);
@@ -974,26 +974,39 @@ static void init_font_scale(ASS_Renderer *render_priv)
 {
     ASS_Settings *settings_priv = &render_priv->settings;
 
+    double font_scr_w = render_priv->orig_width;
     double font_scr_h = render_priv->orig_height;
-    if (!render_priv->state.explicit && render_priv->settings.use_margins)
+    if (!render_priv->state.explicit && render_priv->settings.use_margins) {
+        font_scr_w = render_priv->fit_width;
         font_scr_h = render_priv->fit_height;
+    }
 
-    render_priv->font_scale = font_scr_h / render_priv->track->PlayResY;
+    render_priv->screen_scale_x = font_scr_w / render_priv->track->PlayResX;
+    render_priv->screen_scale_y = font_scr_h / render_priv->track->PlayResY;
+
     if (settings_priv->storage_height)
         render_priv->blur_scale = font_scr_h / settings_priv->storage_height;
     else
         render_priv->blur_scale = 1.;
-    if (render_priv->track->ScaledBorderAndShadow)
-        render_priv->border_scale =
-            font_scr_h / render_priv->track->PlayResY;
-    else
-        render_priv->border_scale = render_priv->blur_scale;
+    if (render_priv->track->ScaledBorderAndShadow) {
+        render_priv->border_scale_x = render_priv->screen_scale_x;
+        render_priv->border_scale_y = render_priv->screen_scale_y;
+    } else {
+        if (settings_priv->storage_width)
+            render_priv->border_scale_x =
+                font_scr_w / settings_priv->storage_width;
+        else
+            render_priv->border_scale_x = 1.;
+        render_priv->border_scale_y = render_priv->blur_scale;
+    }
     if (!settings_priv->storage_height)
-        render_priv->blur_scale = render_priv->border_scale;
+        render_priv->blur_scale = render_priv->border_scale_y;
 
     if (render_priv->state.apply_font_scale) {
-        render_priv->font_scale *= settings_priv->font_size_coeff;
-        render_priv->border_scale *= settings_priv->font_size_coeff;
+        render_priv->screen_scale_x *= settings_priv->font_size_coeff;
+        render_priv->screen_scale_y *= settings_priv->font_size_coeff;
+        render_priv->border_scale_x *= settings_priv->font_size_coeff;
+        render_priv->border_scale_y *= settings_priv->font_size_coeff;
         render_priv->blur_scale *= settings_priv->font_size_coeff;
     }
 }
@@ -1121,9 +1134,9 @@ get_outline_glyph(ASS_Renderer *priv, GlyphInfo *info)
             return;
         }
 
-        double w = priv->font_scale / (1 << (info->drawing_scale - 1));
-        scale.x = info->scale_x * w;
-        scale.y = info->scale_y * w;
+        double w = 1.0 / (1 << (info->drawing_scale - 1));
+        scale.x = info->scale_x * w * priv->screen_scale_x / priv->font_scale_x;
+        scale.y = info->scale_y * w * priv->screen_scale_y;
         desc = 64 * info->drawing_pbo;
         asc = val->asc - desc;
 
@@ -1354,8 +1367,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
 
         ol_key.type = OUTLINE_BOX;
 
-        double w = 64 * render_priv->border_scale;
-        ASS_DVector bord = { info->border_x * w, info->border_y * w };
+        ASS_DVector bord = {
+            64 * info->border_x * render_priv->border_scale_x /
+                render_priv->font_scale_x,
+            64 * info->border_y * render_priv->border_scale_y,
+        };
         double width = info->hspacing_scaled + info->advance.x;
         double height = info->asc + info->desc;
 
@@ -1392,9 +1408,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         BorderHashKey *k = &ol_key.u.border;
         k->outline = info->outline;
 
-        double w = 64 * render_priv->border_scale;
-        double bord_x = w * info->border_x / tr->scale.x;
-        double bord_y = w * info->border_y / tr->scale.y;
+        double bord_x =
+            64 * render_priv->border_scale_x * info->border_x / tr->scale.x /
+                render_priv->font_scale_x;
+        double bord_y =
+            64 * render_priv->border_scale_y * info->border_y / tr->scale.y;
 
         const ASS_Rect *bbox = &info->outline->cbox;
         // Estimate bounding box half size after stroking
@@ -1408,7 +1426,7 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         double mzx = fabs(m[2][0]), mzy = fabs(m[2][1]);
 
         double z0 = m[2][2] - mzx * dx - mzy * dy;
-        w = 1 / FFMAX(z0, m[2][2] / MAX_PERSP_SCALE);
+        double w = 1 / FFMAX(z0, m[2][2] / MAX_PERSP_SCALE);
 
         // Notation from quantize_transform().
         // Note that goal here is to estimate acceptable error for stroking, i. e. D(x) and D(y).
@@ -1501,7 +1519,7 @@ static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur
     render_priv->text_info.height += scale * max_asc + scale * max_desc;
     // For *VSFilter compatibility do biased rounding on max_border*
     // https://github.com/Cyberbeing/xy-VSFilter/blob/xy_sub_filter_rc4@%7B2020-05-17%7D/src/subtitles/RTS.cpp#L1465
-    render_priv->text_info.border_bottom = (int) (render_priv->border_scale * max_border_y + 0.5);
+    render_priv->text_info.border_bottom = (int) (render_priv->border_scale_y * max_border_y + 0.5);
     if (cur_line == 0)
         render_priv->text_info.border_top = render_priv->text_info.border_bottom;
 }
@@ -1547,7 +1565,7 @@ static void measure_text(ASS_Renderer *render_priv)
     text_info->height += cur_line * render_priv->settings.line_spacing;
     // VSF takes max \bordx into account for collision, even if far from edge
     text_info->border_x =
-        (int) (render_priv->border_scale * max_border_x + 0.5);
+        (int) (render_priv->border_scale_x * max_border_x + 0.5);
 }
 
 /**
@@ -1986,7 +2004,8 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
         info->fay = render_priv->state.fay;
 
         info->hspacing_scaled = double_to_d6(info->hspacing *
-                render_priv->font_scale * info->scale_x);
+                render_priv->screen_scale_x / render_priv->font_scale_x *
+                info->scale_x);
         info->scale_fix = 1;
 
         if (!drawing_text)
@@ -2313,8 +2332,8 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 double blur_scale = render_priv->blur_scale * (2 / sqrt(log(256)));
                 filter->blur = quantize_blur(info->blur * blur_scale, &shadow_mask);
                 if (flags & FILTER_NONZERO_SHADOW) {
-                    int32_t x = double_to_d6(info->shadow_x * render_priv->border_scale);
-                    int32_t y = double_to_d6(info->shadow_y * render_priv->border_scale);
+                    int32_t x = double_to_d6(info->shadow_x * render_priv->border_scale_x);
+                    int32_t y = double_to_d6(info->shadow_y * render_priv->border_scale_y);
                     filter->shadow.x = (x + (shadow_mask >> 1)) & ~shadow_mask;
                     filter->shadow.y = (y + (shadow_mask >> 1)) & ~shadow_mask;
                 } else
@@ -2518,9 +2537,9 @@ size_t ass_composite_construct(void *key, void *value, void *priv)
 static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 {
     double size_x = render_priv->state.shadow_x > 0 ?
-                    render_priv->state.shadow_x * render_priv->border_scale : 0;
+                    render_priv->state.shadow_x * render_priv->border_scale_x : 0;
     double size_y = render_priv->state.shadow_y > 0 ?
-                    render_priv->state.shadow_y * render_priv->border_scale : 0;
+                    render_priv->state.shadow_y * render_priv->border_scale_y : 0;
     int left    = event_images->left - size_x;
     int top     = event_images->top  - size_y;
     int right   = event_images->left + event_images->width  + size_x;
