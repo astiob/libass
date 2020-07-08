@@ -28,6 +28,7 @@
 
 #include "ass_library.h"
 #include "ass.h"
+#include "ass_nomem.h"
 #include "ass_utils.h"
 #include "ass_string.h"
 
@@ -467,7 +468,7 @@ int lookup_style(ASS_Track *track, char *name)
     if (ass_strcasecmp(name, "Default") == 0)
         name = "Default";
     for (i = track->n_styles - 1; i >= 0; --i) {
-        if (strcmp(track->styles[i].Name, name) == 0)
+        if (track->styles[i].Name && strcmp(track->styles[i].Name, name) == 0)
             return i;
     }
     i = track->default_style;
@@ -489,7 +490,8 @@ ASS_Style *lookup_style_strict(ASS_Track *track, char *name, size_t len)
 {
     int i;
     for (i = track->n_styles - 1; i >= 0; --i) {
-        if (strncmp(track->styles[i].Name, name, len) == 0 &&
+        if (track->styles[i].Name &&
+            strncmp(track->styles[i].Name, name, len) == 0 &&
             track->styles[i].Name[len] == '\0')
             return track->styles + i;
     }
