@@ -35,6 +35,7 @@
 #include "ass.h"
 #include "ass_utils.h"
 #include "ass_library.h"
+#include "ass_nomem.h"
 #include "ass_priv.h"
 #include "ass_shaper.h"
 #include "ass_string.h"
@@ -1511,4 +1512,21 @@ void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track)
                    "PlayResX undefined, setting to %d", track->PlayResX);
         }
     }
+}
+
+void ass_nomem_log(ASS_Library *priv, bool force, const char *fmt, ...)
+{
+    if (!force && priv->nomem_flag)
+        return;
+    priv->nomem_flag = !force || priv->nomem_flag;
+
+    va_list va;
+    va_start(va, fmt);
+    priv->msg_callback(MSGL_ERR, fmt, va, priv->msg_callback_data);
+    va_end(va);
+}
+
+void ass_nomem_clear(ASS_Library *priv)
+{
+    priv->nomem_flag = false;
 }

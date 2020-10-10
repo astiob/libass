@@ -20,6 +20,7 @@
 #define LIBASS_LIBRARY_H
 
 #include <stdarg.h>
+#include <stdbool.h>
 
 typedef struct {
     char *name;
@@ -36,6 +37,9 @@ struct ass_library {
     int num_fontdata;
     void (*msg_callback)(int, const char *, va_list, void *);
     void *msg_callback_data;
+
+    // Ugly temporary workaround: FIXME
+    bool nomem_flag;
 };
 
 char *read_file(struct ass_library *library, char *fname, size_t *bufsize);

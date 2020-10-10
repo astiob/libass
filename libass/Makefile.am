@@ -24,7 +24,7 @@ SRC_CORETEXT = ass_coretext.c ass_coretext.h
 
 lib_LTLIBRARIES = libass.la
 libass_la_SOURCES = ass.h ass.c ass_types.h ass_utils.h ass_utils.c \
-                    ass_compat.h ass_string.h ass_string.c ass_strtod.c \
+                    ass_compat.h ass_nomem.h ass_string.h ass_string.c ass_strtod.c \
                     ass_library.h ass_library.c ass_cache.h ass_cache.c ass_cache_template.h \
                     ass_font.h ass_font.c ass_fontselect.h ass_fontselect.c \
                     ass_render.h ass_render.c ass_render_api.c \

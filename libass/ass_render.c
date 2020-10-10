@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "ass_nomem.h"
 #include "ass_outline.h"
 #include "ass_render.h"
 #include "ass_parse.h"
@@ -3162,6 +3163,8 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
             *detect_change = 2;
         return NULL;
     }
+
+    ass_nomem_clear(track->library);
 
     // render events separately
     int cnt = 0;
