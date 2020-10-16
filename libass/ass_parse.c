@@ -968,7 +968,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
     int timing, skip_timing;    // current accumulated timing
     long long tm_start, tm_end; // timings at start and end of the current word
     long long tm_current;
-    double dt;
+    double dt, frz;
     int x;
     int x_start, x_end;
     Effect effect_type;
@@ -1010,6 +1010,16 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                         x_end = d6_to_int(e1->pos.x + e1->advance.x);
                         dt = (tm_current - tm_start);
                         dt /= (tm_end - tm_start);
+                        frz = fmod(s1->frz, 360);
+                        if (frz > 90 && frz < 270) {
+                            // Fill from right to left
+                            dt = 1 - dt;
+                            for (cur2 = s1; cur2 <= e1; ++cur2) {
+                                uint32_t tmp = cur2->c[0];
+                                cur2->c[0] = cur2->c[1];
+                                cur2->c[1] = tmp;
+                            }
+                        }
                         x = x_start + (x_end - x_start) * dt;
                     }
                 } else {
