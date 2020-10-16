@@ -1008,12 +1008,8 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                     else if (tm_current >= tm_end)
                         x = 1000000;
                     else {
-                        x_start = 1000000;
-                        x_end = -1000000;
-                        for (cur2 = s1; cur2 <= e1; ++cur2) {
-                            x_start = FFMIN(x_start, d6_to_int(cur2->bbox.x_min + cur2->pos.x));
-                            x_end = FFMAX(x_end, d6_to_int(cur2->bbox.x_max + cur2->pos.x));
-                        }
+                        x_start = d6_to_int(s1->pos.x);
+                        x_end = d6_to_int(e1->pos.x + e1->advance.x);
                         dt = (tm_current - tm_start);
                         dt /= (tm_end - tm_start);
                         x = x_start + (x_end - x_start) * dt;
