@@ -974,17 +974,23 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
     double dt;
     int x;
     int x_start, x_end;
+    Effect effect_type;
 
     tm_current = render_priv->time - render_priv->state.event->Start;
     timing = 0;
     s1 = s2 = 0;
+    effect_type = EF_NONE;
     for (i = 0; i <= render_priv->text_info.length; ++i) {
         cur = render_priv->text_info.glyphs + i;
-        if ((i == render_priv->text_info.length)
-            || (cur->effect_type != EF_NONE)) {
+        if ((i == render_priv->text_info.length) || cur->starts_new_run) {
             s1 = s2;
             s2 = cur;
             if (s1) {
+                if (s1->effect_type != EF_NONE)
+                    effect_type = s1->effect_type;
+                if (effect_type == EF_NONE)
+                    continue;
+
                 e1 = s2 - 1;
                 tm_start = timing + s1->effect_skip_timing;
                 tm_end = tm_start + s1->effect_timing;
@@ -997,13 +1003,13 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                 }
 
                 dt = (tm_current - tm_start);
-                if ((s1->effect_type == EF_KARAOKE)
-                    || (s1->effect_type == EF_KARAOKE_KO)) {
+                if ((effect_type == EF_KARAOKE)
+                    || (effect_type == EF_KARAOKE_KO)) {
                     if (dt >= 0)
                         x = x_end + 1;
                     else
                         x = x_start;
-                } else if (s1->effect_type == EF_KARAOKE_KF) {
+                } else if (effect_type == EF_KARAOKE_KF) {
                     dt /= (tm_end - tm_start);
                     x = x_start + (x_end - x_start) * dt;
                 } else {
@@ -1013,7 +1019,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                 }
 
                 for (cur2 = s1; cur2 <= e1; ++cur2) {
-                    cur2->effect_type = s1->effect_type;
+                    cur2->effect_type = effect_type;
                     cur2->effect_timing = x - d6_to_int(cur2->pos.x);
                 }
             }
