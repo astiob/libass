@@ -968,7 +968,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
     GlyphInfo *s1, *e1;      // start and end of the current word
     GlyphInfo *s2;           // start of the next word
     int i;
-    int timing;                 // current timing
+    int timing, skip_timing;    // current accumulated timing
     long long tm_start, tm_end; // timings at start and end of the current word
     long long tm_current;
     double dt;
@@ -977,7 +977,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
     Effect effect_type;
 
     tm_current = render_priv->time - render_priv->state.event->Start;
-    timing = 0;
+    timing = skip_timing = 0;
     s1 = s2 = 0;
     effect_type = EF_NONE;
     for (i = 0; i <= render_priv->text_info.length; ++i) {
@@ -994,7 +994,8 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                 e1 = s2 - 1;
                 tm_start = timing + s1->effect_skip_timing;
                 tm_end = tm_start + s1->effect_timing;
-                timing = tm_end;
+                timing = tm_end + skip_timing;
+                skip_timing = 0;
 
                 if ((effect_type == EF_KARAOKE)
                     || (effect_type == EF_KARAOKE_KO)) {
@@ -1025,6 +1026,12 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                     cur2->effect_timing = x - d6_to_int(cur2->pos.x);
                 }
             }
+        } else if (cur->effect_skip_timing) {
+            // VSFilter compatibility: we have \k12345\k0 without a run break,
+            // so subsequent text is still part of the same karaoke word.
+            // Advance the starting time for the next karaoke word,
+            // but do not touch the current word's starting or ending time.
+            skip_timing += cur->effect_skip_timing;
         }
     }
 }
