@@ -995,26 +995,26 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                 tm_start = timing + s1->effect_skip_timing;
                 tm_end = tm_start + s1->effect_timing;
                 timing = tm_end;
-                x_start = 1000000;
-                x_end = -1000000;
-                for (cur2 = s1; cur2 <= e1; ++cur2) {
-                    x_start = FFMIN(x_start, d6_to_int(cur2->bbox.x_min + cur2->pos.x));
-                    x_end = FFMAX(x_end, d6_to_int(cur2->bbox.x_max + cur2->pos.x));
-                }
 
-                dt = (tm_current - tm_start);
                 if ((effect_type == EF_KARAOKE)
                     || (effect_type == EF_KARAOKE_KO)) {
-                    if (dt >= 0)
-                        x = x_end + 1;
+                    if (tm_current >= tm_start)
+                        x = 1000000;
                     else
-                        x = x_start;
+                        x = -1000000;
                 } else if (effect_type == EF_KARAOKE_KF) {
                     if (tm_current < tm_start)
-                        x = x_start;
+                        x = -1000000;
                     else if (tm_current >= tm_end)
-                        x = x_end + 1;
+                        x = 1000000;
                     else {
+                        x_start = 1000000;
+                        x_end = -1000000;
+                        for (cur2 = s1; cur2 <= e1; ++cur2) {
+                            x_start = FFMIN(x_start, d6_to_int(cur2->bbox.x_min + cur2->pos.x));
+                            x_end = FFMAX(x_end, d6_to_int(cur2->bbox.x_max + cur2->pos.x));
+                        }
+                        dt = (tm_current - tm_start);
                         dt /= (tm_end - tm_start);
                         x = x_start + (x_end - x_start) * dt;
                     }
