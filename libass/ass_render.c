@@ -385,7 +385,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
         return render_glyph_i(render_priv, bm, dst_x, dst_y, color, color2,
                               brk, tail, type, source);
 
-    // brk is relative to dst_x
+    // brk is absolute
     // color = color left of brk
     // color2 = color right of brk
     int b_x0, b_y0, b_x1, b_y1; // visible part of the bitmap
@@ -395,7 +395,7 @@ render_glyph(ASS_Renderer *render_priv, Bitmap *bm, int dst_x, int dst_y,
 
     dst_x += bm->left;
     dst_y += bm->top;
-    brk -= bm->left;
+    brk -= dst_x;
 
     // clipping
     clip_x0 = FFMINMAX(render_priv->state.clip_x0, 0, render_priv->width);
@@ -2325,6 +2325,9 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 info->border_style == 3)
                 flags |= FILTER_FILL_IN_BORDER;
 
+            info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
+            info->pos.y = double_to_d6(device_y) + info->pos.y;
+
             if (new_run) {
                 if (nb_bitmaps >= text_info->max_bitmaps) {
                     size_t new_size = 2 * text_info->max_bitmaps;
@@ -2339,7 +2342,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
                 current_info->effect_type = info->effect_type;
-                current_info->effect_timing = info->effect_timing;
+                current_info->effect_timing = d6_to_int(info->pos.x) + info->effect_timing;
 
                 FilterDesc *filter = &current_info->filter;
                 filter->flags = flags;
@@ -2374,8 +2377,6 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
             assert(current_info);
 
             ASS_Vector pos, pos_o;
-            info->pos.x = double_to_d6(device_x + d6_to_double(info->pos.x) * render_priv->font_scale_x);
-            info->pos.y = double_to_d6(device_y) + info->pos.y;
             get_bitmap_glyph(render_priv, info, &pos, &pos_o,
                              &offset, !current_info->bitmap_count, flags);
 
