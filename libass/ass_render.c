@@ -2343,7 +2343,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
                 current_info->effect_type = info->effect_type;
-                current_info->effect_timing = d6_to_int(info->pos.x + info->effect_timing);
+                current_info->effect_timing = info->effect_timing;
 
                 FilterDesc *filter = &current_info->filter;
                 filter->flags = flags;
@@ -2385,6 +2385,30 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
                 ass_cache_dec_ref(info->bm);
                 ass_cache_dec_ref(info->bm_o);
                 continue;
+            }
+
+            if (info->bm && !current_info->bitmap_count) {
+                // Emulate VSFilter's karaoke positioning for \kf.
+                // VSFilter's computations involve a lot of floor and ceil.
+                // Since we may be rendering at a different resolution
+                // and we want to achieve smooth movement of the \kf line,
+                // replace some of them with -0.5 and +0.5 video-pixel
+                // respectively and round the final result. Some of the
+                // floors and ceils can be computed exactly: do it when
+                // it's easy, but don't bother chasing the harder ones.
+                // Approximate min(transformed control point x) by bm->left
+                // + 33/64 (to undo outline_to_bitmap's -1/64 and floor).
+                current_info->effect_timing = lround(
+                    pos.x + info->bm->left + 0.515625
+                    + d6_to_double(info->effect_timing)
+                    + render_priv->font_scale_x * (
+                        render_priv->border_scale * (
+                            info->border_x
+                            - ceil(FFMAX(info->border_x, info->border_y)))
+                        - render_priv->blur_scale * (
+                            (int) (info->blur * 3)
+                            + !!info->be
+                            + 2.5)));
             }
 
             if (current_info->bitmap_count >= current_info->max_bitmap_count) {
