@@ -954,9 +954,8 @@ void apply_transition_effects(ASS_Renderer *render_priv, ASS_Event *event)
  * so they are done in a separate step.
  * Parse stage: when karaoke style override is found, its parameters are stored in the next glyph's
  * (the first glyph of the karaoke word)'s effect_type and effect_timing.
- * This function:
- * 1. sets effect_type for all glyphs in the word (_karaoke_ word)
- * 2. sets effect_timing for all glyphs to x coordinate of the border line between the left and right karaoke parts
+ * This function converts this effect_timing from karaoke word duration to the
+ * x coordinate of the border line between the left and right karaoke parts
  * (left part is filled with PrimaryColour, right one - with SecondaryColour).
  */
 void process_karaoke_effects(ASS_Renderer *render_priv)
@@ -1029,8 +1028,11 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                 }
 
                 for (cur2 = s1; cur2 <= e1; ++cur2) {
-                    cur2->effect_type = effect_type;
-                    cur2->effect_timing = x - cur2->pos.x;
+                    if (!cur2->skip) {
+                        cur2->effect_type = effect_type;
+                        cur2->effect_timing = x - cur2->pos.x;
+                        break;
+                    }
                 }
             }
         } else if (cur->effect_skip_timing) {
