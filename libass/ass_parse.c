@@ -997,17 +997,17 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                 if ((effect_type == EF_KARAOKE)
                     || (effect_type == EF_KARAOKE_KO)) {
                     if (tm_current >= tm_start)
-                        x = 1000000;
+                        x = 100000000;
                     else
-                        x = -1000000;
+                        x = -100000000;
                 } else if (effect_type == EF_KARAOKE_KF) {
                     if (tm_current < tm_start)
-                        x = -1000000;
+                        x = -100000000;
                     else if (tm_current >= tm_end)
-                        x = 1000000;
+                        x = 100000000;
                     else {
-                        x_start = d6_to_int(s1->pos.x);
-                        x_end = d6_to_int(e1->pos.x + e1->advance.x);
+                        x_start = s1->pos.x;
+                        x_end = e1->pos.x + e1->advance.x;
                         dt = (tm_current - tm_start);
                         dt /= (tm_end - tm_start);
                         frz = fmod(s1->frz, 360);
@@ -1020,7 +1020,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
                                 cur2->c[1] = tmp;
                             }
                         }
-                        x = x_start + (x_end - x_start) * dt;
+                        x = x_start + lrint((x_end - x_start) * dt);
                     }
                 } else {
                     ass_msg(render_priv->library, MSGL_ERR,
@@ -1030,7 +1030,7 @@ void process_karaoke_effects(ASS_Renderer *render_priv)
 
                 for (cur2 = s1; cur2 <= e1; ++cur2) {
                     cur2->effect_type = effect_type;
-                    cur2->effect_timing = x - d6_to_int(cur2->pos.x);
+                    cur2->effect_timing = x - cur2->pos.x;
                 }
             }
         } else if (cur->effect_skip_timing) {

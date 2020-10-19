@@ -2343,7 +2343,7 @@ static void render_and_combine_glyphs(ASS_Renderer *render_priv,
 
                 memcpy(&current_info->c, &info->c, sizeof(info->c));
                 current_info->effect_type = info->effect_type;
-                current_info->effect_timing = d6_to_int(info->pos.x) + info->effect_timing;
+                current_info->effect_timing = d6_to_int(info->pos.x + info->effect_timing);
 
                 FilterDesc *filter = &current_info->filter;
                 filter->flags = flags;
