@@ -606,10 +606,9 @@ hb_shaper_get_run_language(ASS_Shaper *shaper, hb_script_t script)
  *
  * \param glyphs GlyphInfo array
  * \param buf buffer of shaped run
- * \param offset offset into GlyphInfo array
  */
 static void
-shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
+shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf)
 {
     int j;
     int num_glyphs = hb_buffer_get_length(buf);
@@ -617,7 +616,7 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
     hb_glyph_position_t *pos    = hb_buffer_get_glyph_positions(buf, NULL);
 
     for (j = 0; j < num_glyphs; j++) {
-        unsigned idx = glyph_info[j].cluster + offset;
+        unsigned idx = glyph_info[j].cluster;
         GlyphInfo *info = glyphs + idx;
         GlyphInfo *root = info;
 
@@ -683,8 +682,8 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
             i++;
 
         hb_buffer_pre_allocate(buf, i - offset + 1);
-        hb_buffer_add_utf32(buf, shaper->event_text + offset, i - offset + 1,
-                0, i - offset + 1);
+        hb_buffer_add_utf32(buf, shaper->event_text, len,
+                offset, i - offset + 1);
 
         props.direction = FRIBIDI_LEVEL_IS_RTL(level) ?
             HB_DIRECTION_RTL : HB_DIRECTION_LTR;
@@ -695,7 +694,7 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         set_run_features(shaper, glyphs + offset);
         hb_shape(font, buf, shaper->features, shaper->n_features);
 
-        shape_harfbuzz_process_run(glyphs, buf, offset);
+        shape_harfbuzz_process_run(glyphs, buf);
         hb_buffer_reset(buf);
     }
 
