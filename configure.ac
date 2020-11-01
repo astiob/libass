@@ -123,15 +123,13 @@ AM_CONDITIONAL([X64], [test x$X64 = xtrue])
 
 AM_COND_IF([ASM],
     [AC_DEFINE(CONFIG_ASM, 1, [ASM enabled])],
-    [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])]
-    )
+    [AC_DEFINE(CONFIG_ASM, 0, [ASM enabled])])
 
 AM_CONDITIONAL([ENABLE_LARGE_TILES], [test x$enable_large_tiles = xyes])
 
 AM_COND_IF([ENABLE_LARGE_TILES],
-    [AC_DEFINE(CONFIG_LARGE_TILES, 1, [use large tiles])]
-    [AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])],
-    )
+    [AC_DEFINE(CONFIG_LARGE_TILES, 1, [use large tiles])],
+    [AC_DEFINE(CONFIG_LARGE_TILES, 0, [use small tiles])])
 
 PKG_CHECK_MODULES([FREETYPE], freetype2 >= 9.10.3, [
     CFLAGS="$CFLAGS $FREETYPE_CFLAGS"
