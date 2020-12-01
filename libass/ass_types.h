@@ -169,6 +169,54 @@ typedef enum ASS_YCbCrMatrix {
     // New enum values can be added here in new ABI-compatible library releases.
 } ASS_YCbCrMatrix;
 
+typedef enum ASS_FormatToken {
+    // cases must match field names in ASS_Track
+    ASS_FMT_UNKNOWN,
+    ASS_FMT_Name,            // ASS Style, ASS Event, SSA Style, SSA Event
+    ASS_FMT_FontName,        // ASS Style, SSA Style
+    ASS_FMT_FontSize,        // ASS Style, SSA Style
+    ASS_FMT_PrimaryColour,   // ASS Style, SSA Style
+    ASS_FMT_SecondaryColour, // ASS Style, SSA Style
+    ASS_FMT_OutlineColour,   // ASS Style
+    ASS_FMT_BackColour,      // ASS Style, SSA Style
+    ASS_FMT_Bold,            // ASS Style, SSA Style
+    ASS_FMT_Italic,          // ASS Style, SSA Style
+    ASS_FMT_Underline,       // ASS Style
+    ASS_FMT_StrikeOut,       // ASS Style
+    ASS_FMT_ScaleX,          // ASS Style
+    ASS_FMT_ScaleY,          // ASS Style
+    ASS_FMT_Spacing,         // ASS Style
+    ASS_FMT_Angle,           // ASS Style
+    ASS_FMT_BorderStyle,     // ASS Style, SSA Style
+    ASS_FMT_Outline,         // ASS Style, SSA Style
+    ASS_FMT_Shadow,          // ASS Style, SSA Style
+    ASS_FMT_Alignment,       // ASS Style, SSA Style
+    ASS_FMT_MarginL,         // ASS Style, ASS Event, SSA Style, SSA Event
+    ASS_FMT_MarginR,         // ASS Style, ASS Event, SSA Style, SSA Event
+    ASS_FMT_MarginV,         // ASS Style, ASS Event, SSA Style, SSA Event
+    ASS_FMT_Encoding,        // ASS Style, SSA Style
+    ASS_FMT_Layer,           // ASS Event
+    ASS_FMT_Start,           // ASS Event, SSA Event
+    ASS_FMT_End,             // ASS Event, SSA Event
+    ASS_FMT_Style,           // ASS Event, SSA Event
+    ASS_FMT_Effect,          // ASS Event, SSA Event
+    ASS_FMT_Text,            // ASS Event, SSA Event
+    // We're currently not handling the fields below
+    ASS_FMT_TertiaryColour,  // SSA Style
+    ASS_FMT_AlphaLevel,      // SSA Style
+    ASS_FMT_Marked,          // SSA Event
+    // TODO: check v4++-FormatToken's actual in-file names
+    ASS_FMT_RelativeTo,      // v4++ Extension (not sure what RelativeTo is supposed to do)
+    ASS_FMT_MarginT,         // v4++ Extension (margin top;    replaces MarginV)
+    ASS_FMT_MarginB          // v4++ Extension (margin bottom; replaces MarginV)
+} ASS_FormatToken;
+
+typedef struct {
+    size_t n_tokens;
+    size_t max_tokens;
+    ASS_FormatToken *tokens;
+} ASS_FormatLine;
+
 /*
  * ass track represent either an external script or a matroska subtitle stream
  * (no real difference between them); it can be used in rendering after the
@@ -182,8 +230,8 @@ typedef struct ass_track {
     ASS_Style *styles;    // array of styles, max_styles length, n_styles used
     ASS_Event *events;    // the same as styles
 
-    char *style_format;     // style format line (everything after "Format: ")
-    char *event_format;     // event format line
+    ASS_FormatLine style_format;     // style format line (everything after "Format: ")
+    ASS_FormatLine event_format;     // event format line
 
     enum {
         TRACK_TYPE_UNKNOWN = 0,
