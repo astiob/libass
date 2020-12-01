@@ -445,6 +445,7 @@ static int parse_format_line(ASS_FormatLine *fmt, char *string)
 
         #undef FMTTOKEN
     }
+
     return 0;
 }
 
@@ -902,6 +903,16 @@ static int process_events_line(ASS_Track *track, char *str)
         ret = parse_format_line(&track->event_format, p);
         if (ret < 0)
             return ret;
+        for (size_t i = 0; i < track->event_format.n_tokens; ++i) {
+            if ((i+1 != track->event_format.n_tokens &&
+                        track->event_format.tokens[i] == ASS_FMT_Text) ||
+                    (i+1 == track->event_format.n_tokens &&
+                        track->event_format.tokens[i] != ASS_FMT_Text)) {
+                ass_msg(track->library, MSGL_ERR, "Disregarding invalid format line. "
+                            "Event format lines must contain 'Text' exactly once at the very end!");
+                track->event_format.n_tokens = 0;
+            }
+        }
         if (track->track_type == TRACK_TYPE_ASS) {
             custom_format_line_compatibility(
                     track, track->event_format.tokens, ass_event_format,
