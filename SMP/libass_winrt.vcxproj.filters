@@ -93,6 +93,7 @@
     <ClInclude Include="..\libass\ass_outline.h">
       <Filter>Header Files\libass</Filter>
     </ClInclude>
+    <ClInclude Include="..\libass\ass_private.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\libass\ass_fontconfig.c">

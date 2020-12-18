@@ -15,6 +15,7 @@
     <ClInclude Include="..\libass\ass_library.h" />
     <ClInclude Include="..\libass\ass_outline.h" />
     <ClInclude Include="..\libass\ass_parse.h" />
+    <ClInclude Include="..\libass\ass_private.h" />
     <ClInclude Include="..\libass\ass_rasterizer.h" />
     <ClInclude Include="..\libass\ass_render.h" />
     <ClInclude Include="..\libass\ass_shaper.h" />

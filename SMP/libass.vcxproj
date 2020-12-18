@@ -15,7 +15,7 @@
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;FRIBIDI_LIB_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -60,7 +60,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;FRIBIDI_LIB_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>libfreetyped.lib;libfontconfigd.lib;libfribidid.lib;libharfbuzzd.lib;libiconvd.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -105,7 +105,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
@@ -151,7 +151,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
@@ -197,7 +197,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;FRIBIDI_LIB_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -242,7 +242,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;FRIBIDI_LIB_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <AdditionalDependencies>libfreetype.lib;libfontconfig.lib;libfribidi.lib;libharfbuzz.lib;libiconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -287,7 +287,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
@@ -333,7 +333,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;FRIBIDI_LIB_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
@@ -379,7 +379,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
@@ -425,7 +425,7 @@ del /f /q $(OutDir)\licenses\libass.txt
     <ClCompile>
       <PreprocessorDefinitions>inline=_inline;_USE_MATH_DEFINES;LIBXML_STATIC;FRIBIDI_LIB_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\;$(OutDir)\include\freetype2;$(OutDir)\include\harfbuzz;$(OutDir)\include\fribidi;$(ProjectDir)\..\..\prebuilt\include\freetype2;$(ProjectDir)\..\..\prebuilt\include\harfbuzz;$(ProjectDir)\..\..\prebuilt\include\fribidi;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4005;4244;4267;4018;4334;4101;4996;4146;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libass.def</ModuleDefinitionFile>
