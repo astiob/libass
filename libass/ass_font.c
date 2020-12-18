@@ -87,7 +87,7 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
     if (!face->charmap)
         return symbol;
 
-    switch(face->charmap->encoding){
+    switch (face->charmap->encoding) {
     case FT_ENCODING_MS_SYMBOL:
         return 0xF000 | symbol;
     default:
@@ -95,14 +95,30 @@ uint32_t ass_font_index_magic(FT_Face face, uint32_t symbol)
     }
 }
 
-static void buggy_font_workaround(FT_Face face)
+static void set_font_metrics(FT_Face face)
 {
-    // Some fonts have zero Ascender/Descender fields in 'hhea' table.
-    // In this case, get the information from 'os2' table or, as
-    // a last resort, from face.bbox.
-    if (face->ascender + face->descender == 0 || face->height == 0) {
-        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-        if (os2) {
+    // Mimicking GDI's behavior for asc/desc/height.
+    // These fields are (apparently) sometimes used for signed values,
+    // despite being unsigned in the spec.
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+    if (os2 && ((short)os2->usWinAscent + (short)os2->usWinDescent != 0)) {
+        face->ascender  =  (short)os2->usWinAscent;
+        face->descender = -(short)os2->usWinDescent;
+        face->height    = face->ascender - face->descender;
+    }
+
+    // If we didn't have usable Win values in the OS/2 table,
+    // then the values from FreeType will still be in these fields.
+    // It'll use either the OS/2 typo metrics or the hhea ones.
+    // If the font has typo metrics but FreeType didn't use them
+    // (either old FT or USE_TYPO_METRICS not set), we'll try those.
+    // In the case of a very broken font that has none of those options,
+    // we fall back on using face.bbox.
+    // Anything without valid OS/2 Win values isn't supported by VSFilter,
+    // so at this point compatibility's out the window and we're just
+    // trying to render _something_ readable.
+    if (face->ascender - face->descender == 0 || face->height == 0) {
+        if (os2 && (os2->sTypoAscender - os2->sTypoDescender) != 0) {
             face->ascender = os2->sTypoAscender;
             face->descender = os2->sTypoDescender;
             face->height = face->ascender - face->descender;
@@ -213,7 +229,7 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     }
 
     charmap_magic(font->library, face);
-    buggy_font_workaround(face);
+    set_font_metrics(face);
 
     font->faces[font->n_faces] = face;
     font->faces_uid[font->n_faces++] = uid;
@@ -224,88 +240,49 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
 /**
  * \brief Create a new ASS_Font according to "desc" argument
  */
-ASS_Font *ass_font_new(Cache *font_cache, ASS_Library *library,
-                       FT_Library ftlibrary, ASS_FontSelector *fontsel,
-                       ASS_FontDesc *desc)
+ASS_Font *ass_font_new(ASS_Renderer *render_priv, ASS_FontDesc *desc)
 {
-    ASS_Font *font;
-    if (ass_cache_get(font_cache, desc, &font)) {
-        if (font->desc.family)
-            return font;
-        ass_cache_dec_ref(font);
-        return NULL;
-    }
+    ASS_Font *font = ass_cache_get(render_priv->cache.font_cache, desc, render_priv);
     if (!font)
         return NULL;
+    if (font->library)
+        return font;
+    ass_cache_dec_ref(font);
+    return NULL;
+}
 
-    font->library = library;
-    font->ftlibrary = ftlibrary;
+size_t ass_font_construct(void *key, void *value, void *priv)
+{
+    ASS_Renderer *render_priv = priv;
+    ASS_FontDesc *desc = key;
+    ASS_Font *font = value;
+
+    font->library = render_priv->library;
+    font->ftlibrary = render_priv->ftlibrary;
     font->shaper_priv = NULL;
     font->n_faces = 0;
-    ASS_FontDesc *new_desc = ass_cache_key(font);
-    font->desc.family = new_desc->family;
+    font->desc.family = desc->family;
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
     font->desc.vertical = desc->vertical;
 
-    font->scale_x = font->scale_y = 1.;
-    font->v.x = font->v.y = 0;
     font->size = 0.;
 
-    int error = add_face(fontsel, font, 0);
-    if (error == -1) {
-        font->desc.family = NULL;
-        ass_cache_commit(font, 1);
-        ass_cache_dec_ref(font);
-        return NULL;
-    }
-    ass_cache_commit(font, 1);
-    return font;
-}
-
-/**
- * \brief Set font transformation matrix and shift vector
- **/
-void ass_font_set_transform(ASS_Font *font, double scale_x,
-                            double scale_y, FT_Vector *v)
-{
-    font->scale_x = scale_x;
-    font->scale_y = scale_y;
-    if (v) {
-        font->v.x = v->x;
-        font->v.y = v->y;
-    }
+    int error = add_face(render_priv->fontselect, font, 0);
+    if (error == -1)
+        font->library = NULL;
+    return 1;
 }
 
 void ass_face_set_size(FT_Face face, double size)
 {
-    TT_HoriHeader *hori = FT_Get_Sfnt_Table(face, ft_sfnt_hhea);
-    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-    double mscale = 1.;
     FT_Size_RequestRec rq;
-    FT_Size_Metrics *m = &face->size->metrics;
-    // VSFilter uses metrics from TrueType OS/2 table
-    // The idea was borrowed from asa (http://asa.diac24.net)
-    if (os2) {
-        int ft_height = 0;
-        if (hori)
-            ft_height = hori->Ascender - hori->Descender;
-        if (!ft_height)
-            ft_height = os2->sTypoAscender - os2->sTypoDescender;
-        /* sometimes used for signed values despite unsigned in spec */
-        int os2_height = (short)os2->usWinAscent + (short)os2->usWinDescent;
-        if (ft_height && os2_height)
-            mscale = (double) ft_height / os2_height;
-    }
     memset(&rq, 0, sizeof(rq));
     rq.type = FT_SIZE_REQUEST_TYPE_REAL_DIM;
     rq.width = 0;
-    rq.height = double_to_d6(size * mscale);
+    rq.height = double_to_d6(size);
     rq.horiResolution = rq.vertResolution = 0;
     FT_Request_Size(face, &rq);
-    m->ascender /= mscale;
-    m->descender /= mscale;
-    m->height /= mscale;
 }
 
 /**
@@ -322,31 +299,32 @@ void ass_font_set_size(ASS_Font *font, double size)
 }
 
 /**
- * \brief Get maximal font ascender and descender.
- * \param ch character code
- * The values are extracted from the font face that provides glyphs for the given character
+ * \brief Get face weight
  **/
-void ass_font_get_asc_desc(ASS_Font *font, uint32_t ch, int *asc,
-                           int *desc)
+int ass_face_get_weight(FT_Face face)
 {
-    int i;
-    for (i = 0; i < font->n_faces; ++i) {
-        FT_Face face = font->faces[i];
-        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
-        if (FT_Get_Char_Index(face, ass_font_index_magic(face, ch))) {
-            int y_scale = face->size->metrics.y_scale;
-            if (os2) {
-                *asc = FT_MulFix((short)os2->usWinAscent, y_scale);
-                *desc = FT_MulFix((short)os2->usWinDescent, y_scale);
-            } else {
-                *asc = FT_MulFix(face->ascender, y_scale);
-                *desc = FT_MulFix(-face->descender, y_scale);
-            }
-            return;
-        }
-    }
+#if FREETYPE_MAJOR > 2 || (FREETYPE_MAJOR == 2 && FREETYPE_MINOR >= 6)
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
+#else
+    // This old name is still included (as a macro), but deprecated as of 2.6, so avoid using it if we can
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
+#endif
+    if (os2 && os2->version != 0xffff && os2->usWeightClass)
+        return os2->usWeightClass;
+    else
+        return 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
+}
 
-    *asc = *desc = 0;
+/**
+ * \brief Get maximal font ascender and descender.
+ **/
+void ass_font_get_asc_desc(ASS_Font *font, int face_index,
+                           int *asc, int *desc)
+{
+    FT_Face face = font->faces[face_index];
+    int y_scale = face->size->metrics.y_scale;
+    *asc  = FT_MulFix(face->ascender, y_scale);
+    *desc = FT_MulFix(-face->descender, y_scale);
 }
 
 static void add_line(FT_Outline *ol, int bear, int advance, int dir, int pos, int size) {
@@ -531,14 +509,13 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
  * \brief Get a glyph
  * \param ch character code
  **/
-FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
-                            int index, ASS_Hinting hinting, int deco)
+FT_Glyph ass_font_get_glyph(ASS_Font *font, int face_index, int index,
+                            ASS_Hinting hinting, int deco)
 {
     int error;
     FT_Glyph glyph;
     FT_Face face = font->faces[face_index];
     int flags = 0;
-    int vertical = font->desc.vertical;
 
     flags = FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
             | FT_LOAD_IGNORE_TRANSFORM;
@@ -567,8 +544,7 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
         FT_GlyphSlot_Oblique(face->glyph);
     }
 
-    if (!(face->style_flags & FT_STYLE_FLAG_BOLD) &&
-        (font->desc.bold > 400)) {
+    if (font->desc.bold > ass_face_get_weight(face) + 150) {
         ass_glyph_embolden(face->glyph);
     }
     error = FT_Get_Glyph(face->glyph, &glyph);
@@ -579,7 +555,7 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
     }
 
     // Rotate glyph, if needed
-    if (vertical && ch >= VERTICAL_LOWER_BOUND) {
+    if (deco & DECO_ROTATE) {
         FT_Matrix m = { 0, double_to_d16(-1.0), double_to_d16(1.0), 0 };
         TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
         int desc = 0;
@@ -596,14 +572,6 @@ FT_Glyph ass_font_get_glyph(ASS_Font *font, uint32_t ch, int face_index,
 
     ass_strike_outline_glyph(face, font, glyph, deco & DECO_UNDERLINE,
                              deco & DECO_STRIKETHROUGH);
-
-    // Apply scaling and shift
-    FT_Matrix scale = { double_to_d16(font->scale_x), 0, 0,
-                        double_to_d16(font->scale_y) };
-    FT_Outline *outl = &((FT_OutlineGlyph) glyph)->outline;
-    FT_Outline_Transform(outl, &scale);
-    FT_Outline_Translate(outl, font->v.x, font->v.y);
-    glyph->advance.x *= font->scale_x;
 
     return glyph;
 }

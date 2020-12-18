@@ -29,7 +29,7 @@
 
 #include "ass_coretext.h"
 
-#define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while(0)
+#define SAFE_CFRelease(x) do { if (x) CFRelease(x); } while (0)
 
 static const ASS_FontMapping font_substitutions[] = {
     {"sans-serif", "Helvetica"},
@@ -60,20 +60,25 @@ static void destroy_font(void *priv)
     SAFE_CFRelease(fontd);
 }
 
+static bool is_postscript_font_format(CFNumberRef cfformat)
+{
+    bool ret = false;
+    int format;
+    if (CFNumberGetValue(cfformat, kCFNumberIntType, &format)) {
+        ret = format == kCTFontFormatOpenTypePostScript ||
+              format == kCTFontFormatPostScript;
+    }
+    return ret;
+}
+
 static bool check_postscript(void *priv)
 {
     CTFontDescriptorRef fontd = priv;
     CFNumberRef cfformat =
         CTFontDescriptorCopyAttribute(fontd, kCTFontFormatAttribute);
-    int format;
-
-    if (!CFNumberGetValue(cfformat, kCFNumberIntType, &format))
-        return false;
-
+    bool ret = is_postscript_font_format(cfformat);
     SAFE_CFRelease(cfformat);
-
-    return format == kCTFontFormatOpenTypePostScript ||
-           format == kCTFontFormatPostScript;
+    return ret;
 }
 
 static bool check_glyph(void *priv, uint32_t code)
@@ -96,131 +101,60 @@ static bool check_glyph(void *priv, uint32_t code)
 static char *get_font_file(CTFontDescriptorRef fontd)
 {
     CFURLRef url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
+    if (!url)
+        return NULL;
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
+    if (!path) {
+        SAFE_CFRelease(url);
+        return NULL;
+    }
     char *buffer = cfstr2buf(path);
     SAFE_CFRelease(path);
     SAFE_CFRelease(url);
     return buffer;
 }
 
-static void get_name(CTFontDescriptorRef fontd, CFStringRef attr,
-                     char **array, int *idx)
+static char *get_name(CTFontDescriptorRef fontd, CFStringRef attr)
 {
-
+    char *ret = NULL;
     CFStringRef name = CTFontDescriptorCopyAttribute(fontd, attr);
     if (name) {
-        array[*idx] = cfstr2buf(name);
+        ret = cfstr2buf(name);
         SAFE_CFRelease(name);
-        *idx += 1;
     }
+    return ret;
 }
 
-static void get_trait(CFDictionaryRef traits, CFStringRef attribute,
-                      float *trait)
+static void process_descriptors(ASS_Library *lib, ASS_FontProvider *provider,
+                                CFArrayRef fontsd)
 {
-    CFNumberRef cftrait = CFDictionaryGetValue(traits, attribute);
-    if (!CFNumberGetValue(cftrait, kCFNumberFloatType, trait))
-        *trait = 0.0;
-}
-
-static void get_font_traits(CTFontDescriptorRef fontd,
-                            ASS_FontProviderMetaData *meta)
-{
-    float weight, slant, width;
-
-    CFDictionaryRef traits =
-        CTFontDescriptorCopyAttribute(fontd, kCTFontTraitsAttribute);
-
-    get_trait(traits, kCTFontWeightTrait, &weight);
-    get_trait(traits, kCTFontSlantTrait,  &slant);
-    get_trait(traits, kCTFontWidthTrait,  &width);
-
-    SAFE_CFRelease(traits);
-
-    // Printed all of my system fonts (see if'deffed code below). Here is how
-    // CoreText 'normalized' weights maps to CSS/libass:
-
-    // opentype:   0   100   200   300   400   500   600   700   800   900
-    // css:                 LIGHT        REG   MED  SBOLD BOLD  BLACK  EXTRABL
-    // libass:                   LIGHT  MEDIUM            BOLD
-    // coretext:            -0.4         0.0   0.23  0.3   0.4   0.62
-
-    if (weight >= 0.62)
-        meta->weight = 800;
-    else if (weight >= 0.4)
-        meta->weight = 700;
-    else if (weight >= 0.3)
-        meta->weight = 600;
-    else if (weight >= 0.23)
-        meta->weight = 500;
-    else if (weight >= -0.4)
-        meta->weight = 400;
-    else
-        meta->weight = 200;
-
-    if (slant > 0.03)
-        meta->slant  = FONT_SLANT_ITALIC;
-    else
-        meta->slant  = FONT_SLANT_NONE;
-
-    if (width <= -0.2)
-        meta->width = FONT_WIDTH_CONDENSED;
-    else if (width >= 0.2)
-        meta->width = FONT_WIDTH_EXPANDED;
-    else
-        meta->width  = FONT_WIDTH_NORMAL;
-
-#if 0
-    char *name[1];
-    int idx = 0;
-    get_name(fontd, kCTFontDisplayNameAttribute, name, &idx);
-    char *file = get_font_file(fontd);
-    printf(
-       "Font traits for: %-40s [%-50s] "
-       "<slant: %f, %03d>, <weight: (%f, %03d)>, <width: %f, %03d>\n",
-       name[0], file,
-       slant, meta->slant, weight, meta->weight, width, meta->width);
-    free(name[0]);
-    free(file);
-#endif
-}
-
-static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
-{
-    ASS_FontProviderMetaData meta;
-    char *families[1];
-    char *identifiers[1];
-    char *fullnames[1];
-
     if (!fontsd)
         return;
 
+    FT_Library ftlib;
+    if (FT_Init_FreeType(&ftlib)) {
+        ass_msg(lib, MSGL_WARN, "Failed to create FT lib");
+        return;
+    }
+
     for (int i = 0; i < CFArrayGetCount(fontsd); i++) {
+        ASS_FontProviderMetaData meta = {0};
         CTFontDescriptorRef fontd = CFArrayGetValueAtIndex(fontsd, i);
         int index = -1;
 
         char *path = get_font_file(fontd);
-        if (strcmp("", path) == 0) {
+        if (!path || strcmp("", path) == 0) {
             // skip the font if the URL field in the font descriptor is empty
             free(path);
             continue;
         }
 
-        memset(&meta, 0, sizeof(meta));
-        get_font_traits(fontd, &meta);
+        char *ps_name = get_name(fontd, kCTFontNameAttribute);
 
-        get_name(fontd, kCTFontFamilyNameAttribute, families, &meta.n_family);
-        meta.families = families;
-
-        get_name(fontd, kCTFontDisplayNameAttribute, fullnames, &meta.n_fullname);
-        meta.fullnames = fullnames;
-
-        int zero = 0;
-        get_name(fontd, kCTFontNameAttribute, identifiers, &zero);
-        meta.postscript_name = identifiers[0];
-
-        CFRetain(fontd);
-        ass_font_provider_add_font(provider, &meta, path, index, (void*)fontd);
+        if (ass_get_font_info(lib, ftlib, path, ps_name, -1, &meta)) {
+            CFRetain(fontd);
+            ass_font_provider_add_font(provider, &meta, path, index, (void*)fontd);
+        }
 
         for (int j = 0; j < meta.n_family; j++)
             free(meta.families[j]);
@@ -228,10 +162,16 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         for (int j = 0; j < meta.n_fullname; j++)
             free(meta.fullnames[j]);
 
+        free(meta.families);
+        free(meta.fullnames);
+
         free(meta.postscript_name);
 
+        free(ps_name);
         free(path);
     }
+
+    FT_Done_FreeType(ftlib);
 }
 
 static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
@@ -264,7 +204,7 @@ static void match_fonts(ASS_Library *lib, ASS_FontProvider *provider,
     CFArrayRef fontsd =
         CTFontCollectionCreateMatchingFontDescriptors(ctcoll);
 
-    process_descriptors(provider, fontsd);
+    process_descriptors(lib, provider, fontsd);
 
     SAFE_CFRelease(fontsd);
     SAFE_CFRelease(ctcoll);
@@ -288,16 +228,19 @@ static char *get_fallback(void *priv, const char *family, uint32_t codepoint)
         0, (UInt8*)&codepointle, sizeof(codepointle),
         kCFStringEncodingUTF32LE, false);
     CTFontRef fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
-    CFStringRef cffamily = CTFontCopyFamilyName(fb);
-    char *res_family = cfstr2buf(cffamily);
+    CFNumberRef cfformat = CTFontCopyAttribute(fb, kCTFontFormatAttribute);
+    CFStringRef cfname = is_postscript_font_format(cfformat) ?
+        CTFontCopyPostScriptName(fb) : CTFontCopyFullName(fb);
+    char *res_name = cfstr2buf(cfname);
 
     SAFE_CFRelease(name);
     SAFE_CFRelease(font);
     SAFE_CFRelease(r);
     SAFE_CFRelease(fb);
-    SAFE_CFRelease(cffamily);
+    SAFE_CFRelease(cfformat);
+    SAFE_CFRelease(cfname);
 
-    return res_family;
+    return res_name;
 }
 
 static void get_substitutions(void *priv, const char *name,

@@ -78,10 +78,6 @@ void *ass_try_realloc_array(void *ptr, size_t nmemb, size_t size);
 
 void skip_spaces(char **str);
 void rskip_spaces(char **str, char *limit);
-int mystrtoi(char **p, int *res);
-int mystrtoll(char **p, long long *res);
-int mystrtod(char **p, double *res);
-int mystrtoi32(char **p, int base, int32_t *res);
 int32_t parse_alpha_tag(char *str);
 uint32_t parse_color_tag(char *str);
 uint32_t parse_color_header(char *str);
@@ -164,38 +160,63 @@ static inline int double_to_d22(double x)
     return (int) (x * 0x400000);
 }
 
-// Calculate cache key for a rotational angle in radians
-static inline int rot_key(double a)
-{
-    return double_to_d22(remainder(a, 2 * M_PI));
-}
-
 #define FNV1_32A_INIT 0x811c9dc5U
 #define FNV1_32A_PRIME 16777619U
 
-static inline unsigned fnv_32a_buf(void *buf, size_t len, unsigned hval)
+static inline uint32_t fnv_32a_buf(void *buf, size_t len, uint32_t hval)
 {
-    unsigned char *bp = (unsigned char*)buf;
+    unsigned char *bp = (unsigned char *) buf;
     size_t n = (len + 3) / 4;
 
     switch (len % 4) {
-    case 0: do { hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
-    case 3:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
-    case 2:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
-    case 1:      hval ^= (unsigned) *bp++; hval *= FNV1_32A_PRIME;
+    case 0: do { hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
+    case 3:      hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
+    case 2:      hval ^= *bp++; hval *= FNV1_32A_PRIME; //-fallthrough
+    case 1:      hval ^= *bp++; hval *= FNV1_32A_PRIME;
                } while (--n > 0);
     }
 
     return hval;
 }
-static inline unsigned fnv_32a_str(char *str, unsigned hval)
+static inline uint32_t fnv_32a_str(const char *str, uint32_t hval)
 {
     unsigned char *s = (unsigned char *) str;
     while (*s) {
-        hval ^= (unsigned) *s++;
+        hval ^= *s++;
         hval *= FNV1_32A_PRIME;
     }
     return hval;
+}
+
+static inline int mystrtoi(char **p, int *res)
+{
+    char *start = *p;
+    double temp_res = ass_strtod(*p, p);
+    *res = (int) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
+    return *p != start;
+}
+
+static inline int mystrtoll(char **p, long long *res)
+{
+    char *start = *p;
+    double temp_res = ass_strtod(*p, p);
+    *res = (long long) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
+    return *p != start;
+}
+
+static inline int mystrtod(char **p, double *res)
+{
+    char *start = *p;
+    *res = ass_strtod(*p, p);
+    return *p != start;
+}
+
+static inline int mystrtoi32(char **p, int base, int32_t *res)
+{
+    char *start = *p;
+    long long temp_res = strtoll(*p, p, base);
+    *res = FFMINMAX(temp_res, INT32_MIN, INT32_MAX);
+    return *p != start;
 }
 
 #endif                          /* LIBASS_UTILS_H */

@@ -41,30 +41,7 @@ typedef struct ass_drawing_token {
     struct ass_drawing_token *prev;
 } ASS_DrawingToken;
 
-typedef struct {
-    char *text; // drawing string
-    int scale;  // scale (1-64) for subpixel accuracy
-    double pbo; // drawing will be shifted in y direction by this amount
-    double scale_x;      // FontScaleX
-    double scale_y;      // FontScaleY
-    int asc;             // ascender
-    int desc;            // descender
-    ASS_Outline outline; // target outline
-    ASS_Vector advance;  // advance (from cbox)
-    int hash;            // hash value (for caching)
-
-    // private
-    ASS_Library *library;
-    ASS_DrawingToken *tokens;    // tokenized drawing
-    double point_scale_x;
-    double point_scale_y;
-    ASS_Rect cbox;   // bounding box, or let's say... VSFilter's idea of it
-} ASS_Drawing;
-
-ASS_Drawing *ass_drawing_new(ASS_Library *lib);
-void ass_drawing_free(ASS_Drawing *drawing);
-void ass_drawing_set_text(ASS_Drawing *drawing, char *str, size_t n);
-void ass_drawing_hash(ASS_Drawing *drawing);
-ASS_Outline *ass_drawing_parse(ASS_Drawing *drawing, bool raw_mode);
+bool ass_drawing_parse(ASS_Outline *outline, ASS_Rect *cbox,
+                       const char *text, ASS_Library *lib);
 
 #endif /* LIBASS_DRAWING_H */

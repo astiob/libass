@@ -21,13 +21,12 @@
 #define LIBASS_RENDER_H
 
 #include <inttypes.h>
+#include <stdbool.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_GLYPH_H
 #include FT_SYNTHESIS_H
-#ifdef CONFIG_HARFBUZZ
 #include <hb.h>
-#endif
 
 #include "ass.h"
 #include "ass_font.h"
@@ -52,6 +51,7 @@
 typedef struct {
     ASS_Image result;
     CompositeHashValue *source;
+    unsigned char *buffer;
     size_t ref_count;
 } ASS_ImagePriv;
 
@@ -63,12 +63,12 @@ typedef struct {
     double font_size_coeff;     // font size multiplier
     double line_spacing;        // additional line spacing (in frame pixels)
     double line_position;       // vertical position for subtitles, 0-100 (0 = no change)
-    int top_margin;             // height of top margin. Everything except toptitles is shifted down by top_margin.
+    int top_margin;             // height of top margin. Video frame is shifted down by top_margin.
     int bottom_margin;          // height of bottom margin. (frame_height - top_margin - bottom_margin) is original video height.
     int left_margin;
     int right_margin;
     int use_margins;            // 0 - place all subtitles inside original frame
-    // 1 - use margins for placing toptitles and subtitles
+    // 1 - place subtitles (incl. toptitles) in full display frame incl. margins
     double par;                 // user defined pixel aspect ratio (0 = unset)
     ASS_Hinting hinting;
     ASS_ShapingLevel shaper;
@@ -99,51 +99,55 @@ typedef struct {
     FilterDesc filter;
     uint32_t c[4];              // colors
     Effect effect_type;
-    int effect_timing;          // time duration of current karaoke word
-    // after process_karaoke_effects: distance in pixels from the glyph origin.
-    // part of the glyph to the left of it is displayed in a different color.
 
-    int first_pos_x;
+    // during render_and_combine_glyphs: distance in subpixels from the karaoke origin.
+    // after render_and_combine_glyphs: screen coordinate in pixels.
+    // part of the glyph to the left of it is displayed in a different color.
+    int effect_timing;
+
+    // karaoke origin: screen coordinate of leftmost post-transform control point x in subpixels
+    int32_t leftmost_x;
 
     size_t bitmap_count, max_bitmap_count;
     BitmapRef *bitmaps;
 
     int x, y;
-    ASS_Rect rect, rect_o;
-    size_t n_bm, n_bm_o;
-
     Bitmap *bm, *bm_o, *bm_s;   // glyphs, outline, shadow bitmaps
     CompositeHashValue *image;
 } CombinedBitmapInfo;
+
+typedef struct {
+    ASS_DVector scale, offset;
+} ASS_Transform;
 
 // describes a glyph
 // GlyphInfo and TextInfo are used for text centering and word-wrapping operations
 typedef struct glyph_info {
     unsigned symbol;
-    unsigned skip;              // skip glyph when layouting text
+    bool skip;                  // skip glyph when layouting text
+    bool is_trimmed_whitespace;
     ASS_Font *font;
     int face_index;
     int glyph_index;
-#ifdef CONFIG_HARFBUZZ
     hb_script_t script;
-#else
-    int script;
-#endif
     double font_size;
-    ASS_Drawing *drawing;
-    ASS_Outline *outline;
-    ASS_Outline *border[2];
+    char *drawing_text;
+    int drawing_scale;
+    int drawing_pbo;
+    OutlineHashValue *outline;
+    ASS_Transform transform;
     ASS_Rect bbox;
     ASS_Vector pos;
     ASS_Vector offset;
     char linebreak;             // the first (leading) glyph of some line ?
+    bool starts_new_run;
     uint32_t c[4];              // colors
+    uint8_t a_pre_fade[4];      // alpha values before applying fades
     ASS_Vector advance;         // 26.6
     ASS_Vector cluster_advance;
-    char effect;                // the first (leading) glyph of some effect ?
     Effect effect_type;
     int effect_timing;          // time duration of current karaoke word
-    // after process_karaoke_effects: distance in pixels from the glyph origin.
+    // after process_karaoke_effects: distance in subpixels from the karaoke origin.
     // part of the glyph to the left of it is displayed in a different color.
     int effect_skip_timing;     // delay after the end of last karaoke word
     int asc, desc;              // font max ascender and descender
@@ -154,18 +158,21 @@ typedef struct glyph_info {
     double frx, fry, frz;       // rotation
     double fax, fay;            // text shearing
     double scale_x, scale_y;
-    double orig_scale_x, orig_scale_y; // scale_x,y before fix_glyph_scaling
+    // amount of scale_x,y change due to fix_glyph_scaling
+    // scale_fix = before / after
+    double scale_fix;
     int border_style;
     double border_x, border_y;
     double hspacing;
+    int hspacing_scaled;        // 26.6
     unsigned italic;
     unsigned bold;
     int flags;
 
     int shape_run_id;
 
-    BitmapHashKey hash_key;
-    BitmapHashValue *image;
+    ASS_Vector shift;
+    Bitmap *bm, *bm_o;
 
     // next glyph in this cluster
     struct glyph_info *next;
@@ -184,6 +191,9 @@ typedef struct {
     CombinedBitmapInfo *combined_bitmaps;
     unsigned n_bitmaps;
     double height;
+    int border_top;
+    int border_bottom;
+    int border_x;
     int max_glyphs;
     int max_lines;
     unsigned max_bitmaps;
@@ -194,42 +204,47 @@ typedef struct {
 typedef struct {
     ASS_Event *event;
     ASS_Style *style;
-    int parsed_tags;
 
     ASS_Font *font;
     double font_size;
+    int parsed_tags;
     int flags;                  // decoration flags (underline/strike-through)
 
     int alignment;              // alignment overrides go here; if zero, style value will be used
     int justify;                // justify instructions
     double frx, fry, frz;
     double fax, fay;            // text shearing
-    enum {
-        EVENT_NORMAL,           // "normal" top-, sub- or mid- title
-        EVENT_POSITIONED,       // happens after pos(,), margins are ignored
-        EVENT_HSCROLL,          // "Banner" transition effect, text_width is unlimited
-        EVENT_VSCROLL           // "Scroll up", "Scroll down" transition effects
-    } evt_type;
     double pos_x, pos_y;        // position
     double org_x, org_y;        // origin
-    char have_origin;           // origin is explicitly defined; if 0, get_base_point() is used
     double scale_x, scale_y;
     double hspacing;            // distance between letters, in pixels
-    int border_style;
     double border_x;            // outline width
     double border_y;
+    enum {
+        EVENT_NORMAL = 0,       // "normal" top-, sub- or mid- title
+        EVENT_POSITIONED = 1,   // happens after \pos or \move, margins are ignored
+        EVENT_HSCROLL = 2,      // "Banner" transition effect, text_width is unlimited
+        EVENT_VSCROLL = 4       // "Scroll up", "Scroll down" transition effects
+    } evt_type;
+    int border_style;
     uint32_t c[4];              // colors(Primary, Secondary, so on) in RGBA
     int clip_x0, clip_y0, clip_x1, clip_y1;
+    char have_origin;           // origin is explicitly defined; if 0, get_base_point() is used
     char clip_mode;             // 1 = iclip
     char detect_collisions;
-    int fade;                   // alpha from \fad
     char be;                    // blur edges
+    int fade;                   // alpha from \fad
     double blur;                // gaussian blur
     double shadow_x;
     double shadow_y;
-    int drawing_scale;          // currently reading: regular text if 0, drawing otherwise
     double pbo;                 // drawing baseline offset
-    ASS_Drawing *clip_drawing;  // clip vector
+    char *clip_drawing_text;
+
+    // used to store RenderContext.style when doing selective style overrides
+    ASS_Style override_style_temp_storage;
+
+    int drawing_scale;          // currently reading: regular text if 0, drawing otherwise
+    int clip_drawing_scale;
     int clip_drawing_mode;      // 0 = regular clip, 1 = inverse clip
 
     Effect effect_type;
@@ -243,6 +258,7 @@ typedef struct {
         SCROLL_BT
     } scroll_direction;         // for EVENT_HSCROLL, EVENT_VSCROLL
     int scroll_shift;
+    int scroll_y0, scroll_y1;
 
     // face properties
     char *family;
@@ -258,9 +274,6 @@ typedef struct {
     int apply_font_scale;
     // whether this is assumed to be explicitly positioned
     int explicit;
-
-    // used to store RenderContext.style when doing selective style overrides
-    ASS_Style override_style_temp_storage;
 } RenderContext;
 
 typedef struct {
@@ -293,8 +306,8 @@ struct ass_renderer {
     int width, height;          // screen dimensions
     int orig_height;            // frame height ( = screen height - margins )
     int orig_width;             // frame width ( = screen width - margins )
-    int orig_height_nocrop;     // frame height ( = screen height - margins + cropheight)
-    int orig_width_nocrop;      // frame width ( = screen width - margins + cropwidth)
+    double fit_height;          // frame height without zoom & pan (fit to screen & letterboxed)
+    double fit_width;           // frame width without zoom & pan (fit to screen & letterboxed)
     ASS_Track *track;
     long long time;             // frame's timestamp, ms
     double font_scale;
@@ -323,11 +336,6 @@ typedef struct {
     int x1;
     int y1;
 } Rect;
-
-typedef struct {
-    int a, b;                   // top and height
-    int ha, hb;                 // left and width
-} Segment;
 
 void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style);
 void ass_frame_ref(ASS_Image *img);

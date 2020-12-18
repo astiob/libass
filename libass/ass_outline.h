@@ -83,21 +83,28 @@ typedef struct {
     char *segments;
 } ASS_Outline;
 
-#define OUTLINE_MIN  (-((int32_t) 1 << 28))
+// ouline point coordinates should always be in [-OUTLINE_MAX, +OUTLINE_MAX] range
 #define OUTLINE_MAX  (((int32_t) 1 << 28) - 1)
+// cubic spline splitting requires 8 * OUTLINE_MAX + 4 <= INT32_MAX
 
 bool outline_alloc(ASS_Outline *outline, size_t n_points, size_t n_segments);
 bool outline_convert(ASS_Outline *outline, const FT_Outline *source);
-bool outline_copy(ASS_Outline *outline, const ASS_Outline *source);
+bool outline_scale_pow2(ASS_Outline *outline, const ASS_Outline *source,
+                        int scale_ord_x, int scale_ord_y);
+bool outline_transform_2d(ASS_Outline *outline, const ASS_Outline *source,
+                          const double m[2][3]);
+bool outline_transform_3d(ASS_Outline *outline, const ASS_Outline *source,
+                          const double m[3][3]);
+void outline_update_min_transformed_x(const ASS_Outline *outline,
+                                      const double m[3][3],
+                                      int32_t *min_x);
 void outline_free(ASS_Outline *outline);
 
 bool outline_add_point(ASS_Outline *outline, ASS_Vector pt, char segment);
 bool outline_add_segment(ASS_Outline *outline, char segment);
 bool outline_close_contour(ASS_Outline *outline);
 
-void outline_translate(const ASS_Outline *outline, int32_t dx, int32_t dy);
-void outline_adjust(const ASS_Outline *outline, double scale_x, int32_t dx, int32_t dy);
-void outline_get_cbox(const ASS_Outline *outline, ASS_Rect *cbox);
+void outline_update_cbox(const ASS_Outline *outline, ASS_Rect *cbox);
 
 bool outline_stroke(ASS_Outline *result, ASS_Outline *result1,
                     const ASS_Outline *path, int xbord, int ybord, int eps);

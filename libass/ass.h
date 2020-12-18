@@ -24,11 +24,27 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01400000
+#define LIBASS_VERSION 0x01500000
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#if (defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1))) || defined(__clang__)
+    #define ASS_DEPRECATED(msg) __attribute__((deprecated(msg)))
+    #if __GNUC__ > 5 || defined(__clang__)
+        #define ASS_DEPRECATED_ENUM(msg) __attribute__((deprecated(msg)))
+    #else
+        #define ASS_DEPRECATED_ENUM(msg)
+    #endif
+#elif defined(_MSC_VER)
+    #define ASS_DEPRECATED(msg) __declspec(deprecated(msg))
+    #define ASS_DEPRECATED_ENUM(msg)
+#else
+    #define ASS_DEPRECATED(msg)
+    #define ASS_DEPRECATED_ENUM(msg)
+#endif
+
 
 /*
  * A linked list of images produced by an ass renderer.
@@ -56,6 +72,7 @@ typedef struct ass_image {
         IMAGE_TYPE_SHADOW
     } type;
 
+    // New fields can be added here in new ABI-compatible library releases.
 } ASS_Image;
 
 /*
@@ -128,7 +145,7 @@ typedef enum {
     /**
      * Old alias for ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE. Deprecated. Do not use.
      */
-    ASS_OVERRIDE_BIT_FONT_SIZE = 1 << 1,
+    ASS_OVERRIDE_BIT_FONT_SIZE ASS_DEPRECATED_ENUM("replaced by ASS_OVERRIDE_BIT_SELECTIVE_FONT_SCALE") = 1 << 1,
     /**
      * On dialogue events override: FontSize, Spacing, Blur, ScaleX, ScaleY
      */
@@ -170,6 +187,7 @@ typedef enum {
      * On dialogue events override: Justify
      */
     ASS_OVERRIDE_BIT_JUSTIFY = 1 << 10,
+    // New enum values can be added here in new ABI-compatible library releases.
 } ASS_OverrideBits;
 
 /**
@@ -196,6 +214,32 @@ typedef enum {
     ASS_FONTPROVIDER_FONTCONFIG,
     ASS_FONTPROVIDER_DIRECTWRITE,
 } ASS_DefaultFontProvider;
+
+typedef enum {
+    /**
+     * Enable libass extensions that would display ASS subtitles incorrectly.
+     * These may be useful for applications, which use libass as renderer for
+     * subtitles converted from another format, or which use libass for other
+     * purposes that do not involve actual ASS subtitles authored for
+     * distribution.
+     */
+    ASS_FEATURE_INCOMPATIBLE_EXTENSIONS,
+
+    /**
+     * Match bracket pairs in bidirectional text according to the revised
+     * Unicode Bidirectional Algorithm introduced in Unicode 6.3.
+     * This is incompatible with VSFilter and disabled by default.
+     *
+     * (Directional isolates, also introduced in Unicode 6.3,
+     * are unconditionally processed when FriBidi is new enough.)
+     *
+     * This feature may be unavailable at runtime (ass_track_set_feature
+     * may return -1) if libass was compiled against old FriBidi.
+     */
+    ASS_FEATURE_BIDI_BRACKETS,
+
+    // New enum values can be added here in new ABI-compatible library releases.
+} ASS_Feature;
 
 /**
  * \brief Initialize the library.
@@ -374,7 +418,7 @@ void ass_set_pixel_aspect(ASS_Renderer *priv, double par);
  * \param dar display aspect ratio (DAR), prescaled for output PAR
  * \param sar storage aspect ratio (SAR)
  */
-void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar);
+ASS_DEPRECATED("use 'ass_set_pixel_aspect' instead") void ass_set_aspect_ratio(ASS_Renderer *priv, double dar, double sar);
 
 /**
  * \brief Set a fixed font scaling factor.
@@ -473,7 +517,7 @@ void ass_set_selective_style_override(ASS_Renderer *priv, ASS_Style *style);
  * \param priv renderer handle
  * \return success
  */
-int ass_fonts_update(ASS_Renderer *priv);
+ASS_DEPRECATED("it does nothing") int ass_fonts_update(ASS_Renderer *priv);
 
 /**
  * \brief Set hard cache limits.  Do not set, or set to zero, for reasonable
@@ -506,27 +550,44 @@ ASS_Image *ass_render_frame(ASS_Renderer *priv, ASS_Track *track,
 /**
  * \brief Allocate a new empty track object.
  * \param library handle
- * \return pointer to empty track
+ * \return pointer to empty track or NULL on failure
  */
 ASS_Track *ass_new_track(ASS_Library *);
 
 /**
+ * \brief Enable or disable certain features
+ * This manages flags that control the behavior of the renderer and how certain
+ * tags etc. within the track are interpreted. The defaults on a newly created
+ * ASS_Track are such that rendering is compatible with traditional renderers
+ * like VSFilter, and/or old versions of libass. Calling ass_process_data() or
+ * ass_process_codec_private() may change some of these flags according to file
+ * headers. (ass_process_chunk() will not change any of the flags.)
+ * Additions to ASS_Feature are backward compatible to old libass releases (ABI
+ * compatibility).
+ * \param track track
+ * \param feature the specific feature to enable or disable
+ * \param enable 0 for disable, any non-0 value for enable
+ * \return 0 if feature set, -1 if feature is unknown
+ */
+int ass_track_set_feature(ASS_Track *track, ASS_Feature feature, int enable);
+
+/**
  * \brief Deallocate track and all its child objects (styles and events).
- * \param track track to deallocate
+ * \param track track to deallocate or NULL
  */
 void ass_free_track(ASS_Track *track);
 
 /**
  * \brief Allocate new style.
  * \param track track
- * \return newly allocated style id
+ * \return newly allocated style id >= 0, or a value < 0 on failure
  */
 int ass_alloc_style(ASS_Track *track);
 
 /**
  * \brief Allocate new event.
  * \param track track
- * \return newly allocated event id
+ * \return newly allocated event id >= 0, or a value < 0 on failure
  */
 int ass_alloc_event(ASS_Track *track);
 
@@ -602,7 +663,7 @@ void ass_flush_events(ASS_Track *track);
  * \param library library handle
  * \param fname file name
  * \param codepage encoding (iconv format)
- * \return newly allocated track
+ * \return newly allocated track or NULL on failure
 */
 ASS_Track *ass_read_file(ASS_Library *library, char *fname,
                          char *codepage);
@@ -613,7 +674,7 @@ ASS_Track *ass_read_file(ASS_Library *library, char *fname,
  * \param buf pointer to subtitles text
  * \param bufsize size of buffer
  * \param codepage encoding (iconv format)
- * \return newly allocated track
+ * \return newly allocated track or NULL on failure
 */
 ASS_Track *ass_read_memory(ASS_Library *library, char *buf,
                            size_t bufsize, char *codepage);

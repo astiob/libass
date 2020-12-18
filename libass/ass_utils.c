@@ -46,11 +46,11 @@ int has_avx(void)
 {
     uint32_t eax = 1, ebx, ecx, edx;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
-    if(!(ecx & (1 << 27))) // not OSXSAVE
+    if (!(ecx & (1 << 27))) // not OSXSAVE
         return 0;
     uint32_t misc = ecx;
     ass_get_xgetbv(0, &eax, &edx);
-    if((eax & 0x6) != 0x6)
+    if ((eax & 0x6) != 0x6)
         return 0;
     eax = 0;
     ass_get_cpuid(&eax, &ebx, &ecx, &edx);
@@ -154,45 +154,14 @@ void rskip_spaces(char **str, char *limit)
     *str = p;
 }
 
-int mystrtoi(char **p, int *res)
-{
-    char *start = *p;
-    double temp_res = ass_strtod(*p, p);
-    *res = (int) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
-    return *p != start;
-}
-
-int mystrtoll(char **p, long long *res)
-{
-    char *start = *p;
-    double temp_res = ass_strtod(*p, p);
-    *res = (long long) (temp_res + (temp_res > 0 ? 0.5 : -0.5));
-    return *p != start;
-}
-
-int mystrtod(char **p, double *res)
-{
-    char *start = *p;
-    *res = ass_strtod(*p, p);
-    return *p != start;
-}
-
-int mystrtoi32(char **p, int base, int32_t *res)
-{
-    char *start = *p;
-    long long temp_res = strtoll(*p, p, base);
-    *res = FFMINMAX(temp_res, INT32_MIN, INT32_MAX);
-    return *p != start;
-}
-
-static int read_digits(char **str, int base, uint32_t *res)
+static int read_digits(char **str, unsigned base, uint32_t *res)
 {
     char *p = *str;
     char *start = p;
     uint32_t val = 0;
 
     while (1) {
-        int digit;
+        unsigned digit;
         if (*p >= '0' && *p < FFMIN(base, 10) + '0')
             digit = *p - '0';
         else if (*p >= 'a' && *p < base - 10 + 'a')
@@ -215,7 +184,7 @@ static int read_digits(char **str, int base, uint32_t *res)
  * Follows the rules for strtoul but reduces the number modulo 2**32
  * instead of saturating it to 2**32 - 1.
  */
-static int mystrtou32_modulo(char **p, int base, uint32_t *res)
+static int mystrtou32_modulo(char **p, unsigned base, uint32_t *res)
 {
     // This emulates scanf with %d or %x format as it works on
     // Windows, because that's what is used by VSFilter. In practice,
@@ -271,7 +240,7 @@ uint32_t parse_color_tag(char *str)
 uint32_t parse_color_header(char *str)
 {
     uint32_t color = 0;
-    int base;
+    unsigned base;
 
     if (!ass_strncasecmp(str, "&h", 2) || !ass_strncasecmp(str, "0x", 2)) {
         str += 2;

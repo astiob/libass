@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 rcombs <rcombs@rcombs.me>
+ * Copyright (C) 2017 Vabishchevich Nikolay <vabnick@gmail.com>
  *
  * This file is part of libass.
  *
@@ -16,12 +16,26 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef INTEL_CPUID_H
-#define INTEL_CPUID_H
+#ifndef COMPARE_IMAGE_H
+#define COMPARE_IMAGE_H
 
+#include <stddef.h>
+#include <stdlib.h>
+#include <stdbool.h>
 #include <stdint.h>
 
-void ass_get_cpuid( uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx);
-void ass_get_xgetbv( uint32_t op, uint32_t *eax, uint32_t *edx );
+typedef struct {
+    int32_t width, height;
+    uint8_t *buffer;
+} Image8;
 
-#endif
+typedef struct {
+    int32_t width, height;
+    uint16_t *buffer;
+} Image16;
+
+bool read_png(const char *path, Image16 *img);
+bool write_png8(const char *path, Image8 *img);
+bool write_png16(const char *path, Image16 *img);
+
+#endif /* COMPARE_IMAGE_H */

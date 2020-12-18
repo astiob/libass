@@ -1,4 +1,4 @@
-AC_INIT(libass, 0.14.0)
+AC_INIT(libass, 0.15.0)
 AM_INIT_AUTOMAKE
 AC_CONFIG_MACRO_DIR([m4])
 # Disable Fortran checks
@@ -35,6 +35,8 @@ LIBS="$OLDLIBS $LIBS"
 # Check for libraries via pkg-config
 AC_ARG_ENABLE([test], AS_HELP_STRING([--enable-test],
     [enable test program (requires libpng) @<:@default=no@:>@]))
+AC_ARG_ENABLE([compare], AS_HELP_STRING([--enable-compare],
+    [enable compare program (requires libpng) @<:@default=no@:>@]))
 AC_ARG_ENABLE([profile], AS_HELP_STRING([--enable-profile],
     [enable profiling program @<:@default=no@:>@]))
 AC_ARG_ENABLE([fontconfig], AS_HELP_STRING([--disable-fontconfig],
@@ -45,8 +47,6 @@ AC_ARG_ENABLE([coretext], AS_HELP_STRING([--disable-coretext],
     [disable CoreText support (OSX only) @<:@default=check@:>@]))
 AC_ARG_ENABLE([require-system-font-provider], AS_HELP_STRING([--disable-require-system-font-provider],
     [allow compilation even if no system font provider was found @<:@default=enabled:>@]))
-AC_ARG_ENABLE([harfbuzz], AS_HELP_STRING([--disable-harfbuzz],
-    [disable HarfBuzz support @<:@default=check@:>@]))
 AC_ARG_ENABLE([asm], AS_HELP_STRING([--disable-asm],
     [disable compiling with ASM @<:@default=check@:>@]))
 AC_ARG_ENABLE([large-tiles], AS_HELP_STRING([--enable-large-tiles],
@@ -208,24 +208,22 @@ AC_LINK_IFELSE([
 fi
 AM_CONDITIONAL([DIRECTWRITE], [test x$directwrite = xtrue])
 
-if test x$enable_harfbuzz != xno; then
-PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 0.9.5, [
+PKG_CHECK_MODULES([HARFBUZZ], harfbuzz >= 1.2.3, [
     CFLAGS="$CFLAGS $HARFBUZZ_CFLAGS"
     LIBS="$LIBS $HARFBUZZ_LIBS"
-    AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz-ng via pkg-config])
-	harfbuzz=true
-    ], [harfbuzz=false])
-fi
+    AC_DEFINE(CONFIG_HARFBUZZ, 1, [found harfbuzz via pkg-config])
+    ])
 
 libpng=false
-if test x$enable_test = xyes; then
+if test x$enable_test = xyes || test x$enable_compare = xyes; then
 PKG_CHECK_MODULES([LIBPNG], libpng >= 1.2.0, [
     CFLAGS="$CFLAGS $LIBPNG_CFLAGS"
     AC_DEFINE(CONFIG_LIBPNG, 1, [found libpng via pkg-config])
     libpng=true])
 fi
 
-AM_CONDITIONAL([HAVE_LIBPNG], [test x$libpng = xtrue])
+AM_CONDITIONAL([ENABLE_TEST], [test x$enable_test = xyes && test x$libpng = xtrue])
+AM_CONDITIONAL([ENABLE_COMPARE], [test x$enable_compare = xyes && test x$libpng = xtrue])
 
 AM_CONDITIONAL([ENABLE_PROFILE], [test x$enable_profile = xyes])
 
@@ -239,11 +237,9 @@ if test "$use_libiconv" = true; then
 fi
 pkg_requires="freetype2 >= 9.10.3"
 pkg_requires="fribidi >= 0.19.0, ${pkg_requires}"
+pkg_requires="harfbuzz >= 1.2.3, ${pkg_requires}"
 if test x$fontconfig = xtrue; then
     pkg_requires="fontconfig >= 2.10.92, ${pkg_requires}"
-fi
-if test x$harfbuzz = xtrue; then
-    pkg_requires="harfbuzz >= 0.9.5, ${pkg_requires}"
 fi
 
 if test x$enable_require_system_font_provider != xno &&
@@ -265,5 +261,5 @@ AC_SUBST([PKG_REQUIRES_PRIVATE], [$(test x$enable_shared = xno || echo ${pkg_req
 # Setup output beautifier.
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile profile/Makefile libass.pc])
+AC_CONFIG_FILES([Makefile libass/Makefile test/Makefile compare/Makefile profile/Makefile libass.pc])
 AC_OUTPUT

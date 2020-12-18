@@ -45,7 +45,7 @@ typedef struct ass_font_provider_meta_data ASS_FontProviderMetaData;
  * font path (i.e. the path was set to NULL).
  *
  * \param font_priv font private data
- * \param output buffer; set to NULL to query stream size
+ * \param data output buffer; set to NULL to query stream size
  * \param offset stream offset
  * \param len bytes to read into output buffer from stream
  * \return actual number of bytes read, or stream size if data == NULL
@@ -65,7 +65,7 @@ typedef bool    (*CheckPostscriptFunc)(void *font_priv);
  * Check if a glyph is supported by a font.
  *
  * \param font_priv font private data
- * \param codepont Unicode codepoint (UTF-32)
+ * \param codepoint Unicode codepoint (UTF-32)
  * \return true if codepoint is supported by the font
  */
 typedef bool    (*CheckGlyphFunc)(void *font_priv, uint32_t codepoint);
@@ -243,7 +243,7 @@ ASS_FontProvider *ass_font_provider_new(ASS_FontSelector *selector,
  * provide additional fonts to libass.
  * \param priv parent renderer
  * \param funcs callback functions
- * \param private data for provider callbacks
+ * \param data private data for provider callbacks
  *
  */
 ASS_FontProvider *
@@ -265,6 +265,20 @@ bool
 ass_font_provider_add_font(ASS_FontProvider *provider,
                            ASS_FontProviderMetaData *meta, const char *path,
                            int index, void *data);
+
+/**
+ * \brief Read a font's parameters
+ * \param lib a FT_Library to use (need not be the global one)
+ * \param path the path to the font file to read
+ * \param postscript_name the PS name of the specific face to read (set either this or index)
+ * \param index the face index to read, or -1 if not applicable
+ * \param info the struct to store results into
+ * \return success
+ *
+ */
+bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
+                       const char *postscript_name, int index,
+                       ASS_FontProviderMetaData *info);
 
 /**
  * \brief Free font provider and associated fonts.

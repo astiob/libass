@@ -22,19 +22,27 @@
 typedef struct ass_shaper ASS_Shaper;
 
 #include <fribidi.h>
+#include <stdbool.h>
 #include "ass_render.h"
 
+#if FRIBIDI_MAJOR_VERSION >= 1
+#define USE_FRIBIDI_EX_API
+#endif
+
 void ass_shaper_info(ASS_Library *lib);
-ASS_Shaper *ass_shaper_new(size_t prealloc);
+ASS_Shaper *ass_shaper_new(void);
 void ass_shaper_free(ASS_Shaper *shaper);
 void ass_shaper_empty_cache(ASS_Shaper *shaper);
-void ass_shaper_set_kerning(ASS_Shaper *shaper, int kern);
+void ass_shaper_set_kerning(ASS_Shaper *shaper, bool kern);
 void ass_shaper_find_runs(ASS_Shaper *shaper, ASS_Renderer *render_priv,
                           GlyphInfo *glyphs, size_t len);
 void ass_shaper_set_base_direction(ASS_Shaper *shaper, FriBidiParType dir);
 void ass_shaper_set_language(ASS_Shaper *shaper, const char *code);
 void ass_shaper_set_level(ASS_Shaper *shaper, ASS_ShapingLevel level);
-int ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info);
+#ifdef USE_FRIBIDI_EX_API
+void ass_shaper_set_bidi_brackets(ASS_Shaper *shaper, bool match_brackets);
+#endif
+bool ass_shaper_shape(ASS_Shaper *shaper, TextInfo *text_info);
 void ass_shaper_cleanup(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiStrIndex *ass_shaper_reorder(ASS_Shaper *shaper, TextInfo *text_info);
 FriBidiParType resolve_base_direction(int font_encoding);

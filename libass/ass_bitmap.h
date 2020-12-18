@@ -80,8 +80,7 @@ typedef struct {
     Convert16to8Func stripe_pack;
     FilterFunc shrink_horz, shrink_vert;
     FilterFunc expand_horz, expand_vert;
-    FilterFunc pre_blur_horz[3], pre_blur_vert[3];
-    ParamFilterFunc main_blur_horz[3], main_blur_vert[3];
+    ParamFilterFunc blur_horz[5], blur_vert[5];
 } BitmapEngine;
 
 extern const BitmapEngine ass_bitmap_engine_c;
@@ -90,35 +89,22 @@ extern const BitmapEngine ass_bitmap_engine_avx2;
 
 
 typedef struct {
-    int left, top;
-    int w, h;                   // width, height
-    int stride;
-    unsigned char *buffer;      // h * stride buffer
+    int32_t left, top;
+    int32_t w, h;         // width, height
+    ptrdiff_t stride;
+    uint8_t *buffer;      // h * stride buffer
 } Bitmap;
 
-Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h, bool zero);
-bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h);
-Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src);
+bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h, bool zero);
+bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h);
+bool copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src);
 void ass_free_bitmap(Bitmap *bm);
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline1, ASS_Outline *outline2,
-                          int bord);
+bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
+                       ASS_Outline *outline1, ASS_Outline *outline2);
 
-void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
-                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o);
-
-/**
- * \brief perform glyph rendering
- * \param outline original glyph
- * \param border1 inside "border" outline, produced by stroker
- * \param border2 outside "border" outline, produced by stroker
- * \param bm_g out: pointer to the bitmap of original glyph is returned here
- * \param bm_o out: pointer to the bitmap of border glyph is returned here
- */
-bool outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
-                        ASS_Outline *border1, ASS_Outline *border2,
-                        Bitmap **bm_g, Bitmap **bm_o);
+void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
+                    int be, double blur_r2);
 
 int be_padding(int be);
 void be_blur_pre(uint8_t *buf, intptr_t w,

@@ -779,14 +779,14 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
             ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                 name.string_len);
 
-            if (name.name_id == TT_NAME_ID_FULL_NAME) {
+            if (name.name_id == TT_NAME_ID_FULL_NAME && num_fullname < MAX_FULLNAME) {
                 fullnames[num_fullname] = strdup(buf);
                 if (fullnames[num_fullname] == NULL)
                     goto error;
                 num_fullname++;
             }
 
-            if (name.name_id == TT_NAME_ID_FONT_FAMILY) {
+            if (name.name_id == TT_NAME_ID_FONT_FAMILY && num_family < MAX_FULLNAME) {
                 families[num_family] = strdup(buf);
                 if (families[num_family] == NULL)
                     goto error;
@@ -810,7 +810,7 @@ get_font_info(FT_Library lib, FT_Face face, ASS_FontProviderMetaData *info)
 
     // calculate sensible slant and weight from style attributes
     slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
-    weight = 300 * !!(face->style_flags & FT_STYLE_FLAG_BOLD) + 400;
+    weight = ass_face_get_weight(face);
 
     // fill our struct
     info->slant  = slant;
@@ -845,7 +845,51 @@ error:
     free(info->families);
     free(info->fullnames);
 
+    info->families = info->fullnames = NULL;
+    info->n_family = info->n_fullname = 0;
+
     return false;
+}
+
+bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
+                       const char *postscript_name, int index,
+                       ASS_FontProviderMetaData *info)
+{
+    bool ret = false;
+    FT_Face face = NULL;
+    int error = FT_New_Face(ftlib, path, index, &face);
+    if (error) {
+        ass_msg(lib, MSGL_WARN, "Error opening font: '%s', %d", path, index);
+        return false;
+    }
+
+    if (postscript_name && index < 0 && face->num_faces > 0) {
+        // The font provider gave us a postscript name and is not sure
+        // about the face index.. so use the postscript name to find the
+        // correct face_index in the collection!
+        for (int i = 0; i < face->num_faces; i++) {
+            FT_Done_Face(face);
+            error = FT_New_Face(ftlib, path, i, &face);
+            if (error) {
+                ass_msg(lib, MSGL_WARN, "Error opening font: '%s', %d", path, i);
+                return false;
+            }
+
+            const char *face_psname = FT_Get_Postscript_Name(face);
+            if (face_psname != NULL &&
+                strcmp(face_psname, postscript_name) == 0)
+                break;
+        }
+    }
+
+    if (face) {
+        ret = get_font_info(ftlib, face, info);
+        if (ret)
+            info->postscript_name = strdup(info->postscript_name);
+        FT_Done_Face(face);
+    }
+
+    return ret;
 }
 
 /**
@@ -926,6 +970,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         if (!ass_font_provider_add_font(priv, &info, NULL, face_index, ft)) {
             ass_msg(library, MSGL_WARN, "Failed to add embedded font '%s'",
                     name);
+            free(ft);
         }
 
         free_font_info(&info);

@@ -59,77 +59,44 @@
 #endif
 
 
-void ass_synth_blur(const BitmapEngine *engine, int opaque_box, int be,
-                    double blur_radius, Bitmap *bm_g, Bitmap *bm_o)
+void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
+                    int be, double blur_r2)
 {
-    bool blur_g = !bm_o || opaque_box;
-    if (blur_g && !bm_g)
+    if (!bm->buffer)
         return;
 
     // Apply gaussian blur
-    double r2 = blur_radius * blur_radius / log(256);
-    if (r2 > 0.001) {
-        if (bm_o)
-            ass_gaussian_blur(engine, bm_o, r2);
-        if (blur_g)
-            ass_gaussian_blur(engine, bm_g, r2);
-    }
+    if (blur_r2 > 0.001)
+        ass_gaussian_blur(engine, bm, blur_r2);
+
+    if (!be)
+        return;
 
     // Apply box blur (multiple passes, if requested)
-    if (be) {
-        size_t size_o = 0, size_g = 0;
-        if (bm_o)
-            size_o = sizeof(uint16_t) * bm_o->stride * 2;
-        if (blur_g)
-            size_g = sizeof(uint16_t) * bm_g->stride * 2;
-        size_t size = FFMAX(size_o, size_g);
-        uint16_t *tmp = size ? ass_aligned_alloc(32, size, false) : NULL;
-        if (!tmp)
-            return;
-        if (bm_o) {
-            unsigned passes = be;
-            unsigned w = bm_o->w;
-            unsigned h = bm_o->h;
-            unsigned stride = bm_o->stride;
-            unsigned char *buf = bm_o->buffer;
-            if(w && h){
-                if(passes > 1){
-                    be_blur_pre(buf, w, h, stride);
-                    while(--passes){
-                        memset(tmp, 0, stride * 2);
-                        engine->be_blur(buf, w, h, stride, tmp);
-                    }
-                    be_blur_post(buf, w, h, stride);
-                }
-                memset(tmp, 0, stride * 2);
-                engine->be_blur(buf, w, h, stride, tmp);
-            }
-        }
-        if (blur_g) {
-            unsigned passes = be;
-            unsigned w = bm_g->w;
-            unsigned h = bm_g->h;
-            unsigned stride = bm_g->stride;
-            unsigned char *buf = bm_g->buffer;
-            if(w && h){
-                if(passes > 1){
-                    be_blur_pre(buf, w, h, stride);
-                    while(--passes){
-                        memset(tmp, 0, stride * 2);
-                        engine->be_blur(buf, w, h, stride, tmp);
-                    }
-                    be_blur_post(buf, w, h, stride);
-                }
-                memset(tmp, 0, stride * 2);
-                engine->be_blur(buf, w, h, stride, tmp);
-            }
-        }
-        ass_aligned_free(tmp);
+    size_t size = sizeof(uint16_t) * bm->stride * 2;
+    uint16_t *tmp = ass_aligned_alloc(32, size, false);
+    if (!tmp)
+        return;
+
+    int32_t w = bm->w;
+    int32_t h = bm->h;
+    ptrdiff_t stride = bm->stride;
+    uint8_t *buf = bm->buffer;
+    if (--be) {
+        be_blur_pre(buf, w, h, stride);
+        do {
+            memset(tmp, 0, stride * 2);
+            engine->be_blur(buf, w, h, stride, tmp);
+        } while (--be);
+        be_blur_post(buf, w, h, stride);
     }
+    memset(tmp, 0, stride * 2);
+    engine->be_blur(buf, w, h, stride, tmp);
+    ass_aligned_free(tmp);
 }
 
-static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, int h,
-                                bool zero)
+bool alloc_bitmap(const BitmapEngine *engine, Bitmap *bm,
+                  int32_t w, int32_t h, bool zero)
 {
     unsigned align = 1 << engine->align_order;
     size_t s = ass_align(align, w);
@@ -146,23 +113,10 @@ static bool alloc_bitmap_buffer(const BitmapEngine *engine, Bitmap *bm, int w, i
     return true;
 }
 
-Bitmap *alloc_bitmap(const BitmapEngine *engine, int w, int h, bool zero)
-{
-    Bitmap *bm = malloc(sizeof(Bitmap));
-    if (!bm)
-        return NULL;
-    if (!alloc_bitmap_buffer(engine, bm, w, h, zero)) {
-        free(bm);
-        return NULL;
-    }
-    bm->left = bm->top = 0;
-    return bm;
-}
-
-bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h)
+bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int32_t w, int32_t h)
 {
     uint8_t *old = bm->buffer;
-    if (!alloc_bitmap_buffer(engine, bm, w, h, false))
+    if (!alloc_bitmap(engine, bm, w, h, false))
         return false;
     ass_aligned_free(old);
     return true;
@@ -170,74 +124,70 @@ bool realloc_bitmap(const BitmapEngine *engine, Bitmap *bm, int w, int h)
 
 void ass_free_bitmap(Bitmap *bm)
 {
-    if (bm)
-        ass_aligned_free(bm->buffer);
-    free(bm);
+    ass_aligned_free(bm->buffer);
 }
 
-Bitmap *copy_bitmap(const BitmapEngine *engine, const Bitmap *src)
+bool copy_bitmap(const BitmapEngine *engine, Bitmap *dst, const Bitmap *src)
 {
-    Bitmap *dst = alloc_bitmap(engine, src->w, src->h, false);
-    if (!dst)
-        return NULL;
+    if (!src->buffer) {
+        memset(dst, 0, sizeof(*dst));
+        return true;
+    }
+    if (!alloc_bitmap(engine, dst, src->w, src->h, false))
+        return false;
     dst->left = src->left;
-    dst->top = src->top;
+    dst->top  = src->top;
     memcpy(dst->buffer, src->buffer, src->stride * src->h);
-    return dst;
+    return true;
 }
 
-Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
-                          ASS_Outline *outline1, ASS_Outline *outline2,
-                          int bord)
+bool outline_to_bitmap(ASS_Renderer *render_priv, Bitmap *bm,
+                       ASS_Outline *outline1, ASS_Outline *outline2)
 {
     RasterizerData *rst = &render_priv->rasterizer;
     if (outline1 && !rasterizer_set_outline(rst, outline1, false)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
-        return NULL;
+        return false;
     }
     if (outline2 && !rasterizer_set_outline(rst, outline2, !!outline1)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to process glyph outline!\n");
-        return NULL;
+        return false;
     }
+    if (rst->bbox.x_min > rst->bbox.x_max || rst->bbox.y_min > rst->bbox.y_max)
+        return false;
 
-    if (bord < 0 || bord > INT_MAX / 2)
-        return NULL;
-    if (rst->bbox.x_max > INT_MAX - 63 || rst->bbox.y_max > INT_MAX - 63)
-        return NULL;
-
-    int x_min = rst->bbox.x_min >> 6;
-    int y_min = rst->bbox.y_min >> 6;
-    int x_max = (rst->bbox.x_max + 63) >> 6;
-    int y_max = (rst->bbox.y_max + 63) >> 6;
-    int w = x_max - x_min;
-    int h = y_max - y_min;
+    // enlarge by 1/64th of pixel to bypass slow rasterizer path, add 1 pixel for shift_bitmap
+    int32_t x_min = (rst->bbox.x_min -   1) >> 6;
+    int32_t y_min = (rst->bbox.y_min -   1) >> 6;
+    int32_t x_max = (rst->bbox.x_max + 127) >> 6;
+    int32_t y_max = (rst->bbox.y_max + 127) >> 6;
+    int32_t w = x_max - x_min;
+    int32_t h = y_max - y_min;
 
     int mask = (1 << render_priv->engine->tile_order) - 1;
 
-    if (w < 0 || h < 0 ||
-        w > INT_MAX - (2 * bord + mask) || h > INT_MAX - (2 * bord + mask)) {
-        ass_msg(render_priv->library, MSGL_WARN, "Glyph bounding box too large: %dx%dpx",
-                w, h);
-        return NULL;
+    // XXX: is that possible to trigger at all?
+    if (w < 0 || h < 0 || w > INT_MAX - mask || h > INT_MAX - mask) {
+        ass_msg(render_priv->library, MSGL_WARN,
+                "Glyph bounding box too large: %dx%dpx", w, h);
+        return false;
     }
 
-    int tile_w = (w + 2 * bord + mask) & ~mask;
-    int tile_h = (h + 2 * bord + mask) & ~mask;
-    Bitmap *bm = alloc_bitmap(render_priv->engine, tile_w, tile_h, false);
-    if (!bm)
-        return NULL;
-    bm->left = x_min - bord;
-    bm->top =  y_min - bord;
+    int32_t tile_w = (w + mask) & ~mask;
+    int32_t tile_h = (h + mask) & ~mask;
+    if (!alloc_bitmap(render_priv->engine, bm, tile_w, tile_h, false))
+        return false;
+    bm->left = x_min;
+    bm->top  = y_min;
 
     if (!rasterizer_fill(render_priv->engine, rst, bm->buffer,
-                         x_min - bord, y_min - bord,
-                         bm->stride, tile_h, bm->stride)) {
+                         x_min, y_min, bm->stride, tile_h, bm->stride)) {
         ass_msg(render_priv->library, MSGL_WARN, "Failed to rasterize glyph!\n");
         ass_free_bitmap(bm);
-        return NULL;
+        return false;
     }
 
-    return bm;
+    return true;
 }
 
 /**
@@ -248,28 +198,20 @@ Bitmap *outline_to_bitmap(ASS_Renderer *render_priv,
  */
 void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
 {
-    int x, y;
-    const int l = bm_o->left > bm_g->left ? bm_o->left : bm_g->left;
-    const int t = bm_o->top > bm_g->top ? bm_o->top : bm_g->top;
-    const int r =
-        bm_o->left + bm_o->stride <
-        bm_g->left + bm_g->stride ? bm_o->left + bm_o->stride : bm_g->left + bm_g->stride;
-    const int b =
-        bm_o->top + bm_o->h <
-        bm_g->top + bm_g->h ? bm_o->top + bm_o->h : bm_g->top + bm_g->h;
+    if (!bm_g->buffer || !bm_o->buffer)
+        return;
 
-    unsigned char *g =
-        bm_g->buffer + (t - bm_g->top) * bm_g->stride + (l - bm_g->left);
-    unsigned char *o =
-        bm_o->buffer + (t - bm_o->top) * bm_o->stride + (l - bm_o->left);
+    int32_t l = FFMAX(bm_o->left, bm_g->left);
+    int32_t t = FFMAX(bm_o->top,  bm_g->top);
+    int32_t r = FFMIN(bm_o->left + bm_o->stride, bm_g->left + bm_g->stride);
+    int32_t b = FFMIN(bm_o->top  + bm_o->h,      bm_g->top  + bm_g->h);
 
-    for (y = 0; y < b - t; ++y) {
-        for (x = 0; x < r - l; ++x) {
-            unsigned char c_g, c_o;
-            c_g = g[x];
-            c_o = o[x];
-            o[x] = (c_o > c_g) ? c_o - (c_g / 2) : 0;
-        }
+    uint8_t *g = bm_g->buffer + (t - bm_g->top) * bm_g->stride + (l - bm_g->left);
+    uint8_t *o = bm_o->buffer + (t - bm_o->top) * bm_o->stride + (l - bm_o->left);
+
+    for (int32_t y = 0; y < b - t; y++) {
+        for (int32_t x = 0; x < r - l; x++)
+            o[x] = (o[x] > g[x]) ? o[x] - (g[x] / 2) : 0;
         g += bm_g->stride;
         o += bm_o->stride;
     }
@@ -281,31 +223,34 @@ void fix_outline(Bitmap *bm_g, Bitmap *bm_o)
  */
 void shift_bitmap(Bitmap *bm, int shift_x, int shift_y)
 {
-    int x, y, b;
-    int w = bm->w;
-    int h = bm->h;
-    int s = bm->stride;
-    unsigned char *buf = bm->buffer;
-
     assert((shift_x & ~63) == 0 && (shift_y & ~63) == 0);
 
+    if (!bm->buffer)
+        return;
+
+    int32_t w = bm->w, h = bm->h;
+    ptrdiff_t s = bm->stride;
+    uint8_t *buf = bm->buffer;
+
     // Shift in x direction
-    for (y = 0; y < h; y++) {
-        for (x = w - 1; x > 0; x--) {
-            b = (buf[x + y * s - 1] * shift_x) >> 6;
-            buf[x + y * s - 1] -= b;
-            buf[x + y * s] += b;
+    if (shift_x)
+        for (int32_t y = 0; y < h; y++) {
+            for (int32_t x = w - 1; x > 0; x--) {
+                uint8_t b = buf[x + y * s - 1] * shift_x >> 6;
+                buf[x + y * s - 1] -= b;
+                buf[x + y * s] += b;
+            }
         }
-    }
 
     // Shift in y direction
-    for (x = 0; x < w; x++) {
-        for (y = h - 1; y > 0; y--) {
-            b = (buf[x + (y - 1) * s] * shift_y) >> 6;
-            buf[x + (y - 1) * s] -= b;
-            buf[x + y * s] += b;
+    if (shift_y)
+        for (int32_t x = 0; x < w; x++) {
+            for (int32_t y = h - 1; y > 0; y--) {
+                uint8_t b = buf[x + y * s - s] * shift_y >> 6;
+                buf[x + y * s - s] -= b;
+                buf[x + y * s] += b;
+            }
         }
-    }
 }
 
 /**
@@ -432,36 +377,6 @@ int be_padding(int be)
     if (be <= 123)
         return 5;
     return FFMAX(128 - be, 0);
-}
-
-bool outline_to_bitmap2(ASS_Renderer *render_priv, ASS_Outline *outline,
-                        ASS_Outline *border1, ASS_Outline *border2,
-                        Bitmap **bm_g, Bitmap **bm_o)
-{
-    assert(bm_g && bm_o);
-    *bm_g = *bm_o = NULL;
-
-    if (outline && !outline->n_points)
-        outline = NULL;
-    if (border1 && !border1->n_points)
-        border1 = NULL;
-    if (border2 && !border2->n_points)
-        border2 = NULL;
-
-    if (outline) {
-        *bm_g = outline_to_bitmap(render_priv, outline, NULL, 1);
-        if (!*bm_g)
-            return false;
-    }
-
-    if (border1 || border2) {
-        *bm_o = outline_to_bitmap(render_priv, border1, border2, 1);
-        if (!*bm_o) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 /**
