@@ -24,7 +24,7 @@
 #include <stdarg.h>
 #include "ass_types.h"
 
-#define LIBASS_VERSION 0x01500000
+#define LIBASS_VERSION 0x01500001
 
 #ifdef __cplusplus
 extern "C" {
@@ -629,9 +629,9 @@ void ass_process_codec_private(ASS_Track *track, char *data, int size);
  * event in Matroska format.  See the Matroska specification for details.
  * In later libass versions (since LIBASS_VERSION==0x01300001), using this
  * function means you agree not to modify events manually, or using other
- * functions manipulating the event list like ass_process_data(). If you do
- * anyway, the internal duplicate checking might break. Calling
- * ass_flush_events() is still allowed.
+ * functions manipulating the event list like ass_process_data() other than
+ * ass_flush_events(). If you do anyway, the internal duplicate checking might
+ * break and the internal state will need to be resynced with the track.
  * \param track track
  * \param data string to parse
  * \param size length of data
@@ -712,6 +712,20 @@ void ass_clear_fonts(ASS_Library *library);
  * \return timeshift in milliseconds
  */
 long long ass_step_sub(ASS_Track *track, long long now, int movement);
+
+/**
+ * \brief When the track struct is modified directly by means other than
+ * calling libass functions or if it is otherwise documented, the internal state
+ * of the parser and or caches might become desynced to the actual track data.
+ * Call this function to resync the internal state to the data of the track.
+ * Note that direct modification of the track data is not recommended.
+ * If an error is returned all further use of the track object, except another
+ * call to ass_sync_track_state or destruction via ass_free_track may cause
+ * undefined behaviour.
+ * \param track subtitle track whose fields have been manually modified
+ * \return zero on succes, non-zero if an error occured
+ */
+int ass_sync_track_state(ASS_Track *track);
 
 #ifdef __cplusplus
 }

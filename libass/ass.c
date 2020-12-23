@@ -1567,3 +1567,18 @@ void ass_lazy_track_init(ASS_Library *lib, ASS_Track *track)
         }
     }
 }
+
+int ass_sync_track_state(ASS_Track *track)
+{
+    ASS_ParserPriv *pp = track->parser_priv;
+
+    if (pp->read_order_bitmap) {
+        memset(pp->read_order_bitmap, 0,
+                    pp->read_order_elems * sizeof(*pp->read_order_bitmap));
+        for (int i = 0; i < track->n_events; ++i)
+            if (test_and_set_read_order_bit(track, track->events[i].ReadOrder) < 0)
+                return -1; // Alloc fail
+    }
+
+    return 0;
+}
