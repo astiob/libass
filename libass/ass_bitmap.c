@@ -36,6 +36,10 @@
 #include "ass_render.h"
 
 
+void ass_sub_bitmaps_x86( uint8_t *dst, intptr_t dst_stride,
+                          uint8_t *src, intptr_t src_stride,
+                          intptr_t height, intptr_t width );
+
 #define ALIGN           C_ALIGN_ORDER
 #define DECORATE(func)  ass_##func##_c
 #include "ass_func_template.h"
