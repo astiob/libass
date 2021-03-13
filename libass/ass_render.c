@@ -24,6 +24,10 @@
 #include <string.h>
 #include <stdbool.h>
 
+#ifdef CONFIG_UNIBREAK
+#include <linebreak.h>
+#endif
+
 #include "ass.h"
 #include "ass_outline.h"
 #include "ass_render.h"
@@ -106,8 +110,10 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
     priv->text_info.combined_bitmaps = calloc(MAX_BITMAPS_INITIAL, sizeof(CombinedBitmapInfo));
     priv->text_info.glyphs = calloc(MAX_GLYPHS_INITIAL, sizeof(GlyphInfo));
     priv->text_info.event_text = calloc(MAX_GLYPHS_INITIAL, sizeof(FriBidiChar));
+    priv->text_info.breaks = malloc(MAX_GLYPHS_INITIAL);
     priv->text_info.lines = calloc(MAX_LINES_INITIAL, sizeof(LineInfo));
-    if (!priv->text_info.combined_bitmaps || !priv->text_info.glyphs || !priv->text_info.lines)
+    if (!priv->text_info.combined_bitmaps || !priv->text_info.glyphs ||
+            !priv->text_info.lines || !priv->text_info.breaks)
         goto fail;
 
     priv->settings.font_size_coeff = 1.;
@@ -153,6 +159,7 @@ void ass_renderer_done(ASS_Renderer *render_priv)
     free(render_priv->eimg);
     free(render_priv->text_info.glyphs);
     free(render_priv->text_info.event_text);
+    free(render_priv->text_info.breaks);
     free(render_priv->text_info.lines);
 
     free(render_priv->text_info.combined_bitmaps);
@@ -1627,11 +1634,19 @@ static void trim_whitespace(ASS_Renderer *render_priv)
 }
 #undef IS_WHITESPACE
 
+#ifdef CONFIG_UNIBREAK
+    #define ALLOWBREAK(glyph, index) (unibrks ? unibrks[index] == LINEBREAK_ALLOWBREAK : glyph == ' ')
+    #define FORCEBREAK(glyph, index) (unibrks ? unibrks[index] == LINEBREAK_MUSTBREAK  : glyph == '\n')
+#else
+    #define ALLOWBREAK(glyph, index) (glyph == ' ')
+    #define FORCEBREAK(glyph, index) (glyph == '\n')
+#endif
+
 /*
  * Starts a new line on the first breakable character after overflow
  */
 static void
-wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width)
+wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width, char *unibrks)
 {
     TextInfo *text_info = &render_priv->text_info;
     GlyphInfo *s1  = text_info->glyphs; // current line start
@@ -1645,20 +1660,22 @@ wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width)
         double s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
         double len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
 
-        if (cur->symbol == '\n') {
+        if (FORCEBREAK(cur->symbol, i)) {
             break_type = 2;
             break_at = i;
             ass_msg(render_priv->library, MSGL_DBG2,
                     "forced line break at %d", break_at);
-        } else if (cur->symbol == ' ') {
-            last_breakable = i;
-        } else if (len >= max_text_width
-                   && (render_priv->state.wrap_style != 2)) {
+        } else if (len >= max_text_width &&
+                   cur->symbol != ' ' /* get trimmed */ &&
+                   (render_priv->state.wrap_style != 2)) {
             break_type = 1;
             break_at = last_breakable;
             if (break_at >= 0)
                 ass_msg(render_priv->library, MSGL_DBG2, "line break at %d",
                         break_at);
+        }
+        if (ALLOWBREAK(cur->symbol, i)) {
+            last_breakable = i;
         }
 
         if (break_at != -1) {
@@ -1688,7 +1705,7 @@ wrap_lines_naive(ASS_Renderer *render_priv, double max_text_width)
  * FIXME: implement style 0 and 3 correctly
  */
 static void
-wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width)
+wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width, char *unibrks)
 {
     TextInfo *text_info = &render_priv->text_info;
     int exit = 0;
@@ -1709,10 +1726,12 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width)
                     double l1, l2, l1_new, l2_new;
                     GlyphInfo *w = s2;
 
+                    // Find last word of line and trim surrounding whitespace before measuring
+                    // (whitespace ' ' will also get trimmed in rendering)
                     do {
                         --w;
                     } while ((w > s1) && (w->symbol == ' '));
-                    while ((w > s1) && (w->symbol != ' ')) {
+                    while ((w > s1) && (!ALLOWBREAK(w->symbol, w - text_info->glyphs))) {
                         --w;
                     }
                     GlyphInfo *e1 = w;
@@ -1751,6 +1770,9 @@ wrap_lines_rebalance(ASS_Renderer *render_priv, double max_text_width)
     assert(text_info->n_lines >= 1);
 #undef DIFF
 }
+
+#undef ALLOWBREAK
+#undef FORCEBREAK
 
 static void
 wrap_lines_measure(ASS_Renderer *render_priv)
@@ -1800,8 +1822,30 @@ wrap_lines_measure(ASS_Renderer *render_priv)
 static void
 wrap_lines_smart(ASS_Renderer *render_priv, double max_text_width)
 {
-    wrap_lines_naive(render_priv, max_text_width);
-    wrap_lines_rebalance(render_priv, max_text_width);
+    char *unibrks = NULL;
+
+#ifdef CONFIG_UNIBREAK
+    if (render_priv->track->parser_priv->feature_flags & FEATURE_MASK(ASS_FEATURE_WRAP_UNICODE)) {
+        unibrks = render_priv->text_info.breaks;
+        set_linebreaks_utf32(
+            render_priv->text_info.event_text, render_priv->text_info.length,
+            render_priv->track->Language, unibrks);
+#if UNIBREAK_VERSION < 0x0500UL
+        // Prior to 5.0 libunibreaks always ended text with LINE_BREAKMUSTBREAK, matching
+        // Unicode spec, but messing with our text-overflow detection.
+        // Thus reevaluate the last char in a different context.
+        // (Later versions set either MUSTBREAK or the newly added INDETERMINATE)
+        unibrks[render_priv->text_info.length - 1] = is_line_breakable(
+            render_priv->text_info.event_text[render_priv->text_info.length - 1],
+            ' ',
+            render_priv->track->Language
+        );
+#endif
+    }
+#endif
+
+    wrap_lines_naive(render_priv, max_text_width, unibrks);
+    wrap_lines_rebalance(render_priv, max_text_width, unibrks);
 
     trim_whitespace(render_priv);
     measure_text(render_priv);
@@ -1968,7 +2012,8 @@ static bool parse_events(ASS_Renderer *render_priv, ASS_Event *event)
             if (text_info->length >= new_max)
                 goto fail;
             if (!ASS_REALLOC_ARRAY(text_info->glyphs, new_max) ||
-                    !ASS_REALLOC_ARRAY(text_info->event_text, new_max))
+                    !ASS_REALLOC_ARRAY(text_info->event_text, new_max) ||
+                    !ASS_REALLOC_ARRAY(text_info->breaks, new_max))
                 goto fail;
             text_info->max_glyphs = new_max;
         }
