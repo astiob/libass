@@ -506,15 +506,20 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
     // z = m_zx * x + m_zy * y + m_zz
     //  = m_zx * (x + sign(m_zx) * dx) + m_zy * (y + sign(m_zy) * dy) + z0.
 
-    // D(f)--absolute value of error in quantity f
-    // as function of error in matrix coefficients, i. e. D(m_kl) for k, l from {x, y, z}.
-    // Error in constant is zero, i. e. D(dx) = D(dy) = D(z0) = 0.
-    // In the following calculation errors are considered small
-    // and second- and higher-order terms are dropped.
-    // That approximation is valid as long as glyph dimensions are larger than couple of pixels.
-    // Therefore standard relations for derivatives can be used for D(?):
-    // D(A * B) <= D(A) * max|B| + max|A| * D(B),
-    // D(1 / C) <= D(C) * max|1 / C^2|.
+    // Let D(f) denote the absolute error of a quantity f
+    // and write m_kl for our matrix coefficients with k, l from {x, y, z}.
+    // Our goal is to determine tolerable error for matrix coefficients,
+    // so that the error of the output x_out, y_out is still acceptable.
+    // As glyph dimensions are usually larger than a couple of pixels, errors
+    // will be relatively small and we can use first order approximation.
+    //
+    // z0 is effectively a scale factor and can thus be treated as a constant.
+    // The error of constants is obviously zero, so:
+    //   D(dx) = D(dy) = D(z0) = 0.
+    // We can also utilise the fact, that for arbitrary quantities A, B, C
+    // with C not zero the following holds true:
+    //   D(A * B) <= D(A) * max|B| + max|A| * D(B),
+    //   D(1 / C) <= D(C) * max|1 / C^2|.
 
     // D(x_out) = D((m_xx * x + m_xy * y) / z)
     //  <= D(m_xx * x + m_xy * y) * max|1 / z| + max|m_xx * x + m_xy * y| * D(1 / z)
@@ -530,14 +535,14 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
     // D(y_out) <= (D(m_yx) * dx + D(m_yy) * dy) / z0
     //       + 2 * (D(m_zx) * dx + D(m_zy) * dy) * y_lim / z0^2.
 
-    // To estimate acceptable error in matrix coefficient
+    // To estimate acceptable error in matrix coefficient,
     // set error in all other coefficients to zero and solve system
-    // D(x_out) <= ACCURACY & D(y_out) <= ACCURACY for desired D(m_kl).
-    // ACCURACY here is some part of total error, i. e. ACCURACY ~ POSITION_PRECISION.
-    // Note that POSITION_PRECISION isn't total error, it's convenient constant.
+    // D(x_out) <= ACCURACY, D(y_out) <= ACCURACY for desired D(m_kl).
+    // Note ACCURACY is of the same magnitude as POSITION_PRECISION (write as: ~)
+    // and that POSITION_PRECISION isn't total error, it's convenient constant.
     // True error can be up to several POSITION_PRECISION.
 
-    // Quantization steps (ACCURACY ~ POSITION_PRECISION):
+    // Quantization steps:
     // D(m_xx), D(m_yx) ~ q_x = POSITION_PRECISION * z0 / dx,
     // D(m_xy), D(m_yy) ~ q_y = POSITION_PRECISION * z0 / dy,
     // qm_xx = round(m_xx / q_x), qm_xy = round(m_xy / q_y),
@@ -553,17 +558,17 @@ static bool quantize_transform(double m[3][3], ASS_Vector *pos,
         }
 
     // x_lim = |m_xx| * dx + |m_xy| * dy
-    //  ~= |qm_xx| * q_x * dx + |qm_xy| * q_y * dy
+    //  ≈ |qm_xx| * q_x * dx + |qm_xy| * q_y * dy
     //  = (|qm_xx| + |qm_xy|) * POSITION_PRECISION * z0,
     // y_lim = |m_yx| * dx + |m_yy| * dy
-    //  ~= |qm_yx| * q_x * dx + |qm_yy| * q_y * dy
+    //  ≈ |qm_yx| * q_x * dx + |qm_yy| * q_y * dy
     //  = (|qm_yx| + |qm_yy|) * POSITION_PRECISION * z0,
-    // max(x_lim, y_lim) / z0 ~= w
+    // max(x_lim, y_lim) / z0 ≈ w
     //  = max(|qm_xx| + |qm_xy|, |qm_yx| + |qm_yy|) * POSITION_PRECISION.
 
-    // Quantization steps (ACCURACY ~ 2 * POSITION_PRECISION):
-    // D(m_zx) ~ POSITION_PRECISION * z0^2 / max(x_lim, y_lim) / dx ~= q_zx = q_x / w,
-    // D(m_zy) ~ POSITION_PRECISION * z0^2 / max(x_lim, y_lim) / dy ~= q_zy = q_y / w,
+    // Quantization steps (reminder: ACCURACY ~ 2 * POSITION_PRECISION):
+    // D(m_zx) ~ POSITION_PRECISION * z0^2 / max(x_lim, y_lim) / dx ≈ q_zx = q_x / w,
+    // D(m_zy) ~ POSITION_PRECISION * z0^2 / max(x_lim, y_lim) / dy ≈ q_zy = q_y / w,
     // qm_zx = round(m_zx / q_zx), qm_zy = round(m_zy / q_zy).
 
     int32_t qmx = abs(qm[0][0]) + abs(qm[0][1]);
