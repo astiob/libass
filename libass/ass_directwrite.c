@@ -697,20 +697,27 @@ static void match_fonts(void *priv, ASS_Library *lib,
         return;
 
     hr = IDWriteFont_GetFontFamily(font, &fontFamily);
+    IDWriteFont_Release(font);
     if (FAILED(hr) || !fontFamily)
-        goto cleanup;
+        return;
 
-    add_font(font, fontFamily, provider);
+    UINT32 fontCount = IDWriteFontFamily_GetFontCount(fontFamily);
+    for (UINT32 fontIdx = 0; fontIdx < fontCount; ++fontIdx) {
+        hr = IDWriteFontFamily_GetFont(fontFamily, fontIdx, &font);
+        if (FAILED(hr))
+            continue;
+
+        // Simulations for bold or oblique are sometimes synthesized by
+        // DirectWrite. We are only interested in physical fonts.
+        if (IDWriteFont_GetSimulations(font) != 0) {
+            IDWriteFont_Release(font);
+            continue;
+        }
+
+        add_font(font, fontFamily, provider);
+    }
 
     IDWriteFontFamily_Release(fontFamily);
-
-    return;
-
-cleanup:
-    if (font)
-        IDWriteFont_Release(font);
-    if (fontFamily)
-        IDWriteFontFamily_Release(fontFamily);
 }
 
 static void get_substitutions(void *priv, const char *name,
