@@ -425,11 +425,14 @@ static int add_face(ASS_FontSelector *fontsel, ASS_Font *font, uint32_t ch)
     ASS_FontStream stream = { NULL, NULL };
     FT_Face face;
 
+    ass_msg(font->library, MSGL_INFO, "add_face(ch=U+%04X): font->n_faces=%d", ch, font->n_faces);
+
     if (font->n_faces == ASS_FONT_MAX_FACES)
         return -1;
 
     path = ass_font_select(fontsel, font, &index,
             &postscript_name, &uid, &stream, ch);
+    ass_msg(font->library, MSGL_INFO, "ass_font_select returned %s", path ? path : "(null)");
 
     if (!path)
         return -1;
@@ -625,6 +628,7 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
                 "font for (%.*s, %d, %d)", symbol, (int) font->desc.family.len, font->desc.family.str,
                 font->desc.bold, font->desc.italic);
         face_idx = *face_index = add_face(fontsel, font, symbol);
+        ass_msg(font->library, MSGL_INFO, "add_face returned %d", face_idx);
         if (face_idx >= 0) {
             face = font->faces[face_idx];
             index = ass_font_index_magic(face, symbol);

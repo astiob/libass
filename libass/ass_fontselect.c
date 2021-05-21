@@ -35,6 +35,7 @@
 #include FT_SFNT_NAMES_H
 #include FT_TRUETYPE_IDS_H
 #include FT_TYPE1_TABLES_H
+#include FT_TRUETYPE_TABLES_H
 
 #include "ass_utils.h"
 #include "ass.h"
@@ -250,7 +251,7 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
  * \return success
  */
 static bool
-get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
+get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fallback_family_name,
               ASS_FontProviderMetaData *info)
 {
     int i;
@@ -279,6 +280,10 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
             ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                 name.string_len);
 
+            ass_msg(library, MSGL_INFO,
+                "get_font_info: platform_id=Microsoft, name_id=%d, encoding_id=%d, language_id=0x%04X, name=[%s]",
+                name.name_id, name.encoding_id, name.language_id, buf);
+
             if (name.name_id == TT_NAME_ID_FULL_NAME && num_fullname < MAX_FULLNAME) {
                 fullnames[num_fullname] = strdup(buf);
                 if (fullnames[num_fullname] == NULL)
@@ -292,8 +297,64 @@ get_font_info(FT_Library lib, FT_Face face, const char *fallback_family_name,
                     goto error;
                 num_family++;
             }
+        } else if (name.name_id == TT_NAME_ID_FONT_FAMILY ||
+                name.name_id == TT_NAME_ID_FONT_SUBFAMILY ||
+                name.name_id == TT_NAME_ID_FULL_NAME ||
+                name.name_id == TT_NAME_ID_PS_NAME ||
+                name.name_id == TT_NAME_ID_PREFERRED_FAMILY ||
+                name.name_id == TT_NAME_ID_PREFERRED_SUBFAMILY ||
+                name.name_id == TT_NAME_ID_MAC_FULL_NAME ||
+                name.name_id == TT_NAME_ID_WWS_FAMILY ||
+                name.name_id == TT_NAME_ID_WWS_SUBFAMILY) {
+            char buf[1024];
+            if (name.platform_id == TT_PLATFORM_MICROSOFT ||
+                    name.platform_id == TT_PLATFORM_APPLE_UNICODE ||
+                    name.platform_id == TT_PLATFORM_ISO) {
+                ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
+                                    name.string_len);
+            } else {
+                strncpy(buf, (const char *)name.string,
+                        FFMIN(sizeof(buf), name.string_len));
+                buf[sizeof(buf) - 1] = '\0';
+            }
+            const char *platform_name = NULL;
+            const char *format =
+                "get_font_info: platform_id=%s, name_id=%d, encoding_id=%d, language_id=%d, name=[%s]";
+            switch (name.platform_id) {
+                case TT_PLATFORM_MICROSOFT:
+                    platform_name = "Microsoft";
+                    format = "get_font_info: platform_id=%s, name_id=%d, encoding_id=%d, language_id=0x%04X, name=[%s]";
+                    break;
+                case TT_PLATFORM_APPLE_UNICODE:
+                    platform_name = "Unicode";
+                    break;
+                case TT_PLATFORM_MACINTOSH:
+                    platform_name = "Macintosh";
+                    break;
+            }
+            if (platform_name)
+                ass_msg(library, MSGL_INFO, format,
+                    platform_name, name.name_id, name.encoding_id, name.language_id, buf);
+            else
+                ass_msg(library, MSGL_INFO,
+                    "get_font_info: platform_id=%d, name_id=%d, encoding_id=%d, language_id=%d, name=[%s]",
+                    name.platform_id, name.name_id, name.encoding_id, name.language_id, buf);
         }
 
+    }
+
+    ass_msg(library, MSGL_INFO,
+        "get_font_info: FreeType's family_name=[%s]",
+        face->family_name ? face->family_name : "(null)");
+
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
+    if (os2) {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: OS/2 table version %d, WWS bit %d",
+            os2->version, os2->fsSelection & 256);
+    } else {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: no OS/2 table");
     }
 
     // check if we got a valid family - if not, use
@@ -418,8 +479,8 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
         }
         if (!face)
             goto error;
-        if (!get_font_info(selector->ftlibrary, face, meta->extended_family,
-                           &implicit_meta)) {
+        if (!get_font_info(selector->library, selector->ftlibrary,
+                           face, meta->extended_family, &implicit_meta)) {
             FT_Done_Face(face);
             goto error;
         }
@@ -436,7 +497,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
         meta = &implicit_meta;
     }
 
-#if 0
+#if 1
     int j;
     printf("new font:\n");
     printf("  families: ");
@@ -450,8 +511,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     printf("  slant: %d\n", meta->slant);
     printf("  weight: %d\n", meta->weight);
     printf("  width: %d\n", meta->width);
-    printf("  path: %s\n", path);
-    printf("  index: %d\n", index);
+    printf("  postscript_name: %s\n", meta->postscript_name);
 #endif
 
     weight = meta->weight;
@@ -829,10 +889,16 @@ static char *select_font(ASS_FontSelector *priv,
                          int *index, char **postscript_name, int *uid,
                          ASS_FontStream *stream, uint32_t code)
 {
+    ASS_Library *library = priv->library;
     ASS_FontProvider *default_provider = priv->default_provider;
     ASS_FontProviderMetaData meta = {0};
     char *result = NULL;
     bool name_match = false;
+
+    ass_msg(library, MSGL_INFO,
+            "select_font(code=U+%04X, "
+            "family=[%s], bold=%u, italic=%u)",
+            code, family ? family : "(null)", bold, italic);
 
     if (family == NULL)
         return NULL;
@@ -853,15 +919,25 @@ static char *select_font(ASS_FontSelector *priv,
         meta = default_meta;
     }
 
+    ass_msg(library, MSGL_INFO,
+            "n_fullname=%d, fullnames:",
+            meta.n_fullname);
+    for (int i = 0; i < meta.n_fullname; ++i)
+        ass_msg(library, MSGL_INFO,
+                "    %s",
+                meta.fullnames[i]);
+
     result = find_font(priv, meta, match_extended_family,
                        bold, italic, index, postscript_name, uid,
                        stream, code, &name_match);
+    ass_msg(library, MSGL_INFO, "find_font returned %s", result ? result : "(null)");
 
     // If no matching font was found, it might not exist in the font list
     // yet. Call the match_fonts callback to fill in the missing fonts
     // on demand, and retry the search for a match.
     if (result == NULL && name_match == false && default_provider &&
             default_provider->funcs.match_fonts) {
+        ass_msg(library, MSGL_INFO, "calling match_fonts");
         // TODO: consider changing the API to make more efficient
         // implementations possible.
         for (int i = 0; i < meta.n_fullname; i++) {
@@ -872,6 +948,7 @@ static char *select_font(ASS_FontSelector *priv,
         result = find_font(priv, meta, match_extended_family,
                            bold, italic, index, postscript_name, uid,
                            stream, code, &name_match);
+        ass_msg(library, MSGL_INFO, "post-match find_font returned %s", result ? result : "(null)");
     }
 
     // cleanup
@@ -903,11 +980,19 @@ char *ass_font_select(ASS_FontSelector *priv,
     const char *family = font->desc.family.str;  // always zero-terminated
     unsigned bold = font->desc.bold;
     unsigned italic = font->desc.italic;
+    ASS_Library *library = priv->library;
     ASS_FontProvider *default_provider = priv->default_provider;
 
-    if (family && *family)
+    ass_msg(library, MSGL_INFO,
+            "ass_font_select(code=U+%04X): "
+            "family=[%s], bold=%u, italic=%u",
+            code, family ? family : "(null)", bold, italic);
+
+    if (family && *family) {
         res = select_font(priv, family, false, bold, italic, index,
                 postscript_name, uid, data, code);
+        ass_msg(library, MSGL_INFO, "first select_font returned %s", res ? res : "(null)");
+    }
 
     if (!res && priv->family_default) {
         res = select_font(priv, priv->family_default, false, bold,
@@ -925,10 +1010,12 @@ char *ass_font_select(ASS_FontSelector *priv,
             search_family = "Arial";
         char *fallback_family = default_provider->funcs.get_fallback(
                 default_provider->priv, priv->library, search_family, code);
+        ass_msg(library, MSGL_INFO, "get_fallback returned %s", fallback_family ? fallback_family : "(null)");
 
         if (fallback_family) {
             res = select_font(priv, fallback_family, true, bold, italic,
                     index, postscript_name, uid, data, code);
+            ass_msg(library, MSGL_INFO, "select_font returned %s", res ? res : "(null)");
             free(fallback_family);
         }
     }
@@ -992,7 +1079,7 @@ static void process_fontdata(ASS_FontProvider *priv, int idx)
         ass_charmap_magic(library, face);
 
         memset(&info, 0, sizeof(ASS_FontProviderMetaData));
-        if (!get_font_info(selector->ftlibrary, face, NULL, &info)) {
+        if (!get_font_info(library, selector->ftlibrary, face, NULL, &info)) {
             ass_msg(library, MSGL_WARN,
                     "Error getting metadata for embedded font '%s'", name);
             FT_Done_Face(face);

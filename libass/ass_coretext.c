@@ -157,7 +157,8 @@ static bool get_font_info_ct(CTFontDescriptorRef fontd,
     return true;
 }
 
-static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
+static void process_descriptors(ASS_Library *lib,
+                                ASS_FontProvider *provider, CFArrayRef fontsd)
 {
     if (!fontsd)
         return;
@@ -166,6 +167,49 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         ASS_FontProviderMetaData meta = {0};
         CTFontDescriptorRef fontd = CFArrayGetValueAtIndex(fontsd, i);
         int index = -1;
+
+        CFDictionaryRef attrs = CTFontDescriptorCopyAttributes(fontd);
+        CFStringRef desc = CFCopyDescription(attrs);
+        SAFE_CFRelease(attrs);
+        char *c_desc = cfstr2buf(desc);
+        SAFE_CFRelease(desc);
+        ass_msg(lib, MSGL_INFO, "%s", c_desc);
+        free(c_desc);
+
+        CTFontRef font = CTFontCreateWithFontDescriptor(fontd, 0.0, NULL);
+        CFStringRef name = CTFontCopyFullName(font);
+        char *c_name = cfstr2buf(name);
+        SAFE_CFRelease(name);
+        ass_msg(lib, MSGL_INFO, "font's full name: %s", c_name);
+        free(c_name);
+        name = CTFontCopyDisplayName(font);
+        c_name = cfstr2buf(name);
+        SAFE_CFRelease(name);
+        ass_msg(lib, MSGL_INFO, "font's display name: %s", c_name);
+        free(c_name);
+        name = CTFontCopyFamilyName(font);
+        c_name = cfstr2buf(name);
+        SAFE_CFRelease(name);
+        ass_msg(lib, MSGL_INFO, "font's family name: %s", c_name);
+        free(c_name);
+        CFStringRef lang;
+        name = CTFontCopyLocalizedName(font, kCTFontFullNameKey, &lang);
+        c_name = cfstr2buf(name);
+        SAFE_CFRelease(name);
+        char *c_lang = cfstr2buf(lang);
+        SAFE_CFRelease(lang);
+        ass_msg(lib, MSGL_INFO, "font's localized (%s) full name: %s", c_lang, c_name);
+        free(c_name);
+        free(c_lang);
+        name = CTFontCopyLocalizedName(font, kCTFontFamilyNameKey, &lang);
+        c_name = cfstr2buf(name);
+        SAFE_CFRelease(name);
+        c_lang = cfstr2buf(lang);
+        SAFE_CFRelease(lang);
+        ass_msg(lib, MSGL_INFO, "font's localized (%s) family name: %s", c_lang, c_name);
+        free(c_name);
+        free(c_lang);
+        SAFE_CFRelease(font);
 
         char *path = NULL;
         if (get_font_info_ct(fontd, &path, &meta)) {
@@ -242,7 +286,7 @@ static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider
     if (!fontsd)
         goto cleanup;
 
-    process_descriptors(provider, fontsd);
+    process_descriptors(lib, provider, fontsd);
 
 cleanup:
     SAFE_CFRelease(fontsd);
