@@ -776,19 +776,16 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
 
 #if 1
     int j;
-    printf("new font:\n");
-    printf("  families: ");
+    ASS_Library *lib = provider->parent->library;
+    ass_msg(lib, MSGL_INFO, "new font:");
     for (j = 0; j < meta->n_family; j++)
-        printf("'%s' ", meta->families[j]);
-    printf("\n");
-    printf("  fullnames: ");
+        ass_msg(lib, MSGL_INFO, "  family: '%s'", meta->families[j]);
     for (j = 0; j < meta->n_fullname; j++)
-        printf("'%s' ", meta->fullnames[j]);
-    printf("\n");
-    printf("  slant: %d\n", meta->slant);
-    printf("  weight: %d\n", meta->weight);
-    printf("  width: %d\n", meta->width);
-    printf("  postscript_name: %s\n", meta->postscript_name);
+        ass_msg(lib, MSGL_INFO, "  fullname: '%s'", meta->fullnames[j]);
+    ass_msg(lib, MSGL_INFO, "  slant: %d", meta->slant);
+    ass_msg(lib, MSGL_INFO, "  weight: %d", meta->weight);
+    ass_msg(lib, MSGL_INFO, "  width: %d", meta->width);
+    ass_msg(lib, MSGL_INFO, "  postscript_name: %s", meta->postscript_name);
 #endif
 
     weight = meta->weight;
