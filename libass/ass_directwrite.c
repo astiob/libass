@@ -29,7 +29,6 @@
 #include "ass_directwrite.h"
 #include "ass_utils.h"
 
-#define NAME_MAX_LENGTH 256
 #define FALLBACK_DEFAULT_FONT L"Arial"
 
 static const ASS_FontMapping font_substitutions[] = {
@@ -483,20 +482,33 @@ static char *get_fallback(void *priv, ASS_Library *lib,
         return NULL;
     }
 
-    wchar_t temp_name[NAME_MAX_LENGTH];
-    hr = IDWriteLocalizedStrings_GetString(familyNames, 0, temp_name, NAME_MAX_LENGTH);
-    if (FAILED(hr)) {
+    UINT32 length;
+    hr = IDWriteLocalizedStrings_GetStringLength(familyNames, 0, &length);
+    if (FAILED(hr) || !++length) {
         IDWriteLocalizedStrings_Release(familyNames);
         IDWriteFont_Release(font);
         return NULL;
     }
-    temp_name[NAME_MAX_LENGTH-1] = 0;
+    wchar_t *temp_name = (wchar_t *) calloc(length, sizeof(wchar_t));
+    if (!temp_name) {
+        IDWriteLocalizedStrings_Release(familyNames);
+        IDWriteFont_Release(font);
+        return NULL;
+    }
+    hr = IDWriteLocalizedStrings_GetString(familyNames, 0, temp_name, length);
+    if (FAILED(hr)) {
+        free(temp_name);
+        IDWriteLocalizedStrings_Release(familyNames);
+        IDWriteFont_Release(font);
+        return NULL;
+    }
 
     // DirectWrite may not have found a valid fallback, so check that
     // the selected font actually has the requested glyph.
     if (codepoint > 0) {
         hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
         if (FAILED(hr) || !exists) {
+            free(temp_name);
             IDWriteLocalizedStrings_Release(familyNames);
             IDWriteFont_Release(font);
             return NULL;
@@ -507,6 +519,7 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     char *family = (char *) malloc(size_needed);
     WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, family, size_needed, NULL, NULL);
 
+    free(temp_name);
     IDWriteLocalizedStrings_Release(familyNames);
     IDWriteFont_Release(font);
     return family;
@@ -530,19 +543,28 @@ static int map_width(enum DWRITE_FONT_STRETCH stretch)
 }
 
 static char *get_utf8_name(IDWriteLocalizedStrings *names, int k) {
-    wchar_t temp_name[NAME_MAX_LENGTH];
-    HRESULT hr = IDWriteLocalizedStrings_GetString(names, k,
-                                                   temp_name,
-                                                   NAME_MAX_LENGTH);
-    if (FAILED(hr))
+    UINT32 length;
+    HRESULT hr = IDWriteLocalizedStrings_GetStringLength(names, k, &length);
+    if (FAILED(hr) || !++length)
         return NULL;
 
-    temp_name[NAME_MAX_LENGTH-1] = 0;
+    wchar_t *temp_name = (wchar_t *) calloc(length, sizeof(wchar_t));
+    if (!temp_name)
+        return NULL;
+    hr = IDWriteLocalizedStrings_GetString(names, k, temp_name, length);
+    if (FAILED(hr)) {
+        free(temp_name);
+        return NULL;
+    }
+
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
     char *mbName = (char *) malloc(size_needed);
-    if (!mbName)
+    if (!mbName) {
+        free(temp_name);
         return NULL;
+    }
     WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
+    free(temp_name);
     return mbName;
 }
 
