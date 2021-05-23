@@ -472,12 +472,16 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     IDWriteTextFormat_Release(text_format);
 
     // Now, just extract the first family name
-    BOOL exists = FALSE;
-    IDWriteLocalizedStrings *familyNames = NULL;
-    hr = IDWriteFont_GetInformationalStrings(font,
-            DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES,
-            &familyNames, &exists);
-    if (FAILED(hr) || !exists) {
+    IDWriteFontFamily *fontFamily;
+    hr = IDWriteFont_GetFontFamily(font, &fontFamily);
+    if (FAILED(hr)) {
+        IDWriteFont_Release(font);
+        return NULL;
+    }
+    IDWriteLocalizedStrings *familyNames;
+    hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
+    IDWriteFontFamily_Release(fontFamily);
+    if (FAILED(hr)) {
         IDWriteFont_Release(font);
         return NULL;
     }
@@ -506,6 +510,7 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     // DirectWrite may not have found a valid fallback, so check that
     // the selected font actually has the requested glyph.
     if (codepoint > 0) {
+        BOOL exists = FALSE;
         hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
         if (FAILED(hr) || !exists) {
             free(temp_name);
@@ -619,13 +624,27 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
         IDWriteLocalizedStrings_Release(fontNames);
     }
 
+    IDWriteLocalizedStrings *typographicFamilyNames;
+    hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &typographicFamilyNames);
+    if (FAILED(hr))
+        goto cleanup;
+    meta.typographic_family = get_utf8_name(typographicFamilyNames, 0);
+    if (!meta.typographic_family) {
+        IDWriteLocalizedStrings_Release(typographicFamilyNames);
+        goto cleanup;
+    }
+
     IDWriteLocalizedStrings *familyNames;
     hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
-    if (!FAILED(hr) && !exists)
-        hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
-    if (FAILED(hr))
+    if (FAILED(hr)) {
+        IDWriteLocalizedStrings_Release(typographicFamilyNames);
         goto cleanup;
+    }
+    if (!exists)
+        familyNames = typographicFamilyNames;
+    else
+        IDWriteLocalizedStrings_Release(typographicFamilyNames);
 
     meta.n_family = IDWriteLocalizedStrings_GetCount(familyNames);
     meta.families = (char **) calloc(meta.n_family, sizeof(char *));
