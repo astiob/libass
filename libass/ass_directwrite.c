@@ -743,12 +743,6 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
     .get_font_index     = get_font_index,
 };
 
-typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
-    DWRITE_FACTORY_TYPE factoryType,
-    REFIID              iid,
-    IUnknown            **factory
-);
-
 /*
  * Register the directwrite provider. Upon registering
  * scans all system fonts. The private data for this
@@ -761,25 +755,44 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
                                                FT_Library ftlib)
 {
     HRESULT hr = S_OK;
+    HMODULE directwrite_lib = NULL;
     IDWriteFactory *dwFactory = NULL;
     IDWriteGdiInterop *dwGdiInterop = NULL;
     ASS_FontProvider *provider = NULL;
-    DWriteCreateFactoryFn DWriteCreateFactoryPtr = NULL;
     ProviderPrivate *priv = NULL;
 
-    HMODULE directwrite_lib = LoadLibraryW(L"Dwrite.dll");
+// Equivalent to #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+// without #including <winapifamily.h>, which is absent in older SDKs.
+#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY & 1)
+    directwrite_lib = LoadLibraryW(L"Dwrite.dll");
     if (!directwrite_lib)
         goto cleanup;
 
-    DWriteCreateFactoryPtr =
+    typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
+        DWRITE_FACTORY_TYPE factoryType,
+        REFIID              iid,
+        IUnknown            **factory
+    );
+
+    DWriteCreateFactoryFn DWriteCreateFactory =
         (DWriteCreateFactoryFn)(void *)GetProcAddress(directwrite_lib,
                                                       "DWriteCreateFactory");
-    if (!DWriteCreateFactoryPtr)
+    if (!DWriteCreateFactory)
         goto cleanup;
+#else
+    // LoadLibrary is forbidden in WinRT/UWP apps, so use DirectWrite directly.
+    // These apps cannot run on older Windows that lacks DirectWrite,
+    // so we lose nothing.
+    HRESULT WINAPI DWriteCreateFactory(
+        DWRITE_FACTORY_TYPE factoryType,
+        REFIID              iid,
+        IUnknown            **factory
+    );
+#endif
 
-    hr = DWriteCreateFactoryPtr(DWRITE_FACTORY_TYPE_SHARED,
-                                &IID_IDWriteFactory,
-                                (IUnknown **) (&dwFactory));
+    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
+                             &IID_IDWriteFactory,
+                             (IUnknown **) (&dwFactory));
     if (FAILED(hr) || !dwFactory) {
         ass_msg(lib, MSGL_WARN, "Failed to initialize directwrite.");
         dwFactory = NULL;
