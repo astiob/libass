@@ -285,7 +285,10 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
 
         if (name.platform_id == TT_PLATFORM_MICROSOFT &&
                 (name.name_id == TT_NAME_ID_FULL_NAME ||
-                 name.name_id == TT_NAME_ID_FONT_FAMILY)) {
+                 name.name_id == TT_NAME_ID_FONT_FAMILY) &&
+                (name.encoding_id == TT_MS_ID_SYMBOL_CS ||
+                 name.encoding_id == TT_MS_ID_UNICODE_CS ||
+                 name.encoding_id == TT_MS_ID_UCS_4)) {
             char buf[1024];
             ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                 name.string_len);
