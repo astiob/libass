@@ -529,13 +529,28 @@ static int map_width(enum DWRITE_FONT_STRETCH stretch)
     }
 }
 
+static char *get_utf8_name(IDWriteLocalizedStrings *names, int k) {
+    wchar_t temp_name[NAME_MAX_LENGTH];
+    HRESULT hr = IDWriteLocalizedStrings_GetString(names, k,
+                                                   temp_name,
+                                                   NAME_MAX_LENGTH);
+    if (FAILED(hr))
+        return NULL;
+
+    temp_name[NAME_MAX_LENGTH-1] = 0;
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
+    char *mbName = (char *) malloc(size_needed);
+    if (!mbName)
+        return NULL;
+    WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
+    return mbName;
+}
+
 static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
                      ASS_FontProvider *provider)
 {
     HRESULT hr;
     BOOL exists;
-    wchar_t temp_name[NAME_MAX_LENGTH];
-    int size_needed;
     ASS_FontProviderMetaData meta = {0};
 
     meta.weight = IDWriteFont_GetWeight(font);
@@ -553,23 +568,10 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
         goto cleanup;
 
     if (exists) {
-        hr = IDWriteLocalizedStrings_GetString(psNames, 0, temp_name, NAME_MAX_LENGTH);
-        if (FAILED(hr)) {
-            IDWriteLocalizedStrings_Release(psNames);
-            goto cleanup;
-        }
-
-        temp_name[NAME_MAX_LENGTH-1] = 0;
-        size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
-        char *mbName = (char *) malloc(size_needed);
-        if (!mbName) {
-            IDWriteLocalizedStrings_Release(psNames);
-            goto cleanup;
-        }
-        WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
-        meta.postscript_name = mbName;
-
+        meta.postscript_name = get_utf8_name(psNames, 0);
         IDWriteLocalizedStrings_Release(psNames);
+        if (!meta.postscript_name)
+            goto cleanup;
     }
 
     IDWriteLocalizedStrings *fontNames;
@@ -586,23 +588,11 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
             goto cleanup;
         }
         for (int k = 0; k < meta.n_fullname; k++) {
-            hr = IDWriteLocalizedStrings_GetString(fontNames, k,
-                                                   temp_name,
-                                                   NAME_MAX_LENGTH);
-            if (FAILED(hr)) {
+            meta.fullnames[k] = get_utf8_name(fontNames, k);
+            if (!meta.fullnames[k]) {
                 IDWriteLocalizedStrings_Release(fontNames);
                 goto cleanup;
             }
-
-            temp_name[NAME_MAX_LENGTH-1] = 0;
-            size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
-            char *mbName = (char *) malloc(size_needed);
-            if (!mbName) {
-                IDWriteLocalizedStrings_Release(fontNames);
-                goto cleanup;
-            }
-            WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
-            meta.fullnames[k] = mbName;
         }
         IDWriteLocalizedStrings_Release(fontNames);
     }
@@ -622,23 +612,11 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
         goto cleanup;
     }
     for (int k = 0; k < meta.n_family; k++) {
-        hr = IDWriteLocalizedStrings_GetString(familyNames, k,
-                                               temp_name,
-                                               NAME_MAX_LENGTH);
-        if (FAILED(hr)) {
+        meta.families[k] = get_utf8_name(familyNames, k);
+        if (!meta.families[k]) {
             IDWriteLocalizedStrings_Release(familyNames);
             goto cleanup;
         }
-
-        temp_name[NAME_MAX_LENGTH-1] = 0;
-        size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
-        char *mbName = (char *) malloc(size_needed);
-        if (!mbName) {
-            IDWriteLocalizedStrings_Release(familyNames);
-            goto cleanup;
-        }
-        WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
-        meta.families[k] = mbName;
     }
     IDWriteLocalizedStrings_Release(familyNames);
 
