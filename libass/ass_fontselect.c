@@ -320,9 +320,12 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                 name.name_id == TT_NAME_ID_WWS_FAMILY ||
                 name.name_id == TT_NAME_ID_WWS_SUBFAMILY) {
             char buf[1024] = "(conversion failed)";
-            if (name.platform_id == TT_PLATFORM_MICROSOFT ||
-                    name.platform_id == TT_PLATFORM_APPLE_UNICODE ||
-                    name.platform_id == TT_PLATFORM_ISO) {
+            if (name.platform_id == TT_PLATFORM_APPLE_UNICODE ||
+                    name.platform_id == TT_PLATFORM_ISO ||
+                    (name.platform_id == TT_PLATFORM_MICROSOFT &&
+                     name.encoding_id != TT_MS_ID_GB2312 &&
+                     name.encoding_id != TT_MS_ID_BIG_5 &&
+                     name.encoding_id != TT_MS_ID_WANSUNG)) {
                 ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                     name.string_len);
             } else {
@@ -530,6 +533,40 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                             CFENCODING(kCFStringEncodingMacVT100);
                             break;
                     }
+                } else if (name.platform_id == TT_PLATFORM_MICROSOFT) {
+                    switch (name.encoding_id) {
+                        case TT_MS_ID_GB2312:
+                            CFENCODING(kCFStringEncodingDOSChineseSimplif);
+                            WIN32_CODE_PAGE(936);
+                            ICONV_FROMCODE("CP936");
+                            break;
+                        case TT_MS_ID_BIG_5:
+                            CFENCODING(kCFStringEncodingDOSChineseTrad);
+                            WIN32_CODE_PAGE(950);
+                            ICONV_FROMCODE("CP950");
+                            break;
+                        case TT_MS_ID_WANSUNG:
+                            CFENCODING(kCFStringEncodingDOSKorean);
+                            WIN32_CODE_PAGE(949);
+                            ICONV_FROMCODE("CP949");
+                            break;
+                    }
+                    size_t r = 0, w = 0;
+                    for (; r < name.string_len - 1; r += 2) {
+                        if (name.string[r])
+                            name.string[w++] = name.string[r];
+                        name.string[w++] = name.string[r + 1];
+                    }
+                    // If string_len is odd, Windows either rejects the font
+                    // or reads one byte past the end. In the latter case,
+                    // the last output character is unpredictable (?),
+                    // so chop it off; but if the last input byte is ASCII,
+                    // we know it'll survive the transcoding unscathed
+                    // as the penultimate output character, so include it.
+                    if (r == name.string_len - 1 &&
+                        name.string[r] && !(name.string[r] & 0x80))
+                        name.string[w++] = name.string[r++];
+                    name.string_len = w;
                 }
 
 #ifdef CONFIG_CORETEXT
