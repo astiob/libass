@@ -29,7 +29,6 @@
 #include "ass_directwrite.h"
 #include "ass_utils.h"
 
-#define NAME_MAX_LENGTH 256
 #define FALLBACK_DEFAULT_FONT L"Arial"
 
 static const ASS_FontMapping font_substitutions[] = {
@@ -483,20 +482,33 @@ static char *get_fallback(void *priv, ASS_Library *lib,
         return NULL;
     }
 
-    wchar_t temp_name[NAME_MAX_LENGTH];
-    hr = IDWriteLocalizedStrings_GetString(familyNames, 0, temp_name, NAME_MAX_LENGTH);
-    if (FAILED(hr)) {
+    UINT32 length;
+    hr = IDWriteLocalizedStrings_GetStringLength(familyNames, 0, &length);
+    if (FAILED(hr) || !++length) {
         IDWriteLocalizedStrings_Release(familyNames);
         IDWriteFont_Release(font);
         return NULL;
     }
-    temp_name[NAME_MAX_LENGTH-1] = 0;
+    wchar_t *temp_name = (wchar_t *) calloc(length, sizeof(wchar_t));
+    if (!temp_name) {
+        IDWriteLocalizedStrings_Release(familyNames);
+        IDWriteFont_Release(font);
+        return NULL;
+    }
+    hr = IDWriteLocalizedStrings_GetString(familyNames, 0, temp_name, length);
+    if (FAILED(hr)) {
+        free(temp_name);
+        IDWriteLocalizedStrings_Release(familyNames);
+        IDWriteFont_Release(font);
+        return NULL;
+    }
 
     // DirectWrite may not have found a valid fallback, so check that
     // the selected font actually has the requested glyph.
     if (codepoint > 0) {
         hr = IDWriteFont_HasCharacter(font, codepoint, &exists);
         if (FAILED(hr) || !exists) {
+            free(temp_name);
             IDWriteLocalizedStrings_Release(familyNames);
             IDWriteFont_Release(font);
             return NULL;
@@ -507,6 +519,7 @@ static char *get_fallback(void *priv, ASS_Library *lib,
     char *family = (char *) malloc(size_needed);
     WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, family, size_needed, NULL, NULL);
 
+    free(temp_name);
     IDWriteLocalizedStrings_Release(familyNames);
     IDWriteFont_Release(font);
     return family;
@@ -529,13 +542,37 @@ static int map_width(enum DWRITE_FONT_STRETCH stretch)
     }
 }
 
+static char *get_utf8_name(IDWriteLocalizedStrings *names, int k) {
+    UINT32 length;
+    HRESULT hr = IDWriteLocalizedStrings_GetStringLength(names, k, &length);
+    if (FAILED(hr) || !++length)
+        return NULL;
+
+    wchar_t *temp_name = (wchar_t *) calloc(length, sizeof(wchar_t));
+    if (!temp_name)
+        return NULL;
+    hr = IDWriteLocalizedStrings_GetString(names, k, temp_name, length);
+    if (FAILED(hr)) {
+        free(temp_name);
+        return NULL;
+    }
+
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
+    char *mbName = (char *) malloc(size_needed);
+    if (!mbName) {
+        free(temp_name);
+        return NULL;
+    }
+    WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
+    free(temp_name);
+    return mbName;
+}
+
 static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
                      ASS_FontProvider *provider)
 {
     HRESULT hr;
     BOOL exists;
-    wchar_t temp_name[NAME_MAX_LENGTH];
-    int size_needed;
     ASS_FontProviderMetaData meta = {0};
 
     meta.weight = IDWriteFont_GetWeight(font);
@@ -553,23 +590,10 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
         goto cleanup;
 
     if (exists) {
-        hr = IDWriteLocalizedStrings_GetString(psNames, 0, temp_name, NAME_MAX_LENGTH);
-        if (FAILED(hr)) {
-            IDWriteLocalizedStrings_Release(psNames);
-            goto cleanup;
-        }
-
-        temp_name[NAME_MAX_LENGTH-1] = 0;
-        size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
-        char *mbName = (char *) malloc(size_needed);
-        if (!mbName) {
-            IDWriteLocalizedStrings_Release(psNames);
-            goto cleanup;
-        }
-        WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
-        meta.postscript_name = mbName;
-
+        meta.postscript_name = get_utf8_name(psNames, 0);
         IDWriteLocalizedStrings_Release(psNames);
+        if (!meta.postscript_name)
+            goto cleanup;
     }
 
     IDWriteLocalizedStrings *fontNames;
@@ -586,23 +610,11 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
             goto cleanup;
         }
         for (int k = 0; k < meta.n_fullname; k++) {
-            hr = IDWriteLocalizedStrings_GetString(fontNames, k,
-                                                   temp_name,
-                                                   NAME_MAX_LENGTH);
-            if (FAILED(hr)) {
+            meta.fullnames[k] = get_utf8_name(fontNames, k);
+            if (!meta.fullnames[k]) {
                 IDWriteLocalizedStrings_Release(fontNames);
                 goto cleanup;
             }
-
-            temp_name[NAME_MAX_LENGTH-1] = 0;
-            size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
-            char *mbName = (char *) malloc(size_needed);
-            if (!mbName) {
-                IDWriteLocalizedStrings_Release(fontNames);
-                goto cleanup;
-            }
-            WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
-            meta.fullnames[k] = mbName;
         }
         IDWriteLocalizedStrings_Release(fontNames);
     }
@@ -610,7 +622,7 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
     IDWriteLocalizedStrings *familyNames;
     hr = IDWriteFont_GetInformationalStrings(font,
             DWRITE_INFORMATIONAL_STRING_WIN32_FAMILY_NAMES, &familyNames, &exists);
-    if (FAILED(hr) || !exists)
+    if (!FAILED(hr) && !exists)
         hr = IDWriteFontFamily_GetFamilyNames(fontFamily, &familyNames);
     if (FAILED(hr))
         goto cleanup;
@@ -622,23 +634,11 @@ static void add_font(IDWriteFont *font, IDWriteFontFamily *fontFamily,
         goto cleanup;
     }
     for (int k = 0; k < meta.n_family; k++) {
-        hr = IDWriteLocalizedStrings_GetString(familyNames, k,
-                                               temp_name,
-                                               NAME_MAX_LENGTH);
-        if (FAILED(hr)) {
+        meta.families[k] = get_utf8_name(familyNames, k);
+        if (!meta.families[k]) {
             IDWriteLocalizedStrings_Release(familyNames);
             goto cleanup;
         }
-
-        temp_name[NAME_MAX_LENGTH-1] = 0;
-        size_needed = WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, NULL, 0, NULL, NULL);
-        char *mbName = (char *) malloc(size_needed);
-        if (!mbName) {
-            IDWriteLocalizedStrings_Release(familyNames);
-            goto cleanup;
-        }
-        WideCharToMultiByte(CP_UTF8, 0, temp_name, -1, mbName, size_needed, NULL, NULL);
-        meta.families[k] = mbName;
     }
     IDWriteLocalizedStrings_Release(familyNames);
 
@@ -743,12 +743,6 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
     .get_font_index     = get_font_index,
 };
 
-typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
-    DWRITE_FACTORY_TYPE factoryType,
-    REFIID              iid,
-    IUnknown            **factory
-);
-
 /*
  * Register the directwrite provider. Upon registering
  * scans all system fonts. The private data for this
@@ -761,25 +755,44 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
                                                FT_Library ftlib)
 {
     HRESULT hr = S_OK;
+    HMODULE directwrite_lib = NULL;
     IDWriteFactory *dwFactory = NULL;
     IDWriteGdiInterop *dwGdiInterop = NULL;
     ASS_FontProvider *provider = NULL;
-    DWriteCreateFactoryFn DWriteCreateFactoryPtr = NULL;
     ProviderPrivate *priv = NULL;
 
-    HMODULE directwrite_lib = LoadLibraryW(L"Dwrite.dll");
+// Equivalent to #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+// without #including <winapifamily.h>, which is absent in older SDKs.
+#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY & 1)
+    directwrite_lib = LoadLibraryW(L"Dwrite.dll");
     if (!directwrite_lib)
         goto cleanup;
 
-    DWriteCreateFactoryPtr =
+    typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
+        DWRITE_FACTORY_TYPE factoryType,
+        REFIID              iid,
+        IUnknown            **factory
+    );
+
+    DWriteCreateFactoryFn DWriteCreateFactory =
         (DWriteCreateFactoryFn)(void *)GetProcAddress(directwrite_lib,
                                                       "DWriteCreateFactory");
-    if (!DWriteCreateFactoryPtr)
+    if (!DWriteCreateFactory)
         goto cleanup;
+#else
+    // LoadLibrary is forbidden in WinRT/UWP apps, so use DirectWrite directly.
+    // These apps cannot run on older Windows that lacks DirectWrite,
+    // so we lose nothing.
+    HRESULT WINAPI DWriteCreateFactory(
+        DWRITE_FACTORY_TYPE factoryType,
+        REFIID              iid,
+        IUnknown            **factory
+    );
+#endif
 
-    hr = DWriteCreateFactoryPtr(DWRITE_FACTORY_TYPE_SHARED,
-                                &IID_IDWriteFactory,
-                                (IUnknown **) (&dwFactory));
+    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
+                             &IID_IDWriteFactory,
+                             (IUnknown **) (&dwFactory));
     if (FAILED(hr) || !dwFactory) {
         ass_msg(lib, MSGL_WARN, "Failed to initialize directwrite.");
         dwFactory = NULL;
