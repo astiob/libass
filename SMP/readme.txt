@@ -20,3 +20,13 @@ When using the WinRT/UWP project configurations the projects will automatically 
   VS 2015: 8.1
   VS 2017+: 10.0.10240.0
 
+
+*** Building with NASM ***
+
+In order to build x264 using msvc you must first download and install NASM.
+NASM is required to compile all assembly files.
+
+1) Visual Studio NASM integration can be downloaded from https://github.com/ShiftMediaProject/VSNASM/releases/latest
+
+2) Once downloaded simply follow the install instructions included in the download.
+

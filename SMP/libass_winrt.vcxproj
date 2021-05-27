@@ -9,7 +9,7 @@
     <Import Project="libass_files.props" />
   </ImportGroup>
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\yasm.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\nasm.props" />
   </ImportGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugWinRT|Win32'">
     <ClCompile>
@@ -39,10 +39,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -84,10 +84,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -130,10 +130,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -176,10 +176,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -221,10 +221,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -266,10 +266,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -312,10 +312,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -358,10 +358,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;PREFIX;WIN32=1;ARCH_X86_64=0;HAVE_ALIGNED_STACK=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -404,10 +404,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -450,10 +450,10 @@ cd ../
 cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
-    <YASM>
-      <PreprocessorDefinitions>HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    <NASM>
+      <PreprocessorDefinitions>private_prefix=ass;HAVE_CPUNOP=0;WIN32=1;ARCH_X86_64=1;HAVE_ALIGNED_STACK=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IncludePaths>$(ProjectDir)\..\libass;%(IncludePaths)</IncludePaths>
-    </YASM>
+    </NASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
     </CustomBuildStep>
@@ -468,6 +468,6 @@ del /f /q $(OutDir)\licenses\libass.txt
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\yasm.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\nasm.targets" />
   </ImportGroup>
 </Project>

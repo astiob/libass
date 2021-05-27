@@ -1,4 +1,3 @@
-
 /* ASM enabled */
 #define CONFIG_ASM 1
 
@@ -79,3 +78,5 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
+
+#include "version.h"

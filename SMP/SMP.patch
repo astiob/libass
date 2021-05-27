@@ -1,5 +1,18 @@
+diff --git a/libass/ass_bitmap.c b/libass/ass_bitmap.c
+index d3186b4..53e4c6a 100644
+--- a/libass/ass_bitmap.c
++++ b/libass/ass_bitmap.c
+@@ -42,7 +42,7 @@
+ #undef ALIGN
+ #undef DECORATE
+ 
+-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
++#if (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)) && CONFIG_ASM
+ 
+ #define ALIGN           4
+ #define DECORATE(func)  ass_##func##_sse2
 diff --git a/libass/ass_compat.h b/libass/ass_compat.h
-index dc3395e..cd61930 100644
+index ae16bb7..310a7e7 100644
 --- a/libass/ass_compat.h
 +++ b/libass/ass_compat.h
 @@ -24,6 +24,10 @@
@@ -12,9 +25,9 @@ index dc3395e..cd61930 100644
 +#endif
  #endif
  
- #endif                          /* LIBASS_COMPAT_H */
+ #ifndef HAVE_STRDUP
 diff --git a/libass/ass_directwrite.c b/libass/ass_directwrite.c
-index 399aef7..c4bffe3 100644
+index e666bd9..7819724 100644
 --- a/libass/ass_directwrite.c
 +++ b/libass/ass_directwrite.c
 @@ -22,13 +22,16 @@
@@ -43,11 +56,11 @@ index 399aef7..c4bffe3 100644
      HMODULE directwrite_lib;
 +#endif
      IDWriteFactory *factory;
+     IDWriteGdiInterop *gdi_interop;
  } ProviderPrivate;
- 
-@@ -390,7 +395,9 @@ static void destroy_provider(void *priv)
- {
+@@ -392,7 +397,9 @@ static void destroy_provider(void *priv)
      ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
+     provider_priv->gdi_interop->lpVtbl->Release(provider_priv->gdi_interop);
      provider_priv->factory->lpVtbl->Release(provider_priv->factory);
 +#ifndef WINRT
      FreeLibrary(provider_priv->directwrite_lib);
@@ -55,7 +68,7 @@ index 399aef7..c4bffe3 100644
      free(provider_priv);
  }
  
-@@ -757,6 +764,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
+@@ -760,6 +767,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
      DWriteCreateFactoryFn DWriteCreateFactoryPtr = NULL;
      ProviderPrivate *priv = NULL;
  
@@ -65,15 +78,15 @@ index 399aef7..c4bffe3 100644
      HMODULE directwrite_lib = LoadLibraryW(L"Dwrite.dll");
      if (!directwrite_lib)
          goto cleanup;
-@@ -765,6 +775,7 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
-                                                                    "DWriteCreateFactory");
+@@ -769,6 +779,7 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
+                                                       "DWriteCreateFactory");
      if (!DWriteCreateFactoryPtr)
          goto cleanup;
 +#endif
  
      hr = DWriteCreateFactoryPtr(DWRITE_FACTORY_TYPE_SHARED,
                                  &IID_IDWriteFactory,
-@@ -779,7 +790,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
+@@ -791,7 +802,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
      if (!priv)
          goto cleanup;
  
@@ -81,10 +94,10 @@ index 399aef7..c4bffe3 100644
      priv->directwrite_lib = directwrite_lib;
 +#endif
      priv->factory = dwFactory;
-     provider = ass_font_provider_new(selector, &directwrite_callbacks, priv);
-     if (!provider)
-@@ -793,8 +806,10 @@ cleanup:
-     free(priv);
+     priv->gdi_interop = dwGdiInterop;
+ 
+@@ -808,8 +821,10 @@ cleanup:
+         dwGdiInterop->lpVtbl->Release(dwGdiInterop);
      if (dwFactory)
          dwFactory->lpVtbl->Release(dwFactory);
 +#ifndef WINRT
@@ -94,11 +107,50 @@ index 399aef7..c4bffe3 100644
  
      return NULL;
  }
+diff --git a/libass/ass_render.c b/libass/ass_render.c
+index 3b707a7..acd64b0 100644
+--- a/libass/ass_render.c
++++ b/libass/ass_render.c
+@@ -74,7 +74,7 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
+     priv->ftlibrary = ft;
+     // images_root and related stuff is zero-filled in calloc
+ 
+-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
++#if (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)) && CONFIG_ASM
+     if (has_avx2())
+         priv->engine = &ass_bitmap_engine_avx2;
+     else if (has_sse2())
+diff --git a/libass/ass_utils.c b/libass/ass_utils.c
+index 65b6f74..a0a74cc 100644
+--- a/libass/ass_utils.c
++++ b/libass/ass_utils.c
+@@ -31,7 +31,7 @@
+ #include "ass_utils.h"
+ #include "ass_string.h"
+ 
+-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
++#if (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)) && CONFIG_ASM
+ 
+ #include "x86/cpuid.h"
+ 
+diff --git a/libass/ass_utils.h b/libass/ass_utils.h
+index 377d532..98f329d 100644
+--- a/libass/ass_utils.h
++++ b/libass/ass_utils.h
+@@ -48,7 +48,7 @@
+ 
+ #define ASS_PI 3.14159265358979323846
+ 
+-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
++#if (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)) && CONFIG_ASM
+ int has_sse2(void);
+ int has_avx(void);
+ int has_avx2(void);
 diff --git a/libass/dwrite_c.h b/libass/dwrite_c.h
-index d20139b..9cba6e8 100644
+index 5612e9f..e868ae9 100644
 --- a/libass/dwrite_c.h
 +++ b/libass/dwrite_c.h
-@@ -142,6 +142,12 @@ typedef struct DWRITE_TEXT_RANGE {
+@@ -143,6 +143,12 @@ typedef struct DWRITE_TEXT_RANGE {
  typedef struct DWRITE_TRIMMING DWRITE_TRIMMING;
  typedef struct DWRITE_UNDERLINE DWRITE_UNDERLINE;
  
