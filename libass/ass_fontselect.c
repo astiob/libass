@@ -37,6 +37,16 @@
 #include FT_TYPE1_TABLES_H
 #include FT_TRUETYPE_TABLES_H
 
+#ifdef CONFIG_CORETEXT
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+#ifdef _WIN32
+#include <windows.h>
+#endif
+#ifdef CONFIG_ICONV
+#include <iconv.h>
+#endif
+
 #include "ass_utils.h"
 #include "ass.h"
 #include "ass_library.h"
@@ -306,16 +316,283 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                 name.name_id == TT_NAME_ID_MAC_FULL_NAME ||
                 name.name_id == TT_NAME_ID_WWS_FAMILY ||
                 name.name_id == TT_NAME_ID_WWS_SUBFAMILY) {
-            char buf[1024];
+            char buf[1024] = "(conversion failed)";
             if (name.platform_id == TT_PLATFORM_MICROSOFT ||
                     name.platform_id == TT_PLATFORM_APPLE_UNICODE ||
                     name.platform_id == TT_PLATFORM_ISO) {
                 ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                     name.string_len);
             } else {
-                strncpy(buf, (const char *)name.string,
-                        FFMIN(sizeof(buf), name.string_len));
-                buf[sizeof(buf) - 1] = '\0';
+                bool decode_attempted = false;
+
+#ifdef CONFIG_CORETEXT
+                CFStringEncoding cfencoding = kCFStringEncodingInvalidId;
+#define CFENCODING(x) cfencoding = x
+#else
+#define CFENCODING(x)
+#endif
+
+#ifdef _WIN32
+                UINT win32_code_page = -1;
+#define WIN32_CODE_PAGE(x) win32_code_page = x
+#else
+#define WIN32_CODE_PAGE(x)
+#endif
+
+#ifdef CONFIG_ICONV
+                enum { MAX_ICONV_FROMCODES = 4 };
+                const char *iconv_fromcode[MAX_ICONV_FROMCODES] = {0};
+                size_t n_iconv_fromcode = 0;
+#define ICONV_FROMCODE(x) \
+    (assert(n_iconv_fromcode < MAX_ICONV_FROMCODES), \
+     iconv_fromcode[n_iconv_fromcode++] = x)
+#else
+#define ICONV_FROMCODE(x)
+#endif
+
+                if (name.platform_id == TT_PLATFORM_MACINTOSH) {
+                    switch (name.encoding_id) {
+                        case TT_MAC_ID_ROMAN:
+                            WIN32_CODE_PAGE(10000);
+                            ICONV_FROMCODE("MACINTOSH");
+                            switch (name.language_id) {
+                                case TT_MAC_LANGID_TURKISH:
+                                    CFENCODING(kCFStringEncodingMacTurkish);
+                                    WIN32_CODE_PAGE(10081);
+                                    ICONV_FROMCODE("MACTURKISH");
+                                    break;
+                                case TT_MAC_LANGID_CROATIAN:
+                                case TT_MAC_LANGID_SLOVENIAN:
+                                case TT_MAC_LANGID_SERBIAN:
+                                    CFENCODING(kCFStringEncodingMacCroatian);
+                                    WIN32_CODE_PAGE(10082);
+                                    ICONV_FROMCODE("MACCROATIAN");
+                                    break;
+                                case TT_MAC_LANGID_ICELANDIC:
+                                case TT_MAC_LANGID_FAEROESE:
+                                    CFENCODING(kCFStringEncodingMacIcelandic);
+                                    WIN32_CODE_PAGE(10079);
+                                    ICONV_FROMCODE("MAC-IS");
+                                    ICONV_FROMCODE("MACICELAND");
+                                    break;
+                                case TT_MAC_LANGID_ROMANIAN:
+                                    CFENCODING(kCFStringEncodingMacRomanian);
+                                    WIN32_CODE_PAGE(10010);
+                                    ICONV_FROMCODE("MACROMANIA");
+                                    break;
+                                case TT_MAC_LANGID_IRISH:
+                                case TT_MAC_LANGID_WELSH:
+                                case TT_MAC_LANGID_BRETON:
+                                case TT_MAC_LANGID_SCOTTISH_GAELIC:
+                                case TT_MAC_LANGID_MANX_GAELIC:
+                                    CFENCODING(kCFStringEncodingMacCeltic);
+                                    break;
+                                case TT_MAC_LANGID_IRISH_GAELIC:
+                                    CFENCODING(kCFStringEncodingMacGaelic);
+                                    break;
+                                case TT_MAC_LANGID_GREEK:
+                                    CFENCODING(kCFStringEncodingMacGreek);
+                                    WIN32_CODE_PAGE(10006);
+                                    ICONV_FROMCODE("MACGREEK");
+                                    break;
+                                default:
+                                    CFENCODING(kCFStringEncodingMacRoman);
+                            }
+                            break;
+                        case TT_MAC_ID_JAPANESE:
+                            CFENCODING(kCFStringEncodingMacJapanese);
+                            WIN32_CODE_PAGE(10001);
+                            ICONV_FROMCODE("SHIFT-JIS");
+                            break;
+                        case TT_MAC_ID_TRADITIONAL_CHINESE:
+                            CFENCODING(kCFStringEncodingMacChineseTrad);
+                            WIN32_CODE_PAGE(10002);
+                            ICONV_FROMCODE("BIG-5");
+                            break;
+                        case TT_MAC_ID_KOREAN:
+                            CFENCODING(kCFStringEncodingMacKorean);
+                            WIN32_CODE_PAGE(10003);
+                            ICONV_FROMCODE("EUC-KR");
+                            break;
+                        case TT_MAC_ID_ARABIC:
+                            WIN32_CODE_PAGE(10004);
+                            ICONV_FROMCODE("MACARABIC");
+                            switch (name.language_id) {
+                                case TT_MAC_LANGID_FARSI:
+                                    CFENCODING(kCFStringEncodingMacFarsi);
+                                    break;
+                                default:
+                                    CFENCODING(kCFStringEncodingMacArabic);
+                            }
+                            break;
+                        case TT_MAC_ID_HEBREW:
+                            CFENCODING(kCFStringEncodingMacHebrew);
+                            WIN32_CODE_PAGE(10005);
+                            ICONV_FROMCODE("MACHEBREW");
+                            break;
+                        case TT_MAC_ID_GREEK:  // not actually used (Roman is used)
+                            CFENCODING(kCFStringEncodingMacGreek);
+                            WIN32_CODE_PAGE(10006);
+                            ICONV_FROMCODE("MACGREEK");
+                            break;
+                        case TT_MAC_ID_RUSSIAN:
+                            CFENCODING(kCFStringEncodingMacCyrillic);
+                            WIN32_CODE_PAGE(10017);
+                            ICONV_FROMCODE("MAC-UK");
+                            ICONV_FROMCODE("MACUKRAINE");
+                            break;
+                        case TT_MAC_ID_DEVANAGARI:
+                            CFENCODING(kCFStringEncodingMacDevanagari);
+                            break;
+                        case TT_MAC_ID_GURMUKHI:
+                            CFENCODING(kCFStringEncodingMacGurmukhi);
+                            break;
+                        case TT_MAC_ID_GUJARATI:
+                            CFENCODING(kCFStringEncodingMacGujarati);
+                            break;
+                        case TT_MAC_ID_ORIYA:
+                            CFENCODING(kCFStringEncodingMacOriya);
+                            break;
+                        case TT_MAC_ID_BENGALI:
+                            CFENCODING(kCFStringEncodingMacBengali);
+                            break;
+                        case TT_MAC_ID_TAMIL:
+                            CFENCODING(kCFStringEncodingMacTamil);
+                            break;
+                        case TT_MAC_ID_TELUGU:
+                            CFENCODING(kCFStringEncodingMacTelugu);
+                            break;
+                        case TT_MAC_ID_KANNADA:
+                            CFENCODING(kCFStringEncodingMacKannada);
+                            break;
+                        case TT_MAC_ID_MALAYALAM:
+                            CFENCODING(kCFStringEncodingMacMalayalam);
+                            break;
+                        case TT_MAC_ID_SINHALESE:
+                            CFENCODING(kCFStringEncodingMacSinhalese);
+                            break;
+                        case TT_MAC_ID_BURMESE:
+                            CFENCODING(kCFStringEncodingMacBurmese);
+                            break;
+                        case TT_MAC_ID_KHMER:
+                            CFENCODING(kCFStringEncodingMacKhmer);
+                            break;
+                        case TT_MAC_ID_THAI:
+                            CFENCODING(kCFStringEncodingMacThai);
+                            WIN32_CODE_PAGE(10021);
+                            ICONV_FROMCODE("MACTHAI");
+                            break;
+                        case TT_MAC_ID_LAOTIAN:
+                            CFENCODING(kCFStringEncodingMacLaotian);
+                            break;
+                        case TT_MAC_ID_GEORGIAN:
+                            CFENCODING(kCFStringEncodingMacGeorgian);
+                            break;
+                        case TT_MAC_ID_ARMENIAN:
+                            CFENCODING(kCFStringEncodingMacArmenian);
+                            break;
+                        case TT_MAC_ID_SIMPLIFIED_CHINESE:
+                            CFENCODING(kCFStringEncodingMacChineseSimp);
+                            WIN32_CODE_PAGE(10008);
+                            ICONV_FROMCODE("EUC-CN");
+                            break;
+                        case TT_MAC_ID_TIBETAN:
+                            CFENCODING(kCFStringEncodingMacTibetan);
+                            break;
+                        case TT_MAC_ID_MONGOLIAN:
+                            CFENCODING(kCFStringEncodingMacMongolian);
+                            break;
+                        case TT_MAC_ID_GEEZ:
+                            switch (name.language_id) {
+                                case TT_MAC_LANGID_INUKTITUT:
+                                    CFENCODING(kCFStringEncodingMacInuit);
+                                    break;
+                                default:
+                                    CFENCODING(kCFStringEncodingMacEthiopic);
+                            }
+                            break;
+                        case TT_MAC_ID_SLAVIC:
+                            CFENCODING(kCFStringEncodingMacCentralEurRoman);
+                            WIN32_CODE_PAGE(10029);
+                            ICONV_FROMCODE("MAC-CENTRALEUROPE");
+                            ICONV_FROMCODE("MACCENTRALEUROPE");
+                            break;
+                        case TT_MAC_ID_VIETNAMESE:
+                            CFENCODING(kCFStringEncodingMacVietnamese);
+                            break;
+                        case TT_MAC_ID_SINDHI:
+                            CFENCODING(kCFStringEncodingMacExtArabic);
+                            break;
+                        case TT_MAC_ID_UNINTERP:
+                            CFENCODING(kCFStringEncodingMacVT100);
+                            break;
+                    }
+                }
+
+#ifdef CONFIG_CORETEXT
+                if (!decode_attempted && cfencoding != kCFStringEncodingInvalidId) {
+                    decode_attempted = true;
+                    CFStringRef cfname =
+                        CFStringCreateWithBytes(
+                            NULL, name.string, name.string_len,
+                            cfencoding, false);
+                    if (cfname) {
+                        if (!CFStringGetCString(cfname, buf, sizeof(buf),
+                                                kCFStringEncodingUTF8))
+                            strcpy(buf, "(conversion failed)");
+                        CFRelease(cfname);
+                    }
+                }
+#endif
+
+#ifdef _WIN32
+                if (!decode_attempted && win32_code_page != -1u) {
+                    decode_attempted = true;
+                    int size =
+                        MultiByteToWideChar(win32_code_page, 0,
+                                            (const char *)name.string,
+                                            name.string_len, NULL, 0);
+                    if (size) {
+                        WCHAR *wbuf = calloc(size, sizeof(WCHAR));
+                        if (wbuf) {
+                            MultiByteToWideChar(win32_code_page, 0,
+                                                (const char *)name.string,
+                                                name.string_len, wbuf, size);
+                            memset(buf, 0, sizeof(buf));
+                            WideCharToMultiByte(CP_UTF8, 0, wbuf,
+                                                size, buf, sizeof(buf) - 1,
+                                                NULL, NULL);
+                            free(wbuf);
+                        }
+                    }
+                }
+#endif
+
+#ifdef CONFIG_ICONV
+                while (!decode_attempted && n_iconv_fromcode--) {
+                    iconv_t icdsc = iconv_open("UTF-8", iconv_fromcode[n_iconv_fromcode]);
+                    if (icdsc != (iconv_t)-1) {
+                        decode_attempted = true;
+                        char *inbuf = (char *)name.string;
+                        size_t inbytesleft = name.string_len;
+                        char *outbuf = buf;
+                        size_t outbytesleft = sizeof(buf) - 1;
+                        if (iconv(icdsc, &inbuf, &inbytesleft, &outbuf, &outbytesleft) != (size_t)-1)
+                            *outbuf = '\0';
+                        else if (errno == E2BIG)
+                            *outbuf = '\0';
+                        else
+                            strcpy(buf, "(conversion failed)");
+                        iconv_close(icdsc);
+                    }
+                }
+#endif
+
+                if (!decode_attempted) {
+                    strncpy(buf, (const char *)name.string,
+                            FFMIN(sizeof(buf), name.string_len));
+                    buf[sizeof(buf) - 1] = '\0';
+                }
             }
             const char *platform_name = NULL;
             const char *format =
