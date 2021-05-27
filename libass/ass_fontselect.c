@@ -674,6 +674,33 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
             "get_font_info: no OS/2 table");
     }
 
+    for (FT_Int i = 0; i < face->num_charmaps; i++) {
+        FT_CharMap cmap = face->charmaps[i];
+        if (cmap->platform_id == TT_PLATFORM_MACINTOSH) {
+            ass_msg(library, MSGL_INFO,
+                "get_font_info: cmap for platform_id=Macintosh, encoding_id=%d, language_id+1=%lu",
+                cmap->encoding_id, FT_Get_CMap_Language_ID(cmap));
+        } else {
+            const char *platform_name = NULL;
+            switch (cmap->platform_id) {
+                case TT_PLATFORM_MICROSOFT:
+                    platform_name = "Microsoft";
+                    break;
+                case TT_PLATFORM_APPLE_UNICODE:
+                    platform_name = "Unicode";
+                    break;
+            }
+            if (platform_name)
+                ass_msg(library, MSGL_INFO,
+                    "get_font_info: cmap for platform_id=%s, encoding_id=%d",
+                    platform_name, cmap->encoding_id);
+            else
+                ass_msg(library, MSGL_INFO,
+                    "get_font_info: cmap for platform_id=%d, encoding_id=%d",
+                    cmap->platform_id, cmap->encoding_id);
+        }
+    }
+
     // check if we got a valid family - if not, use
     // whatever the font provider or FreeType gives us
     if (num_family == 0 && (fallback_family_name || face->family_name)) {
