@@ -689,7 +689,7 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
         goto error;
 
     // calculate sensible slant and weight from style attributes
-    slant  = 110 * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
+    slant  = FONT_SLANT_ITALIC * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
     weight = ass_face_get_weight(face);
 
     // fill our struct
