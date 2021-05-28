@@ -48,7 +48,7 @@
 
 #define ASS_PI 3.14159265358979323846
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#if (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)) && CONFIG_ASM
 int has_sse2(void);
 int has_avx(void);
 int has_avx2(void);

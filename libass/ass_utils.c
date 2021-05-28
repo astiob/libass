@@ -31,7 +31,7 @@
 #include "ass_utils.h"
 #include "ass_string.h"
 
-#if (defined(__i386__) || defined(__x86_64__)) && CONFIG_ASM
+#if (defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)) && CONFIG_ASM
 
 #include "x86/cpuid.h"
 
