@@ -27,6 +27,13 @@
 #include "ass_directwrite.h"
 #include "ass_utils.h"
 
+#ifdef WINAPI_FAMILY
+#include <winapifamily.h>
+#define DESKTOP_API WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+#else
+#define DESKTOP_API 1
+#endif
+
 #define FALLBACK_DEFAULT_FONT L"Arial"
 
 static const ASS_FontMapping font_substitutions[] = {
@@ -45,7 +52,9 @@ typedef struct {
 } FontPrivate;
 
 typedef struct {
+#if DESKTOP_API
     HMODULE directwrite_lib;
+#endif
     IDWriteFactory *factory;
     IDWriteGdiInterop *gdi_interop;
 } ProviderPrivate;
@@ -389,7 +398,9 @@ static void destroy_provider(void *priv)
     ProviderPrivate *provider_priv = (ProviderPrivate *)priv;
     provider_priv->gdi_interop->lpVtbl->Release(provider_priv->gdi_interop);
     provider_priv->factory->lpVtbl->Release(provider_priv->factory);
+#if DESKTOP_API
     FreeLibrary(provider_priv->directwrite_lib);
+#endif
     free(provider_priv);
 }
 
@@ -741,12 +752,6 @@ static ASS_FontProviderFuncs directwrite_callbacks = {
     .get_font_index     = get_font_index,
 };
 
-typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
-    DWRITE_FACTORY_TYPE factoryType,
-    REFIID              iid,
-    IUnknown            **factory
-);
-
 /*
  * Register the directwrite provider. Upon registering
  * scans all system fonts. The private data for this
@@ -762,22 +767,38 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
     IDWriteFactory *dwFactory = NULL;
     IDWriteGdiInterop *dwGdiInterop = NULL;
     ASS_FontProvider *provider = NULL;
-    DWriteCreateFactoryFn DWriteCreateFactoryPtr = NULL;
     ProviderPrivate *priv = NULL;
 
+#if DESKTOP_API
     HMODULE directwrite_lib = LoadLibraryW(L"Dwrite.dll");
     if (!directwrite_lib)
         goto cleanup;
 
-    DWriteCreateFactoryPtr =
+    typedef HRESULT (WINAPI *DWriteCreateFactoryFn)(
+        DWRITE_FACTORY_TYPE factoryType,
+        REFIID              iid,
+        IUnknown            **factory
+    );
+
+    DWriteCreateFactoryFn DWriteCreateFactory =
         (DWriteCreateFactoryFn)(void *)GetProcAddress(directwrite_lib,
                                                       "DWriteCreateFactory");
-    if (!DWriteCreateFactoryPtr)
+    if (!DWriteCreateFactory)
         goto cleanup;
+#else
+    // LoadLibrary is forbidden in WinRT/UWP apps, so use DirectWrite directly.
+    // These apps cannot run on older Windows that lacks DirectWrite,
+    // so we lose nothing.
+    HRESULT WINAPI DWriteCreateFactory(
+        DWRITE_FACTORY_TYPE factoryType,
+        REFIID              iid,
+        IUnknown            **factory
+    );
+#endif
 
-    hr = DWriteCreateFactoryPtr(DWRITE_FACTORY_TYPE_SHARED,
-                                &IID_IDWriteFactory,
-                                (IUnknown **) (&dwFactory));
+    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,
+                             &IID_IDWriteFactory,
+                             (IUnknown **) (&dwFactory));
     if (FAILED(hr) || !dwFactory) {
         ass_msg(lib, MSGL_WARN, "Failed to initialize directwrite.");
         dwFactory = NULL;
@@ -796,7 +817,9 @@ ASS_FontProvider *ass_directwrite_add_provider(ASS_Library *lib,
     if (!priv)
         goto cleanup;
 
+#if DESKTOP_API
     priv->directwrite_lib = directwrite_lib;
+#endif
     priv->factory = dwFactory;
     priv->gdi_interop = dwGdiInterop;
 
@@ -813,8 +836,10 @@ cleanup:
         dwGdiInterop->lpVtbl->Release(dwGdiInterop);
     if (dwFactory)
         dwFactory->lpVtbl->Release(dwFactory);
+#if DESKTOP_API
     if (directwrite_lib)
         FreeLibrary(directwrite_lib);
+#endif
 
     return NULL;
 }
