@@ -389,14 +389,17 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
 {
     int i;
 
-    for (i = 0; i < meta->n_family; i++)
-        free(meta->families[i]);
+    if (meta->families) {
+        for (i = 0; i < meta->n_family; i++)
+            free(meta->families[i]);
+        free(meta->families);
+    }
 
-    for (i = 0; i < meta->n_fullname; i++)
-        free(meta->fullnames[i]);
-
-    free(meta->families);
-    free(meta->fullnames);
+    if (meta->fullnames) {
+        for (i = 0; i < meta->n_fullname; i++)
+            free(meta->fullnames[i]);
+        free(meta->fullnames);
+    }
 }
 
 /**
@@ -416,7 +419,40 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     int i;
     int weight, slant, width;
     ASS_FontSelector *selector = provider->parent;
-    ASS_FontInfo *info;
+    ASS_FontInfo *info = NULL;
+    ASS_FontProviderMetaData implicit_meta = {0};
+
+    if (!meta->n_family) {
+        FT_Face face;
+        if (provider->funcs.get_font_index)
+            index = provider->funcs.get_font_index(data);
+        if (!path) {
+            ASS_FontStream stream = {
+                .func = provider->funcs.get_data,
+                .priv = data,
+            };
+            // This name is only used in an error message, so use
+            // our best name but don't panic if we don't have any.
+            // Prefer PostScript name because it is unique.
+            const char *name = meta->postscript_name ?
+                meta->postscript_name : meta->extended_family;
+            face = ass_face_stream(selector->library, selector->ftlibrary,
+                                   name, &stream, index);
+        } else {
+            face = ass_face_open(selector->library, selector->ftlibrary,
+                                 path, meta->postscript_name, index);
+        }
+        if (!face)
+            goto error;
+        if (!get_font_info(selector->ftlibrary, face, meta->extended_family,
+                           &implicit_meta)) {
+            FT_Done_Face(face);
+            goto error;
+        }
+        FT_Done_Face(face);
+        implicit_meta.extended_family = meta->extended_family;
+        meta = &implicit_meta;
+    }
 
 #if 0
     int j;
@@ -516,7 +552,10 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     return true;
 
 error:
-    ass_font_provider_free_fontinfo(info);
+    if (info)
+        ass_font_provider_free_fontinfo(info);
+
+    free_font_info(&implicit_meta);
 
     if (provider->funcs.destroy_font)
         provider->funcs.destroy_font(data);

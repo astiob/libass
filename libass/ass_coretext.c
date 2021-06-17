@@ -126,8 +126,7 @@ static char *get_name(CTFontDescriptorRef fontd, CFStringRef attr)
     return ret;
 }
 
-static bool get_font_info_ct(ASS_FontProvider *provider,
-                             CTFontDescriptorRef fontd,
+static bool get_font_info_ct(CTFontDescriptorRef fontd,
                              char **path_out,
                              ASS_FontProviderMetaData *info)
 {
@@ -139,25 +138,16 @@ static bool get_font_info_ct(ASS_FontProvider *provider,
     }
 
     char *ps_name = get_name(fontd, kCTFontNameAttribute);
+    info->postscript_name = ps_name;
     if (!ps_name)
         return false;
 
     char *family_name = get_name(fontd, kCTFontFamilyNameAttribute);
-    if (!family_name) {
-        free(ps_name);
+    info->extended_family = family_name;
+    if (!family_name)
         return false;
-    }
 
-    bool got_info =
-        ass_get_font_info(provider, path, ps_name, -1, family_name, info);
-    free(ps_name);
-
-    if (got_info)
-        info->extended_family = family_name;
-    else
-        free(family_name);
-
-    return got_info;
+    return true;
 }
 
 static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
@@ -171,19 +161,10 @@ static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
         int index = -1;
 
         char *path = NULL;
-        if (get_font_info_ct(provider, fontd, &path, &meta)) {
+        if (get_font_info_ct(fontd, &path, &meta)) {
             CFRetain(fontd);
             ass_font_provider_add_font(provider, &meta, path, index, (void*)fontd);
         }
-
-        for (int j = 0; j < meta.n_family; j++)
-            free(meta.families[j]);
-
-        for (int j = 0; j < meta.n_fullname; j++)
-            free(meta.fullnames[j]);
-
-        free(meta.families);
-        free(meta.fullnames);
 
         free(meta.postscript_name);
         free(meta.extended_family);
