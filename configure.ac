@@ -147,6 +147,7 @@ AS_IF([test "x$enable_directwrite" != xno], [
     AC_COMPILE_IFELSE([
         AC_LANG_PROGRAM([[#include <windows.h>]], [[;]])
     ], [
+        LIBS="$LIBS -lgdi32"
         AC_DEFINE(CONFIG_DIRECTWRITE, 1, [found DirectWrite])
         directwrite=true
         AC_MSG_RESULT([yes])
