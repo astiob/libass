@@ -126,7 +126,7 @@ static char *get_name(CTFontDescriptorRef fontd, CFStringRef attr)
     return ret;
 }
 
-static bool get_font_info_ct(ASS_Library *lib, FT_Library ftlib,
+static bool get_font_info_ct(ASS_FontProvider *provider,
                              CTFontDescriptorRef fontd,
                              char **path_out,
                              ASS_FontProviderMetaData *info)
@@ -149,7 +149,7 @@ static bool get_font_info_ct(ASS_Library *lib, FT_Library ftlib,
     }
 
     bool got_info =
-        ass_get_font_info(lib, ftlib, path, ps_name, -1, family_name, info);
+        ass_get_font_info(provider, path, ps_name, -1, family_name, info);
     free(ps_name);
 
     if (got_info)
@@ -160,8 +160,7 @@ static bool get_font_info_ct(ASS_Library *lib, FT_Library ftlib,
     return got_info;
 }
 
-static void process_descriptors(ASS_Library *lib, FT_Library ftlib,
-                                ASS_FontProvider *provider, CFArrayRef fontsd)
+static void process_descriptors(ASS_FontProvider *provider, CFArrayRef fontsd)
 {
     if (!fontsd)
         return;
@@ -172,7 +171,7 @@ static void process_descriptors(ASS_Library *lib, FT_Library ftlib,
         int index = -1;
 
         char *path = NULL;
-        if (get_font_info_ct(lib, ftlib, fontd, &path, &meta)) {
+        if (get_font_info_ct(provider, fontd, &path, &meta)) {
             CFRetain(fontd);
             ass_font_provider_add_font(provider, &meta, path, index, (void*)fontd);
         }
@@ -196,8 +195,6 @@ static void process_descriptors(ASS_Library *lib, FT_Library ftlib,
 static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider,
                         char *name)
 {
-    FT_Library ftlib = priv;
-
     CFStringRef cfname =
         CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
     if (!cfname)
@@ -256,7 +253,7 @@ static void match_fonts(void *priv, ASS_Library *lib, ASS_FontProvider *provider
     if (!fontsd)
         goto cleanup;
 
-    process_descriptors(lib, ftlib, provider, fontsd);
+    process_descriptors(provider, fontsd);
 
 cleanup:
     SAFE_CFRelease(fontsd);
@@ -329,5 +326,5 @@ ASS_FontProvider *
 ass_coretext_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
                           const char *config, FT_Library ftlib)
 {
-    return ass_font_provider_new(selector, &coretext_callbacks, ftlib);
+    return ass_font_provider_new(selector, &coretext_callbacks, NULL);
 }

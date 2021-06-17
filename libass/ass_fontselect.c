@@ -891,16 +891,19 @@ error:
     return false;
 }
 
-bool ass_get_font_info(ASS_Library *lib, FT_Library ftlib, const char *path,
+bool ass_get_font_info(ASS_FontProvider *provider, const char *path,
                        const char *postscript_name, int index,
                        const char *fallback_family_name,
                        ASS_FontProviderMetaData *info)
 {
-    FT_Face face = ass_face_open(lib, ftlib, path, postscript_name, index);
+    ASS_FontSelector *selector = provider->parent;
+
+    FT_Face face = ass_face_open(selector->library, selector->ftlibrary,
+                                 path, postscript_name, index);
     if (!face)
         return false;
 
-    bool ret = get_font_info(ftlib, face, fallback_family_name, info);
+    bool ret = get_font_info(selector->ftlibrary, face, fallback_family_name, info);
     if (ret)
         info->postscript_name = strdup(info->postscript_name);
     FT_Done_Face(face);
