@@ -81,6 +81,9 @@ struct font_info {
 };
 
 struct font_selector {
+    ASS_Library *library;
+    FT_Library ftlibrary;
+
     // uid counter
     int uid;
 
@@ -561,7 +564,7 @@ export_font(ASS_FontInfo *font,
 }
 
 static char *
-find_font(ASS_FontSelector *priv, ASS_Library *library,
+find_font(ASS_FontSelector *priv,
           ASS_FontProviderMetaData meta, bool match_extended_family,
           unsigned bold, unsigned italic,
           int *index, char **postscript_name, int *uid, ASS_FontStream *stream,
@@ -641,7 +644,7 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
     return result;
 }
 
-static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
+static char *select_font(ASS_FontSelector *priv,
                          const char *family, bool match_extended_family,
                          unsigned bold, unsigned italic,
                          int *index, char **postscript_name, int *uid,
@@ -670,7 +673,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         meta = default_meta;
     }
 
-    result = find_font(priv, library, meta, match_extended_family,
+    result = find_font(priv, meta, match_extended_family,
                        bold, italic, index, postscript_name, uid,
                        stream, code, &name_match);
 
@@ -683,10 +686,10 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
         // implementations possible.
         for (int i = 0; i < meta.n_fullname; i++) {
             default_provider->funcs.match_fonts(default_provider->priv,
-                                                library, default_provider,
+                                                priv->library, default_provider,
                                                 meta.fullnames[i]);
         }
-        result = find_font(priv, library, meta, match_extended_family,
+        result = find_font(priv, meta, match_extended_family,
                            bold, italic, index, postscript_name, uid,
                            stream, code, &name_match);
     }
@@ -704,7 +707,6 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
 
 /**
  * \brief Find a font. Use default family or path if necessary.
- * \param library ASS library handle
  * \param family font family
  * \param treat_family_as_pattern treat family as fontconfig pattern
  * \param bold font weight value
@@ -713,7 +715,7 @@ static char *select_font(ASS_FontSelector *priv, ASS_Library *library,
  * \param code: the character that should be present in the font, can be 0
  * \return font file path
 */
-char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
+char *ass_font_select(ASS_FontSelector *priv,
                       ASS_Font *font, int *index, char **postscript_name,
                       int *uid, ASS_FontStream *data, uint32_t code)
 {
@@ -724,14 +726,14 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     ASS_FontProvider *default_provider = priv->default_provider;
 
     if (family && *family)
-        res = select_font(priv, library, family, false, bold, italic, index,
+        res = select_font(priv, family, false, bold, italic, index,
                 postscript_name, uid, data, code);
 
     if (!res && priv->family_default) {
-        res = select_font(priv, library, priv->family_default, false, bold,
+        res = select_font(priv, priv->family_default, false, bold,
                 italic, index, postscript_name, uid, data, code);
         if (res)
-            ass_msg(library, MSGL_WARN, "fontselect: Using default "
+            ass_msg(priv->library, MSGL_WARN, "fontselect: Using default "
                     "font family: (%s, %d, %d) -> %s, %d, %s",
                     family, bold, italic, res, *index,
                     *postscript_name ? *postscript_name : "(none)");
@@ -742,10 +744,10 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
         if (!search_family || !*search_family)
             search_family = "Arial";
         char *fallback_family = default_provider->funcs.get_fallback(
-                default_provider->priv, library, search_family, code);
+                default_provider->priv, priv->library, search_family, code);
 
         if (fallback_family) {
-            res = select_font(priv, library, fallback_family, true, bold, italic,
+            res = select_font(priv, fallback_family, true, bold, italic,
                     index, postscript_name, uid, data, code);
             free(fallback_family);
         }
@@ -754,18 +756,19 @@ char *ass_font_select(ASS_FontSelector *priv, ASS_Library *library,
     if (!res && priv->path_default) {
         res = priv->path_default;
         *index = priv->index_default;
-        ass_msg(library, MSGL_WARN, "fontselect: Using default font: "
+        ass_msg(priv->library, MSGL_WARN, "fontselect: Using default font: "
                 "(%s, %d, %d) -> %s, %d, %s", family, bold, italic,
                 priv->path_default, *index,
                 *postscript_name ? *postscript_name : "(none)");
     }
 
     if (res)
-        ass_msg(library, MSGL_INFO,
+        ass_msg(priv->library, MSGL_INFO,
                 "fontselect: (%s, %d, %d) -> %s, %d, %s", family, bold,
                 italic, res, *index, *postscript_name ? *postscript_name : "(none)");
     else
-        ass_msg(library, MSGL_WARN, "fontselect: failed to find any fallback for font: "
+        ass_msg(priv->library, MSGL_WARN,
+                "fontselect: failed to find any fallback for font: "
                 "(%s, %d, %d)", family, bold, italic);
 
     return res;
@@ -927,15 +930,15 @@ static void free_font_info(ASS_FontProviderMetaData *meta)
 /**
  * \brief Process memory font.
  * \param priv private data
- * \param library library object
- * \param ftlibrary freetype library object
- * \param idx index of the processed font in library->fontdata
+ * \param idx index of the processed font in priv->library->fontdata
  *
  * Builds a FontInfo with FreeType and some table reading.
 */
-static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
-                             FT_Library ftlibrary, int idx)
+static void process_fontdata(ASS_FontProvider *priv, int idx)
 {
+    ASS_FontSelector *selector = priv->parent;
+    ASS_Library *library = selector->library;
+
     int rc;
     const char *name = library->fontdata[idx].name;
     const char *data = library->fontdata[idx].data;
@@ -948,7 +951,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         ASS_FontProviderMetaData info;
         FontDataFT *ft;
 
-        rc = FT_New_Memory_Face(ftlibrary, (unsigned char *) data,
+        rc = FT_New_Memory_Face(selector->ftlibrary, (unsigned char *) data,
                                 data_size, face_index, &face);
         if (rc) {
             ass_msg(library, MSGL_WARN, "Error opening memory font '%s'",
@@ -961,7 +964,7 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
         charmap_magic(library, face);
 
         memset(&info, 0, sizeof(ASS_FontProviderMetaData));
-        if (!get_font_info(ftlibrary, face, NULL, &info)) {
+        if (!get_font_info(selector->ftlibrary, face, NULL, &info)) {
             ass_msg(library, MSGL_WARN,
                     "Error getting metadata for embedded font '%s'", name);
             FT_Done_Face(face);
@@ -993,25 +996,24 @@ static void process_fontdata(ASS_FontProvider *priv, ASS_Library *library,
 /**
  * \brief Create font provider for embedded fonts. This parses the fonts known
  * to the current ASS_Library and adds them to the selector.
- * \param lib library
  * \param selector font selector
- * \param ftlib FreeType library - used for querying fonts
  * \return font provider
  */
 static ASS_FontProvider *
-ass_embedded_fonts_add_provider(ASS_Library *lib, ASS_FontSelector *selector,
-                                FT_Library ftlib, size_t *num_emfonts)
+ass_embedded_fonts_add_provider(ASS_FontSelector *selector, size_t *num_emfonts)
 {
     ASS_FontProvider *priv = ass_font_provider_new(selector, &ft_funcs, NULL);
     if (priv == NULL)
         return NULL;
+
+    ASS_Library *lib = selector->library;
 
     if (lib->fonts_dir && lib->fonts_dir[0]) {
         load_fonts_from_dir(lib, lib->fonts_dir);
     }
 
     for (size_t i = 0; i < lib->num_fontdata; i++)
-        process_fontdata(priv, lib, ftlib, i);
+        process_fontdata(priv, i);
     *num_emfonts = lib->num_fontdata;
 
     return priv;
@@ -1054,13 +1056,14 @@ ass_fontselect_init(ASS_Library *library, FT_Library ftlibrary, size_t *num_emfo
     if (priv == NULL)
         return NULL;
 
+    priv->library = library;
+    priv->ftlibrary = ftlibrary;
     priv->uid = 1;
     priv->family_default = family ? strdup(family) : NULL;
     priv->path_default = path ? strdup(path) : NULL;
     priv->index_default = 0;
 
-    priv->embedded_provider = ass_embedded_fonts_add_provider(library, priv,
-            ftlibrary, num_emfonts);
+    priv->embedded_provider = ass_embedded_fonts_add_provider(priv, num_emfonts);
 
     if (priv->embedded_provider == NULL) {
         ass_msg(library, MSGL_WARN, "failed to create embedded font provider");
@@ -1146,13 +1149,13 @@ void ass_map_font(const ASS_FontMapping *map, int len, const char *name,
     }
 }
 
-size_t ass_update_embedded_fonts(ASS_Library *lib, ASS_FontSelector *selector,
-                                 FT_Library ftlib, size_t num_loaded)
+size_t ass_update_embedded_fonts(ASS_FontSelector *selector, size_t num_loaded)
 {
     if (!selector->embedded_provider)
         return num_loaded;
 
+    ASS_Library *lib = selector->library;
     for (size_t i = num_loaded; i < lib->num_fontdata; i++)
-        process_fontdata(selector->embedded_provider, lib, ftlib, i);
+        process_fontdata(selector->embedded_provider, i);
     return lib->num_fontdata;
 }
