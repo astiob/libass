@@ -531,6 +531,36 @@ static bool check_glyph(ASS_FontInfo *fi, uint32_t code)
 }
 
 static char *
+export_font(ASS_FontInfo *font,
+            int *index, char **postscript_name, int *uid, ASS_FontStream *stream)
+{
+    ASS_FontProvider *provider = font->provider;
+
+    *postscript_name = font->postscript_name;
+    *uid   = font->uid;
+
+    // use lazy evaluation for index if applicable
+    if (provider->funcs.get_font_index) {
+        *index = provider->funcs.get_font_index(font->priv);
+    } else
+        *index = font->index;
+
+    // set up memory stream if there is no path
+    if (font->path == NULL) {
+        stream->func = provider->funcs.get_data;
+        stream->priv = font->priv;
+        // Prefer PostScript name because it is unique. This is only
+        // used for display purposes so it doesn't matter that much,
+        // though.
+        if (font->postscript_name)
+            return font->postscript_name;
+        else
+            return font->families[0];
+    } else
+        return font->path;
+}
+
+static char *
 find_font(ASS_FontSelector *priv, ASS_Library *library,
           ASS_FontProviderMetaData meta, bool match_extended_family,
           unsigned bold, unsigned italic,
@@ -604,32 +634,8 @@ find_font(ASS_FontSelector *priv, ASS_Library *library,
     // found anything?
     char *result = NULL;
     if (selected) {
-        ASS_FontProvider *provider = selected->provider;
-
         // successfully matched, set up return values
-        *postscript_name = selected->postscript_name;
-        *uid   = selected->uid;
-
-        // use lazy evaluation for index if applicable
-        if (provider->funcs.get_font_index) {
-            *index = provider->funcs.get_font_index(selected->priv);
-        } else
-            *index = selected->index;
-
-        // set up memory stream if there is no path
-        if (selected->path == NULL) {
-            stream->func = provider->funcs.get_data;
-            stream->priv = selected->priv;
-            // Prefer PostScript name because it is unique. This is only
-            // used for display purposes so it doesn't matter that much,
-            // though.
-            if (selected->postscript_name)
-                result = selected->postscript_name;
-            else
-                result = selected->families[0];
-        } else
-            result = selected->path;
-
+        result = export_font(selected, index, postscript_name, uid, stream);
     }
 
     return result;
