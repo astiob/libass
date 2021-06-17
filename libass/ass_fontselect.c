@@ -420,6 +420,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
         }
         if (!face)
             goto error;
+        free(meta->postscript_name);  // we won't need/trust this any more
         if (!get_font_info(selector->ftlibrary, face, meta->extended_family,
                            &implicit_meta)) {
             FT_Done_Face(face);
