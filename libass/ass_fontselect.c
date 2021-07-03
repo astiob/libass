@@ -93,8 +93,8 @@ struct font_selector {
     int index_default;
 
     // font database
-    int n_font;
-    int alloc_font;
+    size_t n_font;
+    size_t alloc_font;
     ASS_FontInfo *font_infos;
 
     ASS_FontProvider *default_provider;
@@ -555,7 +555,7 @@ error:
  */
 static void ass_fontselect_cleanup(ASS_FontSelector *selector)
 {
-    int i, w;
+    size_t i, w;
 
     for (i = 0, w = 0; i < selector->n_font; i++) {
         ASS_FontInfo *info = selector->font_infos + i;
@@ -576,11 +576,10 @@ static void ass_fontselect_cleanup(ASS_FontSelector *selector)
 
 void ass_font_provider_free(ASS_FontProvider *provider)
 {
-    int i;
     ASS_FontSelector *selector = provider->parent;
 
     // free all fonts and mark their entries
-    for (i = 0; i < selector->n_font; i++) {
+    for (size_t i = 0; i < selector->n_font; i++) {
         ASS_FontInfo *info = selector->font_infos + i;
 
         if (info->provider == provider) {
@@ -736,7 +735,7 @@ find_font(ASS_FontSelector *priv,
     for (int i = 0; i < meta.n_fullname; i++) {
         const char *fullname = meta.fullnames[i];
 
-        for (int x = 0; x < priv->n_font; x++) {
+        for (size_t x = 0; x < priv->n_font; x++) {
             ASS_FontInfo *font = &priv->font_infos[x];
             unsigned score = UINT_MAX;
 
