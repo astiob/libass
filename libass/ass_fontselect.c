@@ -1266,7 +1266,11 @@ static char *select_font(ASS_FontSelector *priv,
     result = find_font(priv, meta, match_extended_family,
                        bold, italic, index, postscript_name, uid,
                        stream, code, &name_match);
-    ass_msg(library, MSGL_INFO, "find_font returned %s", result ? result : "(null)");
+    ass_msg(library, MSGL_INFO,
+        "find_font returned path [%s], index %d, PostScript name [%s]",
+        result ? result : "(null)",
+        *index,
+        *postscript_name ? *postscript_name : "(null)");
 
     // If no matching font was found, it might not exist in the font list
     // yet. Call the match_fonts callback to fill in the missing fonts
@@ -1284,7 +1288,11 @@ static char *select_font(ASS_FontSelector *priv,
         result = find_font(priv, meta, match_extended_family,
                            bold, italic, index, postscript_name, uid,
                            stream, code, &name_match);
-        ass_msg(library, MSGL_INFO, "post-match find_font returned %s", result ? result : "(null)");
+        ass_msg(library, MSGL_INFO,
+            "post-match find_font returned path [%s], index %d, PostScript name [%s]",
+            result ? result : "(null)",
+            *index,
+            *postscript_name ? *postscript_name : "(null)");
     }
 
     // cleanup
