@@ -721,6 +721,17 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
     slant  = FONT_SLANT_ITALIC * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
     weight = ass_face_get_weight(face);
 
+    TT_Header *head = FT_Get_Sfnt_Table(face, FT_SFNT_HEAD);
+    if (head) {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: head table version %g, flags 0x%X, Mac style 0x%X",
+            d16_to_double(head->Table_Version),
+            head->Flags, head->Mac_Style);
+    } else {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: no head table");
+    }
+
     // fill our struct
     info->slant  = slant;
     info->weight = weight;
