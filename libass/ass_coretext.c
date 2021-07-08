@@ -163,12 +163,48 @@ static void process_descriptors(ASS_Library *lib,
     if (!fontsd)
         return;
 
+    CFStringRef attributeKeys[] = {
+        kCTFontURLAttribute,
+        kCTFontNameAttribute,
+        kCTFontDisplayNameAttribute,
+        kCTFontFamilyNameAttribute,
+        kCTFontStyleNameAttribute,
+        kCTFontTraitsAttribute,
+        kCTFontVariationAttribute,
+        kCTFontSizeAttribute,
+        kCTFontMatrixAttribute,
+        kCTFontCascadeListAttribute,
+        kCTFontCharacterSetAttribute,
+        kCTFontLanguagesAttribute,
+        kCTFontBaselineAdjustAttribute,
+        kCTFontMacintoshEncodingsAttribute,
+        kCTFontFeaturesAttribute,
+        kCTFontFeatureSettingsAttribute,
+        kCTFontFixedAdvanceAttribute,
+        kCTFontOrientationAttribute,
+        kCTFontFormatAttribute,
+        kCTFontRegistrationScopeAttribute,
+        kCTFontPriorityAttribute,
+        kCTFontEnabledAttribute,
+        kCTFontDownloadableAttribute,
+        kCTFontDownloadedAttribute,
+    };
+
     for (int i = 0; i < CFArrayGetCount(fontsd); i++) {
         ASS_FontProviderMetaData meta = {0};
         CTFontDescriptorRef fontd = CFArrayGetValueAtIndex(fontsd, i);
         int index = -1;
 
-        CFDictionaryRef attrs = CTFontDescriptorCopyAttributes(fontd);
+        CFMutableDictionaryRef attrs = CFDictionaryCreateMutable(NULL, 0,
+            &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        for (size_t j = 0; j < sizeof attributeKeys / sizeof *attributeKeys; j++) {
+            CFStringRef key = attributeKeys[j];
+            CFTypeRef attr = CTFontDescriptorCopyAttribute(fontd, key);
+            if (attr) {
+                CFDictionarySetValue(attrs, key, attr);
+                CFRelease(attr);
+            }
+        }
         CFStringRef desc = CFCopyDescription(attrs);
         SAFE_CFRelease(attrs);
         char *c_desc = cfstr2buf(desc);
