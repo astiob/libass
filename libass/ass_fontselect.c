@@ -667,8 +667,8 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
     if (os2) {
         ass_msg(library, MSGL_INFO,
-            "get_font_info: OS/2 table version %d, WWS bit %d",
-            os2->version, os2->fsSelection & 256);
+            "get_font_info: OS/2 table version %d, fsSelection 0x%X (WWS bit %d), usWeightClass %d",
+            os2->version, os2->fsSelection, os2->fsSelection & 256, os2->usWeightClass);
     } else {
         ass_msg(library, MSGL_INFO,
             "get_font_info: no OS/2 table");
@@ -716,6 +716,8 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
         goto error;
 
     // calculate sensible slant and weight from style attributes
+    ass_msg(library, MSGL_INFO,
+        "get_font_info: style_flags 0x%lX", face->style_flags);
     slant  = FONT_SLANT_ITALIC * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
     weight = ass_face_get_weight(face);
 
