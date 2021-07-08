@@ -346,8 +346,12 @@ FT_Face ass_face_open(ASS_Library *lib, FT_Library ftlib, const char *path,
 
             const char *face_psname = FT_Get_Postscript_Name(face);
             if (face_psname != NULL &&
-                strcmp(face_psname, postscript_name) == 0)
+                strcmp(face_psname, postscript_name) == 0) {
+                ass_msg(lib, MSGL_INFO,
+                    "ass_face_open: found [%s] at index %d in [%s]",
+                    postscript_name, i, path);
                 return face;
+            }
         }
 
         FT_Done_Face(face);
