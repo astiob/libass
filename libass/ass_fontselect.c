@@ -732,6 +732,78 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
             "get_font_info: no head table");
     }
 
+    TT_HoriHeader *hhea = FT_Get_Sfnt_Table(face, FT_SFNT_HHEA);
+    if (hhea) {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: hhea table version %g, caret slope rise/run %d/%d = %g",
+            d16_to_double(hhea->Version),
+            hhea->caret_Slope_Rise, hhea->caret_Slope_Run,
+            (double) hhea->caret_Slope_Rise / hhea->caret_Slope_Run);
+    } else {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: no hhea table");
+    }
+
+    TT_Postscript *post = FT_Get_Sfnt_Table(face, FT_SFNT_POST);
+    if (head) {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: post table version %g, italicAngle %g",
+            d16_to_double(post->FormatType),
+            d16_to_double(post->italicAngle));
+    } else {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: no post table");
+    }
+
+    TT_PCLT *pclt = FT_Get_Sfnt_Table(face, FT_SFNT_PCLT);
+    if (pclt) {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: PCLT table version %g, style 0x%X (posture %d)",
+            d16_to_double(pclt->Version),
+            pclt->Style, pclt->Style & 3);
+    } else {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: no PCLT table");
+    }
+
+    FT_ULong tag = FT_MAKE_TAG('f', 'o', 'n', 'd');
+    FT_ULong length = 0;
+    if (!FT_Load_Sfnt_Table(face, tag, 0, NULL, &length)) {
+        unsigned char *buffer = malloc(length);
+        if (buffer && !FT_Load_Sfnt_Table(face, tag, 0, buffer, &length)) {
+            int fVersion = buffer[0] << 8 | buffer[1];
+            int fCount_fond = buffer[2] << 8 | buffer[3];
+            int fCount_nfnt = buffer[4] << 8 | buffer[5];
+            ass_msg(library, MSGL_INFO,
+                "get_font_info: fond table version %d, %d FONDs, %d NFNTs",
+                fVersion, fCount_fond, fCount_nfnt);
+            if (fVersion == 2) {
+                unsigned char *p = buffer + 8;
+                for (int i = 0; i < fCount_fond; i++) {
+                    ass_msg(library, MSGL_INFO,
+                        "get_font_info: FOND [%*s], style 0x%X",
+                        p[20], p + 21,
+                        p[6] << 8 | p[7]);
+                    p += 20 + 256;
+                }
+                for (int i = 0; i < fCount_nfnt; i++) {
+                    ass_msg(library, MSGL_INFO,
+                        "get_font_info: NFNT [%*s], style 0x%X",
+                        p[18], p + 19,
+                        p[4] << 8 | p[5]);
+                    p += 18 + 256;
+                }
+            }
+        } else {
+            ass_msg(library, MSGL_INFO,
+                "get_font_info: failed to load fond table");
+        }
+        free(buffer);
+    } else {
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: no fond table");
+    }
+
     // fill our struct
     info->slant  = slant;
     info->weight = weight;
