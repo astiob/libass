@@ -582,6 +582,7 @@ void ass_free_track(ASS_Track *track);
  * \brief Allocate new style.
  * \param track track
  * \return newly allocated style id >= 0, or a value < 0 on failure
+ * See GENERAL NOTE in ass_types.h
  */
 int ass_alloc_style(ASS_Track *track);
 
@@ -589,6 +590,7 @@ int ass_alloc_style(ASS_Track *track);
  * \brief Allocate new event.
  * \param track track
  * \return newly allocated event id >= 0, or a value < 0 on failure
+ * See GENERAL NOTE in ass_types.h
  */
 int ass_alloc_event(ASS_Track *track);
 
@@ -597,6 +599,12 @@ int ass_alloc_event(ASS_Track *track);
  * \param track track
  * \param sid style id
  * Deallocates style data. Does not modify track->n_styles.
+ * Freeing a style without subsequently setting track->n_styles
+ * to a value less than or equal to the freed style id before calling
+ * any other libass API function on the track is undefined behaviour.
+ * Additionally if styles a re freed such that an for an event ev in track->events
+ * ev->Style >= track->n_styles will also result in undefined behaviour.
+ * See GENERAL NOTE in ass_types.h
  */
 void ass_free_style(ASS_Track *track, int sid);
 
@@ -605,6 +613,10 @@ void ass_free_style(ASS_Track *track, int sid);
  * \param track track
  * \param eid event id
  * Deallocates event data. Does not modify track->n_events.
+ * Freeing an event without subsequently setting track->n_events
+ * to a value less than or equal to the freed event id before calling
+ * any other libass API function on the track is undefined behaviour.
+ * See GENERAL NOTE in ass_types.h
  */
 void ass_free_event(ASS_Track *track, int eid);
 
