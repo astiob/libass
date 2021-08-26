@@ -16,5 +16,9 @@ if ENABLE_PROFILE
     profile = profile
 endif
 
-SUBDIRS = libass $(test) $(compare) $(profile)
+if ENABLE_FUZZ
+    fuzz = fuzz
+endif
+
+SUBDIRS = libass $(test) $(compare) $(profile) $(fuzz)
 
