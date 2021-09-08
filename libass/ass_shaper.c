@@ -218,13 +218,19 @@ get_cached_metrics(struct ass_shaper_metrics_data *metrics,
     if (metrics->vertical && unicode >= VERTICAL_LOWER_BOUND)
         rotate = true;
 
+    fprintf(stderr, "cached metrics for glyph %u, rotate=%d: ", glyph, rotate);
     metrics->hash_key.glyph_index = glyph;
     FT_Glyph_Metrics *val = ass_cache_get(metrics->metrics_cache, &metrics->hash_key,
                                           rotate ? metrics : NULL);
-    if (!val)
+    if (!val) {
+        fprintf(stderr, "NULL\n");
         return NULL;
-    if (val->width >= 0)
+    }
+    if (val->width >= 0) {
+        fprintf(stderr, "%p\n", val);
         return val;
+    }
+    fprintf(stderr, "non-NULL value with negative width\n");
     ass_cache_dec_ref(val);
     return NULL;
 }
@@ -238,7 +244,11 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
         | FT_LOAD_IGNORE_TRANSFORM;
 
     FT_Face face = k->font->faces[k->face_index];
-    if (FT_Load_Glyph(face, k->glyph_index, load_flags)) {
+    fprintf(stderr, "[caching glyph metrics for size %f, face %d (%p), glyph %d, rotate %d: ",
+            k->size, k->face_index, (void *) face, k->glyph_index, !!priv);
+    FT_Error error = FT_Load_Glyph(face, k->glyph_index, load_flags);
+    if (error) {
+        fprintf(stderr, "error %d] ", error);
         v->width = -1;
         return 1;
     }
@@ -247,6 +257,7 @@ size_t ass_glyph_metrics_construct(void *key, void *value, void *priv)
 
     if (priv)  // rotate
         v->horiAdvance = v->vertAdvance;
+    fprintf(stderr, "success, horiAdvance=%ld] ", v->horiAdvance);
 
     return 1;
 }
@@ -320,6 +331,7 @@ cached_h_advance(hb_font_t *font, void *font_data, hb_codepoint_t glyph,
         return 0;
 
     hb_position_t advance = metrics->horiAdvance;
+    fprintf(stderr, "returning horiAdvance %d\n", advance);
     ass_cache_dec_ref(metrics);
     return advance;
 }
@@ -642,6 +654,7 @@ shape_harfbuzz_process_run(GlyphInfo *glyphs, hb_buffer_t *buf, int offset)
         info->offset.y    = lrint(-pos[j].y_offset * info->scale_y);
         info->advance.x   = lrint(pos[j].x_advance * info->scale_x);
         info->advance.y   = lrint(-pos[j].y_advance * info->scale_y);
+        fprintf(stderr, "got glyph %d at buffer index %d, total index %u, raw {x_advance=%d, y_advance=%d, x_offset=%d, y_offset=%d}, scale_x=%f, advance {%d,%d}\n", info->glyph_index, j, idx, pos[j].x_advance, pos[j].y_advance, pos[j].x_offset, pos[j].y_offset, info->scale_x, info->advance.x, info->advance.y);
 
         // accumulate advance in the root glyph
         root->cluster_advance.x += info->advance.x;
@@ -692,6 +705,12 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
         props.language  = hb_shaper_get_run_language(shaper, props.script);
         hb_buffer_set_segment_properties(buf, &props);
 
+        fprintf(stderr, "shaping run %d: %d codepoints at offsets [%d,%d], dir %d, script %d, bidi level %d:",
+                run_id, i - offset + 1, offset, i, props.direction, props.script, level);
+        for (int j = 0; j < i - offset + 1; j++) {
+            fprintf(stderr, " %04x", (shaper->event_text + offset)[j]);
+        }
+        fprintf(stderr, "\n");
         set_run_features(shaper, glyphs + offset);
         hb_shape(font, buf, shaper->features, shaper->n_features);
 
