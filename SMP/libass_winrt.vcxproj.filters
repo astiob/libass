@@ -96,6 +96,9 @@
     <ClInclude Include="..\libass\ass_private.h">
       <Filter>Header Files\libass</Filter>
     </ClInclude>
+    <ClInclude Include="..\libass\ass_directwrite_info_template.h">
+      <Filter>Header Files\libass</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\libass\ass_fontconfig.c">
