@@ -4,7 +4,7 @@ AM_CFLAGS = -std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter \
             -D_GNU_SOURCE
 
 LIBASS_LT_CURRENT = 10
-LIBASS_LT_REVISION = 2
+LIBASS_LT_REVISION = 3
 LIBASS_LT_AGE = 1
 
 nasm_verbose = $(nasm_verbose_$(V))
@@ -18,7 +18,7 @@ SRC_INTEL = x86/rasterizer.asm x86/blend_bitmaps.asm x86/be_blur.asm x86/blur.as
             x86/cpuid.h
 
 SRC_FONTCONFIG = ass_fontconfig.c ass_fontconfig.h
-SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h dwrite_c.h
+SRC_DIRECTWRITE = ass_directwrite.c ass_directwrite.h ass_directwrite_info_template.h dwrite_c.h
 SRC_CORETEXT = ass_coretext.c ass_coretext.h
 
 lib_LTLIBRARIES = libass.la

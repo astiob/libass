@@ -1,4 +1,4 @@
-[![Build status](https://api.travis-ci.org/libass/libass.png)](https://travis-ci.org/libass/libass)
+[![Build status](https://github.com/libass/libass/actions/workflows/ghci.yml/badge.svg?branch=master&event=push)](https://github.com/libass/libass/actions/workflows/ghci.yml?query=branch%3Amaster+event%3Apush)
 
 [![Coverity scan build status](https://scan.coverity.com/projects/3531/badge.svg)](https://scan.coverity.com/projects/3531)
 
@@ -8,13 +8,13 @@ libass is a portable subtitle renderer for the ASS/SSA (Advanced Substation Alph
 
 Get it
 ======
-See [GitHub releases](https://github.com/libass/libass/releases) for the latest release 0.15.1 (released 2021-05-01). This is a bug fix release. See the [changelog](https://github.com/libass/libass/blob/master/Changelog) for a detailed list of changes.
+See [GitHub releases](https://github.com/libass/libass/releases) for the latest release 0.15.2 (released 2021-09-12). This is a bug fix release. See the [changelog](https://github.com/libass/libass/blob/master/Changelog) for a detailed list of changes.
 
 Source code is available from our [GitHub repository](https://github.com/libass/libass).
 
 Contact
 =======
-Please use the [issue tracker](https://github.com/libass/libass/issues?state=open) to report bugs or feature requests. We have an IRC channel, too. Talk to us on [irc.freenode.net/#libass](irc://irc.freenode.net/libass).
+Please use the [issue tracker](https://github.com/libass/libass/issues?state=open) to report bugs or feature requests. We have an IRC channel, too. Talk to us on [irc.libera.chat/#libass](irc://irc.libera.chat/libass).
 
 Related Links
 =============
@@ -34,8 +34,9 @@ The following projects/companies use libass:
 - [HandBrake](http://handbrake.fr/)
 - [MX Player](https://play.google.com/store/apps/details?id=com.mxtech.videoplayer.ad)
 - [QMPlay2](http://zaps166.sourceforge.net/?app=QMPlay2)
-- [SubtitlesOctopus](https://github.com/Dador/JavascriptSubtitlesOctopus) (JavaScript ASS via wasm libass)
-  - [Crunchyroll](http://www.crunchyroll.com/)
+- [SubtitlesOctopus](https://github.com/libass/JavascriptSubtitlesOctopus) (JavaScript ASS via wasm libass)
+  - [Crunchyroll](http://www.crunchyroll.com/) uses SubtitlesOctopus
+- [AssRender for Avisynth(+)](http://avisynth.nl/index.php/AssRender)
 
 Information about the ASS format:
 =================================
@@ -55,7 +56,7 @@ Other ASS/SSA implementations:
   - VSFilter in [Guliverkli2](http://sourceforge.net/projects/guliverkli2/) (defunct, subsumed by all of the above)
   - VSFilter in [guliverkli](http://sourceforge.net/projects/guliverkli/) (defunct, forked as Guliverkli2)
 - [ffdshow](http://ffdshow-tryout.sourceforge.net/) (defunct)
-- [Perian](https://github.com/MaddTheSane/perian)
+- [Perian](https://github.com/MaddTheSane/perian) (defunct)
 - [asa](http://git.spaceboyz.net/asa.git) (defunct)
 - [libjass](https://github.com/Arnavion/libjass) (defunct)
 - [ASS.js](https://github.com/weizhenye/ASS)
