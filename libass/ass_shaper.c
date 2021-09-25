@@ -437,15 +437,16 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
     if (!hb_fonts[info->face_index]) {
         FT_Face face = font->faces[info->face_index];
         hb_face_t *hb_face = hb_face_create_for_tables(get_reference_table, face, NULL);
-        if (!hb_face)
+        if (hb_face_is_immutable(hb_face))
             return NULL;
         hb_face_set_index(hb_face, face->face_index);
         hb_face_set_upem(hb_face, face->units_per_EM);
 
-        hb_font_t *hb_font = hb_fonts[info->face_index] = hb_font_create(hb_face);
+        hb_font_t *hb_font = hb_font_create(hb_face);
         hb_face_destroy(hb_face);
-        if (!hb_font)
+        if (hb_font_is_immutable(hb_font))
             return NULL;
+        hb_fonts[info->face_index] = hb_font;
 
         hb_font_set_scale(hb_font,
             (int)(((uint64_t)face->size->metrics.x_scale * face->units_per_EM + (1<<15)) >> 16),
@@ -455,14 +456,18 @@ static hb_font_t *get_hb_font(ASS_Shaper *shaper, GlyphInfo *info)
         struct ass_shaper_metrics_data *metrics =
             font->shaper_priv->metrics_data[info->face_index] =
                 calloc(sizeof(struct ass_shaper_metrics_data), 1);
-        if (!metrics)
+        if (!metrics) {
+            hb_font_destroy(hb_font);
             return NULL;
+        }
         metrics->metrics_cache = shaper->metrics_cache;
         metrics->vertical = info->font->desc.vertical;
 
         hb_font_funcs_t *funcs = hb_font_funcs_create();
-        if (!funcs)
+        if (hb_font_funcs_is_immutable(funcs)) {
+            hb_font_destroy(hb_font);
             return NULL;
+        }
         font->shaper_priv->font_funcs[info->face_index] = funcs;
         hb_font_funcs_set_nominal_glyph_func(funcs, get_glyph_nominal,
                 metrics, NULL);
@@ -660,6 +665,9 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
     hb_buffer_t *buf = hb_buffer_create();
     hb_segment_properties_t props = HB_SEGMENT_PROPERTIES_DEFAULT;
 
+    if (!hb_buffer_allocation_successful(buf))
+        return false;
+
     // Initialize: skip all glyphs, this is undone later as needed
     for (i = 0; i < len; i++)
         glyphs[i].skip = true;
@@ -672,8 +680,10 @@ static bool shape_harfbuzz(ASS_Shaper *shaper, GlyphInfo *glyphs, size_t len)
 
         int offset = i;
         hb_font_t *font = get_hb_font(shaper, glyphs + offset);
-        if (!font)
+        if (!font) {
+            hb_buffer_destroy(buf);
             return false;
+        }
         int run_id = glyphs[offset].shape_run_id;
         int level = shaper->emblevels[offset];
 
