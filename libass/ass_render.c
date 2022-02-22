@@ -2611,10 +2611,9 @@ static void add_background(ASS_Renderer *render_priv, EventImages *event_images)
 }
 
 /**
- * \brief Main ass rendering function, glues everything together
+ * \brief Parse and lay out text, but do not yet rasterize it
  * \param event event to render
  * \param event_images struct containing resulting images, will also be initialized
- * Process event, appending resulting ASS_Image's to images_root.
  */
 static bool
 ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
@@ -2767,15 +2766,19 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         }
     }
 
+    calculate_rotation_params(render_priv, &bbox, device_x, device_y);
+
+    memset(event_images, 0, sizeof(*event_images));
+
     // fix clip coordinates
     if (render_priv->state.explicit || !render_priv->settings.use_margins) {
-        render_priv->state.clip_x0 =
+        event_images->clip_x0 =
             x2scr_pos_scaled(render_priv, render_priv->state.clip_x0);
-        render_priv->state.clip_x1 =
+        event_images->clip_x1 =
             x2scr_pos_scaled(render_priv, render_priv->state.clip_x1);
-        render_priv->state.clip_y0 =
+        event_images->clip_y0 =
             y2scr_pos(render_priv, render_priv->state.clip_y0);
-        render_priv->state.clip_y1 =
+        event_images->clip_y1 =
             y2scr_pos(render_priv, render_priv->state.clip_y1);
 
         if (render_priv->state.explicit) {
@@ -2785,32 +2788,27 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
             double sx = x2scr_pos_scaled(render_priv, render_priv->track->PlayResX);
             double sy = y2scr_pos(render_priv, render_priv->track->PlayResY);
 
-            render_priv->state.clip_x0 = FFMAX(render_priv->state.clip_x0, zx);
-            render_priv->state.clip_y0 = FFMAX(render_priv->state.clip_y0, zy);
-            render_priv->state.clip_x1 = FFMIN(render_priv->state.clip_x1, sx);
-            render_priv->state.clip_y1 = FFMIN(render_priv->state.clip_y1, sy);
+            event_images->clip_x0 = FFMAX(event_images->clip_x0, zx);
+            event_images->clip_y0 = FFMAX(event_images->clip_y0, zy);
+            event_images->clip_x1 = FFMIN(event_images->clip_x1, sx);
+            event_images->clip_y1 = FFMIN(event_images->clip_y1, sy);
         }
     } else {
         // no \clip (explicit==0) and use_margins => only clip to screen with margins
-        render_priv->state.clip_x0 = 0;
-        render_priv->state.clip_y0 = 0;
-        render_priv->state.clip_x1 = render_priv->settings.frame_width;
-        render_priv->state.clip_y1 = render_priv->settings.frame_height;
+        event_images->clip_x0 = 0;
+        event_images->clip_y0 = 0;
+        event_images->clip_x1 = render_priv->settings.frame_width;
+        event_images->clip_y1 = render_priv->settings.frame_height;
     }
 
     if (render_priv->state.evt_type & EVENT_VSCROLL) {
         double y0 = y2scr_pos(render_priv, render_priv->state.scroll_y0);
         double y1 = y2scr_pos(render_priv, render_priv->state.scroll_y1);
 
-        render_priv->state.clip_y0 = FFMAX(render_priv->state.clip_y0, y0);
-        render_priv->state.clip_y1 = FFMIN(render_priv->state.clip_y1, y1);
+        event_images->clip_y0 = FFMAX(event_images->clip_y0, y0);
+        event_images->clip_y1 = FFMIN(event_images->clip_y1, y1);
     }
 
-    calculate_rotation_params(render_priv, &bbox, device_x, device_y);
-
-    render_and_combine_glyphs(render_priv, device_x, device_y);
-
-    memset(event_images, 0, sizeof(*event_images));
     // VSFilter does *not* shift lines with a border > margin to be within the
     // frame, so negative values for top and left may occur
     event_images->top = device_y - text_info->lines[0].asc - text_info->border_top;
@@ -2824,12 +2822,35 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
     event_images->detect_collisions = render_priv->state.detect_collisions;
     event_images->shift_direction = (valign == VALIGN_SUB) ? -1 : 1;
     event_images->event = event;
+    event_images->device_x = device_x;
+    event_images->device_y = device_y;
+    event_images->border_style = render_priv->state.border_style;
+
+    event_images->glyphs = calloc(text_info->length, sizeof(GlyphInfo));
+    if (!event_images->glyphs) {
+        free_render_context(render_priv);
+        return false;
+    }
+    memcpy(event_images->glyphs, text_info->glyphs,
+           text_info->length * sizeof(GlyphInfo));
+    text_info->glyphs = 0;
+
+    return true;
+}
+
+static bool
+ass_rasterize_event(ASS_Renderer *render_priv, ASS_Event *event,
+                    EventImages *event_images)
+{
+    render_and_combine_glyphs(render_priv, event_images->glyphs,
+                              event_images->device_x, event_images->device_y);
+
     event_images->imgs = render_text(render_priv);
 
-    if (render_priv->state.border_style == 4)
+    if (event_images->border_style == 4)
         add_background(render_priv, event_images);
 
-    ass_shaper_cleanup(render_priv->shaper, text_info);
+    ass_shaper_cleanup(render_priv->shaper, event_images->text_info);
     free_render_context(render_priv);
 
     return true;

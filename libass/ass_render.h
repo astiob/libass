@@ -85,6 +85,11 @@ typedef struct {
     int detect_collisions;
     int shift_direction;
     ASS_Event *event;
+    GlyphInfo *glyphs;
+    int length;
+    double device_x, device_y;
+    int clip_x0, clip_y0, clip_x1, clip_y1;
+    int border_style;
 } EventImages;
 
 typedef enum {
