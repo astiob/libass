@@ -470,6 +470,7 @@ size_t ass_font_construct(void *key, void *value, void *priv)
     font->shaper_priv = NULL;
     font->n_faces = 0;
     font->desc.family = desc->family;
+    font->desc.locale = desc->locale;
     font->desc.bold = desc->bold;
     font->desc.italic = desc->italic;
     font->desc.vertical = desc->vertical;

@@ -1008,6 +1008,8 @@ void reset_render_context(ASS_Renderer *render_priv, ASS_Style *style)
 
     render_priv->state.family.str = style->FontName;
     render_priv->state.family.len = strlen(style->FontName);
+    render_priv->state.locale.str = render_priv->track->Language;
+    render_priv->state.family.len = render_priv->track->Language ? strlen(render_priv->track->Language) : 0;
     render_priv->state.treat_family_as_pattern = style->treat_fontname_as_pattern;
     render_priv->state.bold = style->Bold;
     render_priv->state.italic = style->Italic;

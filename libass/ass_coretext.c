@@ -248,7 +248,8 @@ cleanup:
 }
 
 static char *get_fallback(void *priv, ASS_Library *lib,
-                          const char *family, uint32_t codepoint)
+                          const char *family, uint32_t codepoint,
+                          const char *locale)
 {
     CFStringRef name = CFStringCreateWithCString(0, family, kCFStringEncodingUTF8);
     if (!name)
@@ -269,9 +270,12 @@ static char *get_fallback(void *priv, ASS_Library *lib,
         return NULL;
     }
 
-    CTFontRef fb = CTFontCreateForString(font, r, CFRangeMake(0, 1));
+    CFStringRef locStr = locale ? CFStringCreateWithCString(NULL, locale, kCFStringEncodingUTF8) : NULL;
+    CTFontRef fb = CTFontCreateForStringWithLanguage(font, r, CFRangeMake(0, 1), locStr);
     CFRelease(font);
     CFRelease(r);
+    if (locStr)
+        CFRelease(locStr);
     if (!fb)
         return NULL;
 
