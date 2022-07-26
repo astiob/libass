@@ -1462,6 +1462,11 @@ get_bitmap_glyph(ASS_Renderer *render_priv, GlyphInfo *info,
         *pos = *pos_o;
 }
 
+static inline size_t outline_size(const ASS_Outline* outline)
+{
+    return sizeof(ASS_Vector) * outline->n_points + outline->n_segments;
+}
+
 size_t ass_bitmap_construct(void *key, void *value, void *priv)
 {
     ASS_Renderer *render_priv = priv;
@@ -1485,7 +1490,8 @@ size_t ass_bitmap_construct(void *key, void *value, void *priv)
     outline_free(&outline[0]);
     outline_free(&outline[1]);
 
-    return sizeof(BitmapHashKey) + sizeof(Bitmap) + bitmap_size(bm);
+    return sizeof(BitmapHashKey) + sizeof(Bitmap) + bitmap_size(bm) +
+           sizeof(OutlineHashValue) + outline_size(&k->outline->outline[0]) + outline_size(&k->outline->outline[1]);
 }
 
 static void measure_text_on_eol(ASS_Renderer *render_priv, double scale, int cur_line,
