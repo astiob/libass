@@ -45,7 +45,7 @@ struct ass_font {
     int faces_uid[ASS_FONT_MAX_FACES];
     FT_Face faces[ASS_FONT_MAX_FACES];
     ASS_ShaperFontData *shaper_priv;
-    int n_faces;
+    ASSAtomicInt n_faces;
     double size;
 };
 
