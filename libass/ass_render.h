@@ -20,6 +20,8 @@
 #ifndef LIBASS_RENDER_H
 #define LIBASS_RENDER_H
 
+#include "ass_compat.h"
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include <fribidi.h>
@@ -77,6 +79,8 @@ typedef struct {
 
     char *default_font;
     char *default_family;
+
+    int threads;
 } ASS_Settings;
 
 // a rendered event
@@ -339,6 +343,21 @@ struct ass_renderer {
     const BitmapEngine *engine;
 
     ASS_Style user_override_style;
+
+#if ENABLE_THREADS
+    ASSMutex mutex;
+    int mutex_inited;
+    ASSCond main_cond, pool_cond;
+    int main_cond_inited, pool_cond_inited;
+
+    unsigned n_threads, started_threads;
+    ASSThread *threads;
+
+    int thread_start_failed;
+
+    int shutting_down;
+    int processing_eimgs, sent_eimgs, next_eimg, got_eimgs;
+#endif
 };
 
 typedef struct render_priv {
