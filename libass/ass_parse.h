@@ -30,7 +30,7 @@
 
 void ass_update_font(RenderContext *render_priv);
 void ass_apply_transition_effects(RenderContext *render_priv);
-void ass_process_karaoke_effects(ASS_Renderer *render_priv);
+void ass_process_karaoke_effects(RenderContext *state);
 unsigned ass_get_next_char(RenderContext *state, char **str);
 char *ass_parse_tags(RenderContext *render_priv, char *p, char *end, double pwr,
                      bool nested);
