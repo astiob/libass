@@ -57,8 +57,6 @@ typedef struct {
 } ASS_ImagePriv;
 
 typedef struct {
-    int frame_width;
-    int frame_height;
     int storage_width;          // video width before any rescaling
     int storage_height;         // video height before any rescaling
     double font_size_coeff;     // font size multiplier

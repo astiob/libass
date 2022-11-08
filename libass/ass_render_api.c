@@ -31,11 +31,9 @@ static void ass_reconfigure(ASS_Renderer *priv)
     ass_cache_empty(priv->cache.bitmap_cache);
     ass_cache_empty(priv->cache.outline_cache);
 
-    priv->width = settings->frame_width;
-    priv->height = settings->frame_height;
-    priv->frame_content_width = settings->frame_width - settings->left_margin -
+    priv->frame_content_width = priv->width - settings->left_margin -
         settings->right_margin;
-    priv->frame_content_height = settings->frame_height - settings->top_margin -
+    priv->frame_content_height = priv->height - settings->top_margin -
         settings->bottom_margin;
     priv->fit_width =
         (long long) priv->frame_content_width * priv->height >=
@@ -53,9 +51,9 @@ void ass_set_frame_size(ASS_Renderer *priv, int w, int h)
 {
     if (w < 0 || h < 0)
         w = h = 0;
-    if (priv->settings.frame_width != w || priv->settings.frame_height != h) {
-        priv->settings.frame_width = w;
-        priv->settings.frame_height = h;
+    if (priv->width != w || priv->height != h) {
+        priv->width = w;
+        priv->height = h;
         ass_reconfigure(priv);
     }
 }

@@ -2951,8 +2951,8 @@ ass_render_event(ASS_Renderer *render_priv, ASS_Event *event,
         // no \clip (explicit==0) and use_margins => only clip to screen with margins
         render_priv->state.clip_x0 = 0;
         render_priv->state.clip_y0 = 0;
-        render_priv->state.clip_x1 = render_priv->settings.frame_width;
-        render_priv->state.clip_y1 = render_priv->settings.frame_height;
+        render_priv->state.clip_x1 = render_priv->width;
+        render_priv->state.clip_y1 = render_priv->height;
     }
 
     if (render_priv->state.evt_type & EVENT_VSCROLL) {
@@ -3009,8 +3009,8 @@ static bool
 ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
                 long long now)
 {
-    if (!render_priv->settings.frame_width
-        && !render_priv->settings.frame_height)
+    if (!render_priv->width
+        && !render_priv->height)
         return false;               // library not initialized
 
     if (!render_priv->fontselect)
