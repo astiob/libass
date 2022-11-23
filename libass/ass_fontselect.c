@@ -938,6 +938,7 @@ ass_font_provider_add_font(ASS_FontProvider *provider,
     ass_msg(lib, MSGL_INFO, "  weight: %d", meta->weight);
     ass_msg(lib, MSGL_INFO, "  width: %d", meta->width);
     ass_msg(lib, MSGL_INFO, "  postscript_name: %s", meta->postscript_name);
+    ass_msg(lib, MSGL_INFO, "  is_postscript: %d", provider->funcs.check_postscript ? provider->funcs.check_postscript(data) : meta->is_postscript);
 #endif
 
     weight = meta->weight;
