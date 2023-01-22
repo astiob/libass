@@ -801,18 +801,18 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
     if (!FT_Load_Sfnt_Table(face, tag, 0, NULL, &length)) {
         unsigned char *buffer = malloc(length);
         if (buffer && !FT_Load_Sfnt_Table(face, tag, 0, buffer, &length)) {
-            int fVersion = buffer[0] << 8 | buffer[1];
-            int fCount_fond = buffer[2] << 8 | buffer[3];
-            int fCount_nfnt = buffer[4] << 8 | buffer[5];
+            uint16_t fVersion = (uint16_t) buffer[0] << 8 | buffer[1];
+            uint16_t fCount_fond = (uint16_t) buffer[2] << 8 | buffer[3];
+            uint16_t fCount_nfnt = (uint16_t) buffer[4] << 8 | buffer[5];
             ass_msg(library, MSGL_INFO,
                 "get_font_info: fond table version %d, %d FONDs, %d NFNTs",
                 fVersion, fCount_fond, fCount_nfnt);
 
             if (fVersion == 2) {
                 unsigned char *p = buffer + 8;
-                for (int i = 0; i < fCount_fond; i++) {
-                    int fScript = p[8] << 8 | p[9];
-                    int fLanguage = p[10] << 8 | p[11];
+                for (uint16_t i = 0; i < fCount_fond; i++) {
+                    int16_t fScript = p[8] << 8 | p[9];
+                    int16_t fLanguage = p[10] << 8 | p[11];
 
                     struct name_encoding encoding_buffer = NAME_ENCODING_INIT;
                     identify_mac_encoding(&encoding_buffer, fScript, fLanguage);
@@ -827,9 +827,9 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                     p += 20 + 256;
                 }
 
-                for (int i = 0; i < fCount_nfnt; i++) {
-                    int fScript = p[6] << 8 | p[7];
-                    int fLanguage = p[8] << 8 | p[9];
+                for (uint16_t i = 0; i < fCount_nfnt; i++) {
+                    int16_t fScript = p[6] << 8 | p[7];
+                    int16_t fLanguage = p[8] << 8 | p[9];
 
                     struct name_encoding encoding_buffer = NAME_ENCODING_INIT;
                     identify_mac_encoding(&encoding_buffer, fScript, fLanguage);
