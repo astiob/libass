@@ -624,15 +624,7 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                     goto error;
                 num_family++;
             }
-        } else if (name.name_id == TT_NAME_ID_FONT_FAMILY ||
-                name.name_id == TT_NAME_ID_FONT_SUBFAMILY ||
-                name.name_id == TT_NAME_ID_FULL_NAME ||
-                name.name_id == TT_NAME_ID_PS_NAME ||
-                name.name_id == TT_NAME_ID_PREFERRED_FAMILY ||
-                name.name_id == TT_NAME_ID_PREFERRED_SUBFAMILY ||
-                name.name_id == TT_NAME_ID_MAC_FULL_NAME ||
-                name.name_id == TT_NAME_ID_WWS_FAMILY ||
-                name.name_id == TT_NAME_ID_WWS_SUBFAMILY) {
+        } else {
             char buf[1024] = "(conversion failed)";
             if (name.platform_id == TT_PLATFORM_APPLE_UNICODE ||
                     name.platform_id == TT_PLATFORM_ISO ||
