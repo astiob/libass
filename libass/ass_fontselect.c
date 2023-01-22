@@ -251,6 +251,118 @@ static void ass_font_provider_free_fontinfo(ASS_FontInfo *info)
         free(info->extended_family);
 }
 
+struct name_encoding {
+#ifdef CONFIG_CORETEXT
+    CFStringEncoding cfencoding;
+#define CFENCODING(x) encoding->cfencoding = x
+#define CFENCODING_INIT .cfencoding = kCFStringEncodingInvalidId,
+#else
+#define CFENCODING(x)
+#define CFENCODING_INIT
+#endif
+
+#ifdef _WIN32
+    UINT win32_code_page;
+#define WIN32_CODE_PAGE(x) encoding->win32_code_page = x
+#define WIN32_CODE_PAGE_INIT .win32_code_page = -1,
+#else
+#define WIN32_CODE_PAGE(x)
+#define WIN32_CODE_PAGE_INIT
+#endif
+
+#ifdef CONFIG_ICONV
+#define MAX_ICONV_FROMCODES 4
+    const char *iconv_fromcode[MAX_ICONV_FROMCODES];
+    size_t n_iconv_fromcode;
+#define ICONV_FROMCODE(x) \
+    (assert(encoding->n_iconv_fromcode < MAX_ICONV_FROMCODES), \
+     encoding->iconv_fromcode[encoding->n_iconv_fromcode++] = x)
+#define ICONV_FROMCODE_INIT .iconv_fromcode = {0}, .n_iconv_fromcode = 0,
+#else
+#define ICONV_FROMCODE(x)
+#define ICONV_FROMCODE_INIT
+#endif
+};
+
+#define NAME_ENCODING_INIT { \
+    CFENCODING_INIT \
+    WIN32_CODE_PAGE_INIT \
+    ICONV_FROMCODE_INIT \
+}
+
+static void decode_name(const struct name_encoding *encoding,
+                        const unsigned char *string, size_t string_len,
+                        char *buf, size_t buf_size)
+{
+    bool decode_attempted = false;
+
+#ifdef CONFIG_CORETEXT
+    if (!decode_attempted && encoding->cfencoding != kCFStringEncodingInvalidId) {
+        decode_attempted = true;
+        CFStringRef cfname =
+            CFStringCreateWithBytes(
+                NULL, string, string_len,
+                encoding->cfencoding, false);
+        if (cfname) {
+            if (!CFStringGetCString(cfname, buf, buf_size,
+                                    kCFStringEncodingUTF8))
+                strcpy(buf, "(conversion failed)");
+            CFRelease(cfname);
+        }
+    }
+#endif
+
+#ifdef _WIN32
+    if (!decode_attempted && encoding->win32_code_page != -1u) {
+        decode_attempted = true;
+        int size =
+            MultiByteToWideChar(encoding->win32_code_page, 0,
+                                (const char *)string,
+                                string_len, NULL, 0);
+        if (size) {
+            WCHAR *wbuf = calloc(size, sizeof(WCHAR));
+            if (wbuf) {
+                MultiByteToWideChar(encoding->win32_code_page, 0,
+                                    (const char *)string,
+                                    string_len, wbuf, size);
+                memset(buf, 0, buf_size);
+                WideCharToMultiByte(CP_UTF8, 0, wbuf,
+                                    size, buf, buf_size - 1,
+                                    NULL, NULL);
+                free(wbuf);
+            }
+        }
+    }
+#endif
+
+#ifdef CONFIG_ICONV
+    size_t n_iconv_fromcode = encoding->n_iconv_fromcode;
+    while (!decode_attempted && n_iconv_fromcode--) {
+        iconv_t icdsc = iconv_open("UTF-8", encoding->iconv_fromcode[n_iconv_fromcode]);
+        if (icdsc != (iconv_t)-1) {
+            decode_attempted = true;
+            char *inbuf = (char *)string;
+            size_t inbytesleft = string_len;
+            char *outbuf = buf;
+            size_t outbytesleft = buf_size - 1;
+            if (iconv(icdsc, &inbuf, &inbytesleft, &outbuf, &outbytesleft) != (size_t)-1)
+                *outbuf = '\0';
+            else if (errno == E2BIG)
+                *outbuf = '\0';
+            else
+                strcpy(buf, "(conversion failed)");
+            iconv_close(icdsc);
+        }
+    }
+#endif
+
+    if (!decode_attempted) {
+        strncpy(buf, (const char *)string,
+                FFMIN(buf_size, string_len));
+        buf[buf_size - 1] = '\0';
+    }
+}
+
 /**
  * \brief Read basic metadata (names, weight, slant) from a FreeType face,
  * as required for the FontSelector for matching and sorting.
@@ -329,32 +441,7 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                 ass_utf16be_to_utf8(buf, sizeof(buf), (uint8_t *)name.string,
                                     name.string_len);
             } else {
-                bool decode_attempted = false;
-
-#ifdef CONFIG_CORETEXT
-                CFStringEncoding cfencoding = kCFStringEncodingInvalidId;
-#define CFENCODING(x) cfencoding = x
-#else
-#define CFENCODING(x)
-#endif
-
-#ifdef _WIN32
-                UINT win32_code_page = -1;
-#define WIN32_CODE_PAGE(x) win32_code_page = x
-#else
-#define WIN32_CODE_PAGE(x)
-#endif
-
-#ifdef CONFIG_ICONV
-                enum { MAX_ICONV_FROMCODES = 4 };
-                const char *iconv_fromcode[MAX_ICONV_FROMCODES] = {0};
-                size_t n_iconv_fromcode = 0;
-#define ICONV_FROMCODE(x) \
-    (assert(n_iconv_fromcode < MAX_ICONV_FROMCODES), \
-     iconv_fromcode[n_iconv_fromcode++] = x)
-#else
-#define ICONV_FROMCODE(x)
-#endif
+                struct name_encoding encoding_buffer = NAME_ENCODING_INIT, *encoding = &encoding_buffer;
 
                 if (name.platform_id == TT_PLATFORM_MACINTOSH) {
                     switch (name.encoding_id) {
@@ -569,70 +656,7 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                     name.string_len = w;
                 }
 
-#ifdef CONFIG_CORETEXT
-                if (!decode_attempted && cfencoding != kCFStringEncodingInvalidId) {
-                    decode_attempted = true;
-                    CFStringRef cfname =
-                        CFStringCreateWithBytes(
-                            NULL, name.string, name.string_len,
-                            cfencoding, false);
-                    if (cfname) {
-                        if (!CFStringGetCString(cfname, buf, sizeof(buf),
-                                                kCFStringEncodingUTF8))
-                            strcpy(buf, "(conversion failed)");
-                        CFRelease(cfname);
-                    }
-                }
-#endif
-
-#ifdef _WIN32
-                if (!decode_attempted && win32_code_page != -1u) {
-                    decode_attempted = true;
-                    int size =
-                        MultiByteToWideChar(win32_code_page, 0,
-                                            (const char *)name.string,
-                                            name.string_len, NULL, 0);
-                    if (size) {
-                        WCHAR *wbuf = calloc(size, sizeof(WCHAR));
-                        if (wbuf) {
-                            MultiByteToWideChar(win32_code_page, 0,
-                                                (const char *)name.string,
-                                                name.string_len, wbuf, size);
-                            memset(buf, 0, sizeof(buf));
-                            WideCharToMultiByte(CP_UTF8, 0, wbuf,
-                                                size, buf, sizeof(buf) - 1,
-                                                NULL, NULL);
-                            free(wbuf);
-                        }
-                    }
-                }
-#endif
-
-#ifdef CONFIG_ICONV
-                while (!decode_attempted && n_iconv_fromcode--) {
-                    iconv_t icdsc = iconv_open("UTF-8", iconv_fromcode[n_iconv_fromcode]);
-                    if (icdsc != (iconv_t)-1) {
-                        decode_attempted = true;
-                        char *inbuf = (char *)name.string;
-                        size_t inbytesleft = name.string_len;
-                        char *outbuf = buf;
-                        size_t outbytesleft = sizeof(buf) - 1;
-                        if (iconv(icdsc, &inbuf, &inbytesleft, &outbuf, &outbytesleft) != (size_t)-1)
-                            *outbuf = '\0';
-                        else if (errno == E2BIG)
-                            *outbuf = '\0';
-                        else
-                            strcpy(buf, "(conversion failed)");
-                        iconv_close(icdsc);
-                    }
-                }
-#endif
-
-                if (!decode_attempted) {
-                    strncpy(buf, (const char *)name.string,
-                            FFMIN(sizeof(buf), name.string_len));
-                    buf[sizeof(buf) - 1] = '\0';
-                }
+                decode_name(encoding, name.string, name.string_len, buf, sizeof buf);
             }
             const char *platform_name = NULL;
             const char *format =
