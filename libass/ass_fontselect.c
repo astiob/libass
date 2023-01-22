@@ -544,6 +544,27 @@ static void decode_name(const struct name_encoding *encoding,
     }
 }
 
+static void stringify_flag_enum(char *output, unsigned long flags, const char *const *names)
+{
+    strcpy(output, " (");
+
+    for (; flags && *names; flags >>= 1, names++) {
+        if (flags & 1) {
+            strcat(output, *names);
+            strcat(output, ",");
+        }
+    }
+
+    if (flags) {
+        strcat(output, "...,");
+    }
+
+    if (output[2])
+        strchr(output, '\0')[-1] = ')';
+    else
+        output[0] = '\0';
+}
+
 /**
  * \brief Read basic metadata (names, weight, slant) from a FreeType face,
  * as required for the FontSelector for matching and sorting.
@@ -696,9 +717,24 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
 
     TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
     if (os2) {
+        const char *const fsSelection_names[] = {
+            "ITALIC",
+            "UNDERSCORE",
+            "NEGATIVE",
+            "OUTLINED",
+            "STRIKEOUT",
+            "BOLD",
+            "REGULAR",
+            "USE_TYPO_METRICS",
+            "WWS",
+            "OBLIQUE",
+            NULL,
+        };
+        char fsSelection_explained[256];
+        stringify_flag_enum(fsSelection_explained, os2->fsSelection, fsSelection_names);
         ass_msg(library, MSGL_INFO,
-            "get_font_info: OS/2 table version %d, fsSelection 0x%X (WWS bit %d), usWeightClass %d",
-            os2->version, os2->fsSelection, os2->fsSelection & 256, os2->usWeightClass);
+            "get_font_info: OS/2 table version %d, fsSelection 0x%X%s, usWeightClass %d",
+            os2->version, os2->fsSelection, fsSelection_explained, os2->usWeightClass);
     } else {
         ass_msg(library, MSGL_INFO,
             "get_font_info: no OS/2 table");
@@ -746,17 +782,38 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
         goto error;
 
     // calculate sensible slant and weight from style attributes
-    ass_msg(library, MSGL_INFO,
-        "get_font_info: style_flags 0x%lX", face->style_flags);
+    {
+        const char *const style_flag_names[] = {
+            "ITALIC",
+            "BOLD",
+            NULL,
+        };
+        char style_flags_explained[256];
+        stringify_flag_enum(style_flags_explained, face->style_flags, style_flag_names);
+        ass_msg(library, MSGL_INFO,
+            "get_font_info: style_flags 0x%lX%s", face->style_flags, style_flags_explained);
+    }
     slant  = FONT_SLANT_ITALIC * !!(face->style_flags & FT_STYLE_FLAG_ITALIC);
     weight = ass_face_get_weight(face);
 
     TT_Header *head = FT_Get_Sfnt_Table(face, FT_SFNT_HEAD);
     if (head) {
+        const char *const style_names[] = {
+            "bold",
+            "italic",
+            "underline",
+            "outline",
+            "shadow",
+            "condensed",
+            "extended",
+            NULL,
+        };
+        char style_explained[256];
+        stringify_flag_enum(style_explained, head->Mac_Style, style_names);
         ass_msg(library, MSGL_INFO,
-            "get_font_info: head table version %g, flags 0x%X, Mac style 0x%X",
+            "get_font_info: head table version %g, flags 0x%X, Mac style 0x%X%s",
             d16_to_double(head->Table_Version),
-            head->Flags, head->Mac_Style);
+            head->Flags, head->Mac_Style, style_explained);
     } else {
         ass_msg(library, MSGL_INFO,
             "get_font_info: no head table");
