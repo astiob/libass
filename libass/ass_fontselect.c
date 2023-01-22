@@ -597,6 +597,36 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
         if (FT_Get_Sfnt_Name(face, i, &name))
             continue;
 
+        const char *const name_names[] = {
+            " (COPYRIGHT)",
+            " (FONT_FAMILY)",
+            " (FONT_SUBFAMILY)",
+            " (UNIQUE_ID)",
+            " (FULL_NAME)",
+            " (VERSION_STRING)",
+            " (PS_NAME)",
+            " (TRADEMARK)",
+            " (MANUFACTURER)",
+            " (DESIGNER)",
+            " (DESCRIPTION)",
+            " (VENDOR_URL)",
+            " (DESIGNER_URL)",
+            " (LICENSE)",
+            " (LICENSE_URL)",
+            NULL,
+            " (TYPOGRAPHIC_FAMILY)",
+            " (TYPOGRAPHIC_SUBFAMILY)",
+            " (MAC_FULL_NAME)",
+            " (SAMPLE_TEXT)",
+            " (CID_FINDFONT_NAME)",
+            " (WWS_FAMILY)",
+            " (WWS_SUBFAMILY)",
+            " (LIGHT_BACKGROUND)",
+            " (DARK_BACKGROUND)",
+            " (VARIATIONS_PREFIX)",
+        };
+#define NAME_NAME(name_id) ((name_id) < sizeof name_names / sizeof *name_names && name_names[(name_id)] ? name_names[(name_id)] : "")
+
         if (name.platform_id == TT_PLATFORM_MICROSOFT &&
                 (name.name_id == TT_NAME_ID_FULL_NAME ||
                  name.name_id == TT_NAME_ID_FONT_FAMILY) &&
@@ -608,8 +638,8 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                                 name.string_len);
 
             ass_msg(library, MSGL_INFO,
-                "get_font_info: platform_id=Microsoft, name_id=%d, encoding_id=%d, language_id=0x%04X, name=[%s]",
-                name.name_id, name.encoding_id, name.language_id, buf);
+                "get_font_info: platform_id=Microsoft, name_id=%d%s, encoding_id=%d, language_id=0x%04X, name=[%s]",
+                name.name_id, NAME_NAME(name.name_id), name.encoding_id, name.language_id, buf);
 
             if (name.name_id == TT_NAME_ID_FULL_NAME && num_fullname < MAX_FULLNAME) {
                 fullnames[num_fullname] = strdup(buf);
@@ -679,11 +709,11 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
             }
             const char *platform_name = NULL;
             const char *format =
-                "get_font_info: platform_id=%s, name_id=%d, encoding_id=%d, language_id=%d, name=[%s]";
+                "get_font_info: platform_id=%s, name_id=%d%s, encoding_id=%d, language_id=%d, name=[%s]";
             switch (name.platform_id) {
                 case TT_PLATFORM_MICROSOFT:
                     platform_name = "Microsoft";
-                    format = "get_font_info: platform_id=%s, name_id=%d, encoding_id=%d, language_id=0x%04X, name=[%s]";
+                    format = "get_font_info: platform_id=%s, name_id=%d%s, encoding_id=%d, language_id=0x%04X, name=[%s]";
                     break;
                 case TT_PLATFORM_APPLE_UNICODE:
                     platform_name = "Unicode";
@@ -694,11 +724,11 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
             }
             if (platform_name)
                 ass_msg(library, MSGL_INFO, format,
-                    platform_name, name.name_id, name.encoding_id, name.language_id, buf);
+                    platform_name, name.name_id, NAME_NAME(name.name_id), name.encoding_id, name.language_id, buf);
             else
                 ass_msg(library, MSGL_INFO,
-                    "get_font_info: platform_id=%d, name_id=%d, encoding_id=%d, language_id=%d, name=[%s]",
-                    name.platform_id, name.name_id, name.encoding_id, name.language_id, buf);
+                    "get_font_info: platform_id=%d, name_id=%d%s, encoding_id=%d, language_id=%d, name=[%s]",
+                    name.platform_id, name.name_id, NAME_NAME(name.name_id), name.encoding_id, name.language_id, buf);
         }
 
     }
