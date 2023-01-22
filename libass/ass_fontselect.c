@@ -824,6 +824,19 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
                         "get_font_info: FOND [%s], style 0x%X",
                         buf,
                         p[6] << 8 | p[7]);
+
+                    uint32_t fOffset = (uint32_t) p[12] << 24 | (uint32_t) p[13] << 16 | (uint32_t) p[14] << 8 | p[15];
+                    unsigned char *q = buffer + fOffset;
+                    uint32_t fNumMappings = (uint32_t) q[0] << 24 | (uint32_t) q[1] << 16 | (uint32_t) q[2] << 8 | q[3];
+                    q += 4;
+                    for (uint32_t j = 0; j < fNumMappings; j++) {
+                        int32_t fResourceID = (int32_t) q[0] << 24 | (int32_t) q[1] << 16 | (int32_t) q[2] << 8 | q[3];
+                        ass_msg(library, MSGL_INFO,
+                            "get_font_info: \\-> references font [%.*s] as resource %" PRId32,
+                            62, q + 4, fResourceID);
+                        q += 4 + 62;
+                    }
+
                     p += 20 + 256;
                 }
 
