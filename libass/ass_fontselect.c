@@ -807,19 +807,39 @@ get_font_info(ASS_Library *library, FT_Library lib, FT_Face face, const char *fa
             ass_msg(library, MSGL_INFO,
                 "get_font_info: fond table version %d, %d FONDs, %d NFNTs",
                 fVersion, fCount_fond, fCount_nfnt);
+
             if (fVersion == 2) {
                 unsigned char *p = buffer + 8;
                 for (int i = 0; i < fCount_fond; i++) {
+                    int fScript = p[8] << 8 | p[9];
+                    int fLanguage = p[10] << 8 | p[11];
+
+                    struct name_encoding encoding_buffer = NAME_ENCODING_INIT;
+                    identify_mac_encoding(&encoding_buffer, fScript, fLanguage);
+
+                    char buf[1024] = "(conversion failed)";
+                    decode_name(&encoding_buffer, p + 21, p[20], buf, sizeof buf);
+
                     ass_msg(library, MSGL_INFO,
-                        "get_font_info: FOND [%*s], style 0x%X",
-                        p[20], p + 21,
+                        "get_font_info: FOND [%s], style 0x%X",
+                        buf,
                         p[6] << 8 | p[7]);
                     p += 20 + 256;
                 }
+
                 for (int i = 0; i < fCount_nfnt; i++) {
+                    int fScript = p[6] << 8 | p[7];
+                    int fLanguage = p[8] << 8 | p[9];
+
+                    struct name_encoding encoding_buffer = NAME_ENCODING_INIT;
+                    identify_mac_encoding(&encoding_buffer, fScript, fLanguage);
+
+                    char buf[1024] = "(conversion failed)";
+                    decode_name(&encoding_buffer, p + 19, p[18], buf, sizeof buf);
+
                     ass_msg(library, MSGL_INFO,
-                        "get_font_info: NFNT [%*s], style 0x%X",
-                        p[18], p + 19,
+                        "get_font_info: NFNT [%s], style 0x%X",
+                        buf,
                         p[4] << 8 | p[5]);
                     p += 18 + 256;
                 }
