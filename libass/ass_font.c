@@ -531,6 +531,20 @@ int ass_face_get_weight(FT_Face face)
     }
 }
 
+uint16_t ass_face_get_fsSelection(FT_Face face)
+{
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, FT_SFNT_OS2);
+    if (os2)
+        return os2->fsSelection;
+
+    // Simulate based on FT-provided values
+    uint16_t ret = (face->style_flags & FT_STYLE_FLAG_ITALIC) ? 1 : 0;
+    if (face->style_flags & FT_STYLE_FLAG_BOLD)
+        ret |= (1 << 5);
+
+    return ret;
+}
+
 /**
  * \brief Get maximal font ascender and descender.
  **/
@@ -676,9 +690,12 @@ bool ass_font_get_glyph(ASS_Font *font, int face_index, int index,
                 index);
         return false;
     }
-    if (!(face->style_flags & FT_STYLE_FLAG_ITALIC) && (font->desc.italic > 55))
+
+    uint16_t fsSelection = ass_face_get_fsSelection(face);
+    if (!(fsSelection & 1) && (font->desc.italic > 55))
         ass_glyph_italicize(face->glyph);
-    if (font->desc.bold > ass_face_get_weight(face) + 150)
+    if (!(fsSelection & (1 << 5)) &&
+        font->desc.bold > ass_face_get_weight(face) + 150)
         ass_glyph_embolden(face->glyph);
     return true;
 }
