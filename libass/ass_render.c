@@ -1743,6 +1743,7 @@ wrap_lines_naive(RenderContext *state, double max_text_width, char *unibrks)
         int break_at = -1;
         double s_offset = d6_to_double(s1->bbox.x_min + s1->pos.x);
         double len = d6_to_double(cur->bbox.x_max + cur->pos.x) - s_offset;
+        fprintf(stderr, "max_text_width=%f, i=%d, len=%f, pos=%f, x_min=%f, x_max=%f, advance=%f\n", max_text_width, i, len, d6_to_double(cur->pos.x), d6_to_double(cur->bbox.x_min), d6_to_double(cur->bbox.x_max), d6_to_double(cur->advance.x));
 
         if (FORCEBREAK(cur->symbol, i)) {
             break_type = 2;
