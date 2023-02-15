@@ -219,22 +219,13 @@ void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g, bool blurred)
     uint8_t *g = bm_g->buffer + (t - bm_g->top) * bm_g->stride + (l - bm_g->left);
     uint8_t *o = bm_o->buffer + (t - bm_o->top) * bm_o->stride + (l - bm_o->left);
 
-    // Use a number just above 65025 to ensure den > 0 and we don't divide
-    // by zero. This allows us to save a branch and assist autovectorization.
-    // The cost (which we accept) with IEEE float32 is that just two out
-    // of the 33 million possible operand tuples round in the "wrong"
-    // direction (to the more distant nearby integer) after evaluating
-    // to almost exactly an integer and a half. (Three more round up
-    // to 1 from 0.5; all other tuples round to nearest, half to zero.)
-    const float over65025 = nextafterf(65025, 1e6f);
-
     for (int32_t y = 0; y < b - t; y++) {
         for (int32_t x = 0; x < r - l; x++) {
-            int num = blurred ?
+            unsigned num = blurred ?
                 o[x] * (255 - g[x]) * 255 :
                 FFMAX(o[x] - g[x], 0) * 65025;
-            float den = over65025 - alpha_g * g[x];
-            o[x] = num / den + 0.5f;
+            unsigned den = 65025 - alpha_g * g[x];
+            o[x] = den ? (num + den / 2) / den : 0;
         }
         g += bm_g->stride;
         o += bm_o->stride;
