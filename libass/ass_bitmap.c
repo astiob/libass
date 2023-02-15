@@ -225,7 +225,7 @@ void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g, bool blurred)
                 o[x] * (255 - g[x]) * 255 :
                 FFMAX(o[x] - g[x], 0) * 65025;
             unsigned den = 65025 - alpha_g * g[x];
-            o[x] = den ? (num + den / 2) / den : 0;
+            o[x] = (num + den / 2) / FFMAX(den, 1);
         }
         g += bm_g->stride;
         o += bm_o->stride;
