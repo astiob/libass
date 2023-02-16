@@ -221,11 +221,15 @@ void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g, bool blurred)
 
     for (int32_t y = 0; y < b - t; y++) {
         for (int32_t x = 0; x < r - l; x++) {
-            unsigned num = blurred ?
-                o[x] * (255 - g[x]) * 255 :
-                FFMAX(o[x] - g[x], 0) * 65025;
-            unsigned den = 65025 - alpha_g * g[x];
-            o[x] = (num + den / 2) / FFMAX(den, 1);
+            if (g[x] == 255)
+                o[x] = 0;
+            else if (g[x]) {
+                unsigned num = blurred ?
+                    o[x] * (255 - g[x]) * 255 :
+                    FFMAX(o[x] - g[x], 0) * 65025;
+                unsigned den = 65025 - alpha_g * g[x];
+                o[x] = (num + den / 2) / den;
+            }
         }
         g += bm_g->stride;
         o += bm_o->stride;
