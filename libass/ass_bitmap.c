@@ -204,6 +204,7 @@ bool ass_outline_to_bitmap(RenderContext *state, Bitmap *bm,
  * The glyph bitmap is subtracted from outline bitmap to preserve
  * the final color despite alpha blending being done in two steps.
  */
+#include <intrin.h>
 void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g, bool blurred)
 {
     if (!bm_g->buffer || !bm_o->buffer)
@@ -219,11 +220,64 @@ void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o, uint8_t alpha_g, bool blurred)
     uint8_t *g = bm_g->buffer + (t - bm_g->top) * bm_g->stride + (l - bm_g->left);
     uint8_t *o = bm_o->buffer + (t - bm_o->top) * bm_o->stride + (l - bm_o->left);
 
+/*
+    assert(!(l - bm_g->left) % 8);
+    assert(!(l - bm_o->left) % 8);
+    assert(!(r - l) % 8);
+*/
+    __m256i ints_255 = _mm256_set1_epi32(255);
+    __m256i ints_65025 = _mm256_set1_epi32(65025);
+    __m256i ints_alpha_g = _mm256_set1_epi32(alpha_g);
+    __m256 floats_0_5 = _mm256_set1_ps(0.5f);
+    __m256i shuffle_mask = _mm256_setr_epi8(
+        0, 4, 8, 12, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255,
+        0, 4, 8, 12, 255, 255, 255, 255,
+        255, 255, 255, 255, 255, 255, 255, 255);
+    __m256i perm_mask = _mm256_setr_epi32(
+        0, 4, 1, 2, 3, 5, 6, 7);
     for (int32_t y = 0; y < b - t; y++) {
-        for (int32_t x = 0; x < r - l; x++) {
-            if (g[x] == 255)
-                o[x] = 0;
-            else if (g[x]) {
+        int32_t x = 0;
+        for (; x < ((r - l) & ~7); x += 8) {
+            uint64_t g_x = *(uint64_t *) &g[x];
+//            if (g_x == (uint64_t)-1)
+//                *(uint64_t *) &o[x] = 0;
+//            else if (g_x) {
+{
+                __m128i o_x_bytes = _mm_loadl_epi64((void *) &o[x]);
+                __m256i o_x_ints = _mm256_cvtepu8_epi32(o_x_bytes);
+                __m128i g_x_bytes = _mm_cvtsi64_si128(g_x);
+                __m256i g_x_ints = _mm256_cvtepu8_epi32(g_x_bytes);
+                __m256i num_ints = blurred ?
+                    _mm256_mullo_epi32(
+                        _mm256_mullo_epi32(o_x_ints, ints_255),
+                        _mm256_sub_epi32(ints_255, g_x_ints)) :
+                    _mm256_mullo_epi32(
+                        _mm256_max_epi32(
+                            _mm256_sub_epi32(o_x_ints, g_x_ints),
+                            (__m256i) {}),
+                        ints_65025);
+                __m256i den_ints =
+                    _mm256_sub_epi32(
+                        ints_65025,
+                        _mm256_mullo_epi32(ints_alpha_g, g_x_ints));
+                __m256 num_floats = _mm256_cvtepi32_ps(num_ints);
+                __m256 den_floats = _mm256_cvtepi32_ps(den_ints);
+                __m256 result_floats = _mm256_add_ps(
+                    _mm256_div_ps(num_floats, den_floats),
+                    floats_0_5);
+                result_floats = _mm256_floor_ps(result_floats);
+                __m256i result_ints = _mm256_cvtps_epi32(result_floats);
+                __m256i result_16b = _mm256_shuffle_epi8(result_ints, shuffle_mask);
+                __m256i result_bytes = _mm256_permutevar8x32_epi32(result_16b, perm_mask);
+                _mm_storel_epi64((void *) &o[x], _mm256_castsi256_si128(result_bytes));
+            }
+        }
+        for (; x < r - l; x += 8) {
+//            if (g[x] == 255)
+//                o[x] = 0;
+//            else if (g[x]) {
+{
                 unsigned num = blurred ?
                     o[x] * (255 - g[x]) * 255 :
                     FFMAX(o[x] - g[x], 0) * 65025;
