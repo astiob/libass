@@ -19,6 +19,7 @@
 #include "config.h"
 #include "ass_compat.h"
 
+#include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
 #if TARGET_OS_IPHONE
@@ -76,7 +77,25 @@ static bool check_glyph(void *priv, uint32_t code)
 
 static char *get_font_file(CTFontDescriptorRef fontd)
 {
-    CFURLRef url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
+    CFURLRef url = NULL;
+    if (false) {}
+#if TARGET_OS_IPHONE || MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
+    else if ((intptr_t) &kCTFontURLAttribute) {
+        url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
+    }
+#endif
+#if !TARGET_OS_IPHONE && MAC_OS_X_VERSION_MIN_REQUIRED < 1060
+    else {
+        CTFontRef font = CTFontCreateWithFontDescriptor(fontd, 0, NULL);
+        if (!font)
+            return NULL;
+        ATSFontRef ats_font = CTFontGetPlatformFont(font, NULL);
+        FSRef fs_ref;
+        if (ATSFontGetFileReference(ats_font, &fs_ref) == noErr)
+            url = CFURLCreateFromFSRef(NULL, &fs_ref);
+        CFRelease(font);
+    }
+#endif
     if (!url)
         return NULL;
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
