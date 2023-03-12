@@ -75,16 +75,15 @@ static bool check_glyph(void *priv, uint32_t code)
     return CFCharacterSetIsLongCharacterMember(set, code);
 }
 
+extern const CFStringRef kCTFontURLAttribute __attribute__((weak_import));
+
 static char *get_font_file(CTFontDescriptorRef fontd)
 {
     CFURLRef url = NULL;
     if (false) {}
-#if TARGET_OS_IPHONE || MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
     else if ((intptr_t) &kCTFontURLAttribute) {
         url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
     }
-#endif
-#if !TARGET_OS_IPHONE && MAC_OS_X_VERSION_MIN_REQUIRED < 1060
     else {
         CTFontRef font = CTFontCreateWithFontDescriptor(fontd, 0, NULL);
         if (!font)
@@ -95,7 +94,6 @@ static char *get_font_file(CTFontDescriptorRef fontd)
             url = CFURLCreateFromFSRef(NULL, &fs_ref);
         CFRelease(font);
     }
-#endif
     if (!url)
         return NULL;
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
