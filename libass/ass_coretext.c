@@ -81,9 +81,9 @@ static char *get_font_file(CTFontDescriptorRef fontd)
 {
     CFURLRef url = NULL;
     if (false) {}
-    else if ((intptr_t) &kCTFontURLAttribute) {
-        url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
-    }
+    // else if ((intptr_t) &kCTFontURLAttribute) {
+    //     url = CTFontDescriptorCopyAttribute(fontd, kCTFontURLAttribute);
+    // }
     else {
         CTFontRef font = CTFontCreateWithFontDescriptor(fontd, 0, NULL);
         if (!font)

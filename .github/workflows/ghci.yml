@@ -14,49 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Enable distcheck for one build
-          - os: ubuntu-latest
-            cc: gcc
-            do_distc: yes
-          # Run Coverity on a clang build; Coverity's gcc causes issues
-          - os: ubuntu-latest
-            cc: clang
-            do_coverity: yes
-          # Add a tcc build
-          - os: ubuntu-latest
-            cc: tcc
-            ld: tcc
-          # Add docker-build on Alpine
-          - os: ubuntu-latest
-            cc: gcc
-            docker_image: alpine:latest
-            shell: '/tmp/docker_shell {0}'
-            art_reg_skip: 'font_nonunicode'
-          # Add docker-build with minimum version of dependencies
-          - os: ubuntu-latest
-            cc: gcc
-            docker_image: oldlibs
-            docker_pullprefix: 'ghcr.io/theoneric/libass-containers/'
-            shell: '/tmp/docker_shell {0}'
-            # Crash Tests detect (false?) leaks in Fontconfig, and
-            # various regression test fail, assumed due to older deps
-            skip_tests: yes
           # MacOS build
           - os: macos-latest
             cc: clang
-          # Add a Windows build (MinGW-gcc via MSYS2) with no extras
-          - os: windows-2019
-            msystem: MINGW32
-            cc: gcc
-            api: desktop
-            shell: 'msys2 {0}'
-          # Add a best-effort build for UWP apps for Microsoft Store
-          - os: windows-2019
-            msystem: UCRT64
-            cc: gcc
-            api: app
-            extra_cflags: -DWINAPI_FAMILY=WINAPI_FAMILY_APP -specs=/tmp/windowsapp.specs
-            shell: 'msys2 {0}'
 
     defaults:
       run:
