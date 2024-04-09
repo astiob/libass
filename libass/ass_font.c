@@ -210,6 +210,7 @@ void ass_charmap_magic(ASS_Library *library, FT_Face face)
             switch (eid) {
             case TT_MS_ID_UCS_4:
                 // Full Unicode cmap: select this immediately
+                ass_msg(library, MSGL_INFO, "Selecting Microsoft UCS-4 (%d) cmap", eid);
                 FT_Set_Charmap(face, cmap);
                 return;
             case TT_MS_ID_UNICODE_CS:
@@ -230,6 +231,10 @@ void ass_charmap_magic(ASS_Library *library, FT_Face face)
     // or the first MS cmap of any kind if none of them had Unicode at all
     if (ms_cmap >= 0) {
         FT_CharMap cmap = face->charmaps[ms_cmap];
+        if (ms_unicode_cmap >= 0)
+            ass_msg(library, MSGL_INFO, "Selecting Microsoft UCS-2 (%d) cmap", cmap->encoding_id);
+        else
+            ass_msg(library, MSGL_INFO, "Selecting Microsoft MBCS (%d) cmap", cmap->encoding_id);
         FT_Set_Charmap(face, cmap);
         return;
     }
@@ -619,8 +624,10 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
     for (i = 0; i < font->n_faces && index == 0; ++i) {
         face = font->faces[i];
         index = ass_font_index_magic(face, symbol);
-        if (index)
+        if (index) {
             index = FT_Get_Char_Index(face, index);
+            ass_msg(font->library, MSGL_INFO, "Mapped U+%04X to glyph %d", symbol, index);
+        }
         if (index)
             *face_index = i;
     }
@@ -636,8 +643,10 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
         if (face_idx >= 0) {
             face = font->faces[face_idx];
             index = ass_font_index_magic(face, symbol);
-            if (index)
+            if (index) {
                 index = FT_Get_Char_Index(face, index);
+                ass_msg(font->library, MSGL_INFO, "Mapped U+%04X to glyph %d", symbol, index);
+            }
             if (index == 0 && face->num_charmaps > 0) {
                 int i;
                 ass_msg(font->library, MSGL_WARN,
@@ -645,8 +654,10 @@ int ass_font_get_index(ASS_FontSelector *fontsel, ASS_Font *font,
                 for (i = 0; i < face->num_charmaps; i++) {
                     FT_Set_Charmap(face, face->charmaps[i]);
                     index = ass_font_index_magic(face, symbol);
-                    if (index)
+                    if (index) {
                         index = FT_Get_Char_Index(face, index);
+                        ass_msg(font->library, MSGL_INFO, "Mapped U+%04X to glyph %d", symbol, index);
+                    }
                     if (index) break;
                 }
             }
