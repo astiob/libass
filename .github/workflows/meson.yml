@@ -63,26 +63,16 @@ jobs:
           msystem: ${{ matrix.config.msystem }}
           update: false
 
-      # working around chocolatey shenanigans part 1
-      - uses: actions/setup-python@v5
-        if: matrix.config.pkgmanager == 'choco'
-        with:
-          python-version: '3.x'
-
-      # working around chocolatey shenanigans part 2
-      - name: Setup Meson for choco
-        if: matrix.config.pkgmanager == 'choco'
-        run: |
-          python -m pip install --upgrade pip
-          pip install meson
-
       - name: Setup MSVC
         if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install dependecies with choco
         if: matrix.config.pkgmanager == 'choco'
-        run: choco install ninja nasm
+        run: |
+          choco install ninja nasm python
+          python -m pip install --upgrade pip
+          pip install meson
 
       - name: Install dependencies
         if: matrix.config.pkgmanager != 'choco'
