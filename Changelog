@@ -1,3 +1,82 @@
+This release brings optimized assembly routines for aarch64,
+and numerous individual improvements and fixes.
+
+Furthermore, Meson/muon is added as a secondary build system restoring
+first-party support for MSVC builds. Note however, this build setup is not
+at feature parity with autotools and in particular not considered suitable
+for packaging purposes on non-Windows platforms.
+
+(TODO: just to make sure, check xz tarball can be decompressed iwth xz 5.2)
+
+libass (0.17.2)
+ * Fix rendering of \h in certain cases
+ * Fix a minor memory leak in the CoreText and DirectWrite font provider
+ * Fix wrong ASS_Image dimensions for huge BorderStyle=4 backgrounds
+   potentially leading to out of bound reads by API users
+
+ * Improve quality of animated rectangular clips
+ * Improve accuracy of cache limits
+ * Full-Unicode cmaps are now always prefered for attached and memory fonts
+ * Improve font matching compatibility in the DirectWrite font provider
+   (¿in VSFilter compatibility section?;
+      b6650bd51b4c471c32dd3977ca9416c0b35f6358
+      57437f03b31120c507034aaf5e44addc88de9fc2
+      9d7d5220f286bd4e9f0713687a752a62a89d574c
+      6b895b478d83acc2ffa261c38d3b491b32d46a0b
+      d160f8dd08bb7c6d6fe3d798519bf70ca8e6f669
+   )
+
+ * Improved documentation
+   * Color mangling notes in ass_types.h were updated for tone mapping and HDR video
+   * Guidelines for producing portable ASS files can now be found in our wiki
+
+ * Updating selective overrides now forces a cache clear to avoid issues with outdated caches
+ * Frame and storage resolutions are now limited to INT_MAX pixels
+ * make check now runs checkasm if assembly is enabled
+ * CoreText can now be used on Mac OS X 10.5
+ * Meson/muon is now offered as a secondary build system bringing back first-party MSVC support
+   Note however it is not at feature parity with autotools in all cases
+
+ * aarch64: add optimized assembly routines covering the same set as on x86;
+   they work on both little and big endian systems
+ * x86: add SSSE3 versions of some assembly routines to help CPUs without AVX2
+ * x86: it is now possible to build assembly optimized binaries with SHSTK support
+
+ * Improve VSFilter compatibility:
+   * Trailing spaces are no longer trimmed from style and event string fields (this does not affect Text)
+   * All BiDi paragraph separators now delimit BiDi runs
+     (¿also but not only a VSF-compat fix)
+   * Fix treatment of font weights < 10
+   * Match GDI faux italics for font’s with TrueType outlines
+    (faux italics for PostScript outlines still differ)
+   * Treat empty Style name as "Default"
+   * Various drawing fixes
+     * Reject drawings not starting with a valid m command or invalid m followed by valid n
+     * Drop coordinates following invalid commands rather than appending them to the prior command
+     * Drop leftover coordinates for bezier commands
+     * Ignore s with insufficient points
+     * Ignore p commands without enough preceding nodes
+     * Fix behavior of p commands used outside of a b-spline sequence
+     * Fix s commands immediately following another s command
+
+NOT MENTIONED:
+ - the two fixes already cherry picked into 0.17.1
+ - various refactoring for aarch63 assembly
+ - FT_SFNT_OS2 macro and os2->version != 0xffff cleanup
+ - ... and various other rfactors/cleanups
+ - anything CI
+ - bugs introduced and fixed inbetween releases
+   - vc: fix struct init error. supported since c23
+   - directwrite: fix outdated dealloc code that has become leaky
+ - fontselect: eagerly compute is_postscript in get_font_info
+ - coretext: retain only CharacterSet, not whole FontDescriptor
+ - ass_coretext: add CHECK_AVAILABLE as a more portable __builtin_available
+ - Adjust spelling of libass in pc file
+ - Drop style if strdup(Name) fails rather than try to rename it
+ - ass: explicitly read 32bit ints in timestring parts
+ - ass: don't log Comment events as "not understood"
+ - Add LayoutResX and LayoutResY to fuzz ass dict
+
 libass (0.17.1)
  * Fix buffer overread if soft-wrapping occurred and
    ASS_FEATURE_WHOLE_TEXT_LAYOUT was enabled via API or due to Encoding -1
